@@ -150,9 +150,6 @@ class Archivist:
     def referencer(self):
         return self._referencer
 
-    def load_object(self, record: DataRecord):
-        return self.object_loader(record).load()
-
     def record_builder(self, obj, obj_hash, ancestor_id=None):
         return self.RecordBuilder(self, obj, obj_hash, ancestor_id)
 

@@ -1,12 +1,14 @@
 import collections
+import collections.abc
+import typing
 from typing import TypeVar, Generic
 import weakref
 
 
 class WeakObjectIdDict(collections.MutableMapping):
     def __init__(self):
-        self._refs = {}
-        self._values = {}
+        self._refs: collections.abc.MutableMapping[int, weakref.ReferenceType] = {}
+        self._values: collections.abc.MutableMapping[int, typing.Any] = {}
 
     def __getitem__(self, item):
         try:
@@ -41,5 +43,3 @@ class WeakObjectIdDict(collections.MutableMapping):
         # Delete both the object values and the reference itself
         del self._values[found_id]
         del self._refs[found_id]
-
-

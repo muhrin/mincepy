@@ -1,5 +1,7 @@
 import functools
+import uuid
 
+from . import depositor
 from .historian import get_historian
 from . import types
 
@@ -11,6 +13,8 @@ class InvalidStateError(Exception):
 
 
 class FunctionCall:
+    TYPE_ID = uuid.UUID('dcacc483-c650-432e-b835-122f78e7a758')
+
     DEFINING_ATTRIBUTES = ('_function', '_args', '_kwargs', '_result', '_exception', '_done')
 
     def __init__(self, func, *args, **kwargs):
@@ -28,7 +32,7 @@ class FunctionCall:
         return types.eq_attributes(self, other, self.DEFINING_ATTRIBUTES)
 
     @property
-    def function(self):
+    def function(self) -> str:
         return self._function
 
     @property
@@ -60,6 +64,24 @@ class FunctionCall:
 
     def yield_hashables(self, hasher):
         yield from types.yield_hashable_attributes(self, self.DEFINING_ATTRIBUTES, hasher)
+
+    def save_instance_state(self, lookup: depositor.Referencer):
+        return {
+            'function': self.function,
+            'args': lookup.autoref(list(self.args)),
+            'kwargs': lookup.autoref(self.kwargs),
+            'result': lookup.autoref(self._result),
+            'exception': self._exception,
+            'done': self._done
+        }
+
+    def load_instance_state(self, encoded_value, lookup: depositor.Referencer):
+        self._function = encoded_value['function']
+        self._args = lookup.autoderef(encoded_value['args'])
+        self._kwargs = lookup.autoderef(encoded_value['kwargs'])
+        self._result = lookup.autoderef(encoded_value['result'])
+        self._exception = encoded_value['exception']
+        self._done = encoded_value['done']
 
 
 def track(func):

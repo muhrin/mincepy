@@ -3,31 +3,40 @@ import collections.abc
 from operator import itemgetter
 import typing
 
-from .types import TypeEquator
+from .types import TypeHelper
 
-__all__ = ('SimpleEquator', 'BytesEquator')
+__all__ = ('SimpleHelper', 'BytesEquator')
 
 
-class SimpleEquator(TypeEquator):
+class SimpleHelper(TypeHelper):
+    def yield_hashables(self, value, hasher):
+        yield from value.yield_hashables(hasher)
+
     def eq(self, one, other) -> bool:
         return one == other
 
+    def save_instance_state(self, obj, referencer):
+        return obj.save_instance_state(referencer)
 
-class BytesEquator(SimpleEquator):
+    def load_instance_state(self, obj, saved_state, referencer):
+        return self.TYPE.load_instance_state(obj, saved_state, referencer)
+
+
+class BytesEquator(SimpleHelper):
     TYPE = collections.abc.ByteString
 
     def yield_hashables(self, value, hasher):
         yield value
 
 
-class StrEquator(SimpleEquator):
+class StrEquator(SimpleHelper):
     TYPE = str
 
     def yield_hashables(self, value: str, hasher):
         yield value.encode('utf-8')
 
 
-class SequenceEquator(SimpleEquator):
+class SequenceEquator(SimpleHelper):
     TYPE = collections.abc.Sequence
 
     def yield_hashables(self, value: collections.abc.Sequence, hasher):
@@ -35,7 +44,7 @@ class SequenceEquator(SimpleEquator):
             yield from hasher.yield_hashables(entry)
 
 
-class SetEquator(SimpleEquator):
+class SetEquator(SimpleHelper):
     TYPE = collections.abc.Set
 
     def yield_hashables(self, value: collections.abc.Set, hasher):
@@ -43,7 +52,7 @@ class SetEquator(SimpleEquator):
             yield from hasher.yield_hashables(entry)
 
 
-class MappingEquator(SimpleEquator):
+class MappingEquator(SimpleHelper):
     TYPE = collections.abc.Mapping
 
     def yield_hashables(self, value, hasher):
@@ -58,7 +67,7 @@ class MappingEquator(SimpleEquator):
             yield from hasher.yield_hashables(value)
 
 
-class OrderedDictEquator(SimpleEquator):
+class OrderedDictEquator(SimpleHelper):
     TYPE = collections.OrderedDict
 
     def yield_hashables(self, value, hasher):
@@ -67,14 +76,14 @@ class OrderedDictEquator(SimpleEquator):
             yield from hasher.yield_hashables(val)
 
 
-class RealEquator(SimpleEquator):
+class RealEquator(SimpleHelper):
     TYPE = numbers.Real
 
     def yield_hashables(self, value, hasher):
         yield from hasher.yield_hashables(hasher.float_to_str(value))
 
 
-class ComplexEquator(SimpleEquator):
+class ComplexEquator(SimpleHelper):
     TYPE = numbers.Complex
 
     def yield_hashables(self, value: numbers.Complex, hasher):
@@ -82,21 +91,21 @@ class ComplexEquator(SimpleEquator):
         yield hasher.yield_hashables(value.imag)
 
 
-class IntegerEquator(SimpleEquator):
+class IntegerEquator(SimpleHelper):
     TYPE = numbers.Integral
 
     def yield_hashables(self, value: numbers.Integral, hasher):
         yield from hasher.yield_hashables(u'{}'.format(value))
 
 
-class BoolEquator(SimpleEquator):
+class BoolEquator(SimpleHelper):
     TYPE = bool
 
     def yield_hashables(self, value, hasher):
         yield b'\x01' if value else b'\x00'
 
 
-class NoneEquator(SimpleEquator):
+class NoneEquator(SimpleHelper):
     TYPE = type(None)
 
     def yield_hashables(self, value, hasher):

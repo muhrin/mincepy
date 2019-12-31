@@ -1,4 +1,7 @@
 from abc import ABCMeta, abstractmethod
+import collections.abc
+
+from . import types
 
 __all__ = ('Referencer',)
 
@@ -8,6 +11,52 @@ class Referencer(metaclass=ABCMeta):
     def ref(self, obj):
         """Get a persistent reference for the given object"""
 
+    def ref_many(self, objs: collections.abc.Iterable):
+        """Create a persistent reference for a number of objects"""
+        return [self.ref(obj) for obj in objs]
+
+    def autoref(self, obj):
+        """
+        Automatically create a reference for an object.  If the type is one of the base
+        types it will be returned as is.  If it is a list or a dictionary the datastructure
+        will be traversed with entries also being autoreffed
+        """
+        if type(obj) in types.BASE_TYPES:
+            if isinstance(obj, list):
+                return [self.autoref(entry) for entry in obj]
+            elif isinstance(obj, dict):
+                return {key: self.autoref(val) for key, val in obj.items()}
+            return obj
+
+        # Assume we should create a reference for the object
+        return self.ref(obj)
+
     @abstractmethod
     def deref(self, persistent_id):
         """Retrieve an object given a persistent reference"""
+
+    def deref_many(self, persistent_ids: collections.abc.Iterable):
+        """Dereference a number of objects given their persistent ids"""
+        return [self.deref(persistent_id) for persistent_id in persistent_ids]
+
+    def autoderef(self, obj):
+        """
+        Automatically dereference a passed object.  If a list or dict is encountered these will
+        be traversed autodereffing entries.
+        """
+        if type(obj) in types.BASE_TYPES:
+            if isinstance(obj, list):
+                return [self.autoderef(entry) for entry in obj]
+            elif isinstance(obj, dict):
+                return {key: self.autoderef(val) for key, val in obj.items()}
+            return obj
+
+        return self.deref(obj)
+
+    @abstractmethod
+    def save_instance_state(self, obj):
+        """Get a saved instance state for the given object"""
+
+    @abstractmethod
+    def load_instance_state(self, type_id, saved_state):
+        """Load an instance of an object from a saved state"""

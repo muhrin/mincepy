@@ -6,6 +6,8 @@ import mincepy
 
 
 class Car:
+    TYPE_ID = bson.ObjectId('5e075d6244572f823ed93274')
+
     def __init__(self, make='ferrari', colour='red'):
         self.make = make
         self.colour = colour
@@ -20,8 +22,16 @@ class Car:
         yield from hasher.yield_hashables(self.make)
         yield from hasher.yield_hashables(self.colour)
 
+    def save_instance_state(self, _: mincepy.Referencer):
+        return {'make': self.make, 'colour': self.colour}
+
+    def load_instance_state(self, encoded_value, _: mincepy.Referencer):
+        self.__init__(encoded_value['make'], encoded_value['colour'])
+
 
 class Garage:
+    TYPE_ID = bson.ObjectId('5e07b40a44572f823ed9327b')
+
     def __init__(self, car=None):
         self.car = car
 
@@ -34,72 +44,18 @@ class Garage:
     def yield_hashables(self, hasher):
         yield from hasher.yield_hashables(self.car)
 
+    def save_instance_state(self, referencer: mincepy.Referencer):
+        return {'car': referencer.ref(self.car)}
 
-class CarCodec(mincepy.TypeCodec):
-    TYPE = Car
-    TYPE_ID = bson.ObjectId('5e075d6244572f823ed93274')
-
-    def encode(self, value: Car, lookup: mincepy.Referencer):
-        return {'make': value.make, 'colour': value.colour}
-
-    def decode(self, encoded_value, obj: Car, lookup: mincepy.Referencer):
-        obj.__init__()
-        obj.make = encoded_value['make']
-        obj.colour = encoded_value['colour']
-
-
-class GarageCodec(mincepy.mongo.MongoTypeCodec):
-    TYPE = Garage
-    TYPE_ID = bson.ObjectId('5e07b40a44572f823ed9327b')
-
-    def encode(self, value, lookup: mincepy.Referencer):
-        return {'car': self.enc(value.car, lookup)}
-
-    def decode(self, encoded_value, obj, lookup: mincepy.Referencer):
-        obj.__init__()
-        obj.car = self.dec(encoded_value['car'], lookup)
-
-
-class ListCodec(mincepy.TypeCodec):
-    TYPE = mincepy.builtins.List
-    TYPE_ID = bson.ObjectId('5e07d7de44572f823ed9327c')
-
-    def encode(self, value, lookup: mincepy.Referencer):
-        return [lookup.ref(e) for e in value]
-
-    def decode(self, encoded_value, obj, lookup: mincepy.Referencer):
-        obj.__init__([lookup.deref(entry) for entry in encoded_value])
-
-
-class FunctionCallCodec(mincepy.mongo.MongoTypeCodec):
-    TYPE = mincepy.FunctionCall
-    TYPE_ID = bson.ObjectId('5e08974b44572f823ed9327d')
-
-    def encode(self, value, lookup: mincepy.Referencer):
-        return {
-            'function': self.enc(value.function, lookup),
-            'args': self.enc(list(value.args), lookup),
-            'kwargs': self.enc(value.kwargs, lookup),
-            'result': self.enc(value._result, lookup),
-            'exception': self.enc(value._exception, lookup),
-            'done': self.enc(value._done, lookup)
-        }
-
-    def decode(self, encoded_value, obj, lookup: mincepy.Referencer):
-        obj._function = self.dec(encoded_value['function'], lookup)
-        obj._args = tuple(self.dec(encoded_value['args'], lookup)),
-        obj._kwargs = self.dec(encoded_value['kwargs'], lookup),
-        obj._result = self.dec(encoded_value['result'], lookup),
-        obj._exception = self.dec(encoded_value['exception'], lookup),
-        obj._done = self.dec(encoded_value['done'], lookup)
+    def load_instance_state(self, encoded_value, referencer: mincepy.Referencer):
+        self.__init__(referencer.deref(encoded_value['car']))
 
 
 @pytest.fixture
 def mongodb_archive():
     client = pymongo.MongoClient()
     db = client.test_database
-    codecs = (CarCodec(), GarageCodec(), ListCodec(), FunctionCallCodec())
-    mongo_archive = mincepy.mongo.MongoArchive(db, codecs)
+    mongo_archive = mincepy.mongo.MongoArchive(db)
     yield mongo_archive
     client.drop_database(db)
 
@@ -166,7 +122,7 @@ def test_create_delete_load(historian: mincepy.Historian):
 
 def test_list_basics(historian: mincepy.Historian):
     parking_lot = mincepy.builtins.List()
-    for i in range(1000):
+    for i in range(100):
         parking_lot.append(Car(str(i)))
 
     list_id = historian.save(parking_lot)

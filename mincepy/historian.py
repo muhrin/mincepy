@@ -1,3 +1,4 @@
+import contextlib
 import copy
 import typing
 import weakref
@@ -16,6 +17,29 @@ __all__ = ('Historian', 'set_historian', 'get_historian')
 CURRENT_HISTORIAN = None
 
 
+class WrapperHelper(types.TypeHelper):
+    """Wraps up an object type to perform the necessary Historian actions"""
+    TYPE = None
+    TYPE_ID = None
+
+    def __init__(self, obj_type):
+        self.TYPE = obj_type
+        self.TYPE_ID = obj_type.TYPE_ID
+        super(WrapperHelper, self).__init__()
+
+    def yield_hashables(self, value, hasher):
+        yield from self.TYPE.yield_hashables(value, hasher)
+
+    def eq(self, one, other) -> bool:
+        return self.TYPE.__eq__(one, other)
+
+    def save_instance_state(self, obj, referencer):
+        return self.TYPE.save_instance_state(obj, referencer)
+
+    def load_instance_state(self, obj, saved_state, referencer):
+        return self.TYPE.load_instance_state(obj, saved_state, referencer)
+
+
 class Historian:
     def __init__(self, archive: archive.Archive, equators=None):
         self._records = utils.WeakObjectIdDict()  # Object to record
@@ -23,6 +47,8 @@ class Historian:
         self._archive = archive
         equators = equators or defaults.get_default_equators()
         self._equator = types.Equator(equators)
+        self._type_registry = {}
+        self._type_ids = {}
 
     class UpdateAction(depositor.Referencer):
         """Create a series of data records to update the state of the historian"""
@@ -46,6 +72,11 @@ class Historian:
                         "We have marked an object as up to date but have no record for it, this should never happen")
 
         def save_object(self, obj) -> archive.DataRecord:
+            # TODO: Remove this later, need a more general way to register the type
+            self._historian.register_type(type(obj))
+            arch = self._historian._archive
+            helper = self.get_helper(obj)
+
             try:
                 # Check if we have an up to date record
                 return self.get_record(obj)
@@ -64,10 +95,9 @@ class Historian:
                 saved_ids = copy.copy(self._up_to_date_ids)
                 saved_records = copy.copy(self._records)
 
-                loader = self._archivist.object_loader(record)
-                self._up_to_date_ids[loader.obj] = record.obj_id
-                self._records[loader.obj] = record
-                loaded_obj = loader.load()
+                with self.load_instance_state(record.type_id, record.encoded_value) as loaded_obj:
+                    self._up_to_date_ids[loaded_obj] = record.obj_id
+                    self._records[loaded_obj] = record
 
                 # Check the object to see if it's up to date
                 if obj_hash == record.obj_hash and self._historian.eq(obj, loaded_obj):
@@ -81,9 +111,16 @@ class Historian:
 
             if create_new_record:
                 # First update the archive ID so if it's required during encoding it's available
-                record_builder = self._archivist.record_builder(obj, obj_hash)
-                self._up_to_date_ids[obj] = record_builder.archive_id
-                record = record_builder.build()
+                archive_id = arch.create_archive_id()
+                self._up_to_date_ids[obj] = archive_id
+                encoded_value = self.save_instance_state(obj)
+                record = archive.DataRecord(
+                    archive_id,
+                    helper.TYPE_ID,
+                    None,
+                    encoded_value,
+                    obj_hash
+                )
                 self._records[obj] = record
 
             return record
@@ -102,18 +139,17 @@ class Historian:
                 obj = self._historian.get_obj(archive_id)
             except ValueError:
                 # Have to load from storage
-                loader = self._archivist.object_loader(record)
-                self._up_to_date_ids[loader.obj] = archive_id
-                self._records[loader.obj] = record
-                return loader.load()
+                with self.load_instance_state(record.type_id, record.encoded_value) as loaded_obj:
+                    self._up_to_date_ids[loaded_obj] = archive_id
+                    self._records[loaded_obj] = record
+                return loaded_obj
             else:
                 saved_ids = copy.copy(self._up_to_date_ids)
                 saved_records = copy.copy(self._records)
 
-                loader = self._archivist.object_loader(record)
-                self._up_to_date_ids[loader.obj] = record.obj_id
-                self._records[loader.obj] = record
-                loaded_obj = loader.load()
+                with self.load_instance_state(record.type_id, record.encoded_value) as loaded_obj:
+                    self._up_to_date_ids[loaded_obj] = record.obj_id
+                    self._records[loaded_obj] = record
 
                 # Check the object to see if it's up to date
                 if self._historian.hash(obj) == record.obj_hash and self._historian.eq(obj, loaded_obj):
@@ -140,8 +176,11 @@ class Historian:
 
             raise ValueError("Don't have up to date object for AID '{}'".format(archive_id))
 
-        def ref(self, obj) -> bson.ObjectId:
+        def ref(self, obj) -> [bson.ObjectId, type(None)]:
             """Get a reference id to an object"""
+            if obj is None:
+                return None
+
             try:
                 # Try in this update action
                 return self.get_archive_id(obj)
@@ -150,6 +189,9 @@ class Historian:
 
         def deref(self, persistent_id):
             """Get the object from a reference"""
+            if persistent_id is None:
+                return None
+
             try:
                 self.get_obj(persistent_id)
             except ValueError:
@@ -157,6 +199,36 @@ class Historian:
 
         def get_records(self):
             return self._records
+
+        def save_instance_state(self, obj):
+            obj_type = type(obj)
+            historian = self._historian
+            if obj_type not in historian._type_registry:
+                historian.register_type(obj_type)
+
+            helper = historian._type_registry[obj_type]
+            return helper.save_instance_state(obj, self)
+
+        def get_helper(self, obj):
+            obj_type = type(obj)
+            historian = self._historian
+            if obj_type not in historian._type_registry:
+                historian.register_type(obj_type)
+
+            return historian._type_registry[obj_type]
+
+        @contextlib.contextmanager
+        def load_instance_state(self, type_id, saved_state):
+            historian = self._historian
+            try:
+                obj_type = historian._type_ids[type_id]
+                helper = historian._type_registry[obj_type]
+            except KeyError:
+                raise ValueError("Type with id '{}' has not been registered".format(type_id))
+
+            obj = obj_type.__new__(obj_type)
+            yield obj
+            helper.load_instance_state(obj, saved_state, self)
 
     def _update_records(self, records: typing.Mapping[typing.Any, archive.DataRecord]):
         for obj, record in records.items():
@@ -203,11 +275,22 @@ class Historian:
     def eq(self, one, other):
         return self._equator.eq(one, other)
 
-    def add_equator(self, type_equator: types.TypeEquator):
+    def add_equator(self, type_equator: types.TypeHelper):
         self._equator.add_equator(type_equator)
 
-    def remove_equator(self, type_equator: types.TypeEquator):
+    def remove_equator(self, type_equator: types.TypeHelper):
         self._equator.remove_equator(type_equator)
+
+    def register_type(self, obj_class_or_helper):
+        if isinstance(obj_class_or_helper, types.TypeHelper):
+            helper = obj_class_or_helper
+        else:
+            helper = WrapperHelper(obj_class_or_helper)
+        self._type_registry[helper.TYPE] = helper
+        self._type_ids[helper.TYPE_ID] = helper.TYPE
+
+    def find(self, obj_type=None, filter=None):
+        pass
 
 
 def create_default_historian() -> Historian:

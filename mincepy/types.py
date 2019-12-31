@@ -1,8 +1,11 @@
 from abc import ABCMeta, abstractmethod
+import uuid
 
 import pyhash
 
-__all__ = ('TypeEquator', 'Equator')
+__all__ = ('TypeHelper', 'Equator')
+
+BASE_TYPES = (int, float, str, dict, list, type(None), bytes, uuid.UUID)
 
 
 def eq_attributes(one, other, attributes) -> bool:
@@ -14,7 +17,7 @@ def yield_hashable_attributes(obj, attributes, hasher):
         yield from hasher.yield_hashables(obj.__getattribute__(attr))
 
 
-class TypeEquator(metaclass=ABCMeta):
+class TypeHelper(metaclass=ABCMeta):
     """Responsible for generating a hash and checking equality of objects"""
     TYPE = None  # The type that this equator can compare
 
@@ -27,7 +30,47 @@ class TypeEquator(metaclass=ABCMeta):
 
     @abstractmethod
     def eq(self, one, other) -> bool:
-        """Return True of the two objects are equal, False otherwise"""
+        """Determine if two objects are equal"""
+
+    @abstractmethod
+    def save_instance_state(self, obj, referencer):
+        """Save the instance state of an object, should return a saved instance"""
+
+    @abstractmethod
+    def load_instance_state(self, obj, saved_state, referencer):
+        """Take the given object and load the instance state into it"""
+
+
+class Savable(metaclass=ABCMeta):
+    """An object that can save an load its instance state"""
+    TYPE_ID = None
+
+    def __init__(self):
+        assert self.TYPE_ID is not None, "Must set the TYPE_ID for an object to be savable"
+
+    @abstractmethod
+    def save_instance_state(self, referencer):
+        """Save the instance state of an object, should return a saved instance"""
+
+    @abstractmethod
+    def load_instance_state(self, saved_state, referencer):
+        """Take the given object and load the instance state into it"""
+
+
+class Comparable(metaclass=ABCMeta):
+    """An object that can """
+
+    @abstractmethod
+    def yield_hashables(self, hasher):
+        """Produce a hash representing the value"""
+
+    @abstractmethod
+    def eq(self, other) -> bool:
+        """Determine if two objects are equal"""
+
+
+class SavableComparable(Savable, Comparable):
+    """A class that is both savable and comparable"""
 
 
 class Equator:
@@ -40,7 +83,7 @@ class Equator:
 
         self._hasher = do_hash
 
-    def add_equator(self, equator: TypeEquator):
+    def add_equator(self, equator: TypeHelper):
         self._equators.append(equator)
 
     def remove_equator(self, equator):

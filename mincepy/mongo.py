@@ -4,7 +4,7 @@ import bson
 
 from .archive import BaseArchive, DataRecord, TypeCodec
 
-__all__ = ('MongoArchive', 'MongoTypeCodec')
+__all__ = ('MongoArchive',)
 
 
 class MongoArchive(BaseArchive):
@@ -34,25 +34,3 @@ class MongoArchive(BaseArchive):
     def load(self, archive_id) -> DataRecord:
         entry = self._data_collection.find_one(filter=archive_id)
         return DataRecord(entry['_id'], entry['type_id'], entry['ancestor_id'], entry['encoded_value'], entry['hash'])
-
-
-class MongoTypeCodec(TypeCodec):
-    def enc(self, value, lookup):
-        if type(value) in (type(None), bool, int, float, str, bytes):
-            return value
-        if isinstance(value, list):
-            return [self.enc(entry, lookup) for entry in value]
-        if isinstance(value, dict):
-            return {key: self.enc(val, lookup) for key, val in value.items()}
-
-        return lookup.ref(value)
-
-    def dec(self, encoded, lookup):
-        if isinstance(encoded, bson.ObjectId):
-            return lookup.deref(encoded)
-        if isinstance(encoded, dict):
-            return {key: self.dec(val, lookup) for key, val in encoded.items()}
-        if isinstance(encoded, list):
-            return [self.dec(entry, lookup) for entry in encoded]
-
-        return encoded
