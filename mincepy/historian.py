@@ -57,7 +57,6 @@ class Historian:
             self._historian = historian  # type: Historian
             self._up_to_date_ids = utils.WeakObjectIdDict()
             self._records = utils.WeakObjectIdDict()
-            self._archivist = archive.Archivist(self._historian._archive, self)
 
         def get_record(self, obj):
             if obj not in self._up_to_date_ids:
@@ -290,6 +289,7 @@ class Historian:
         self._type_ids[helper.TYPE_ID] = helper.TYPE
 
     def find(self, obj_type=None, filter=None):
+        """Find entries in the archive"""
         pass
 
 
