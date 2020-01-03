@@ -89,7 +89,6 @@ def track(func):
     def wrapper(*args, **kwargs):
         historian = get_historian()
         call = FunctionCall(func, *args, **kwargs)
-        historian.save(call)
         try:
             result = func(*args, **kwargs)
             call.set_result(result)

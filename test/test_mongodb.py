@@ -1,3 +1,5 @@
+import uuid
+
 import bson
 import pytest
 import pymongo
@@ -151,3 +153,73 @@ def test_track(historian: mincepy.Historian):
     garage = Garage()
     put_car_in_garage(ferrari, garage)
     assert garage.car is ferrari
+
+
+def test_track_method(historian: mincepy.Historian):
+    class CarFactory:
+        TYPE_ID = uuid.UUID('166a9446-c04e-4fbe-a3da-6f36c2f8292d')
+
+        def __init__(self, make):
+            self._make = make
+
+        def __eq__(self, other):
+            if type(other) != CarFactory:
+                return False
+
+            return self._make == other._make
+
+        def yield_hashables(self, hasher):
+            yield from hasher.yield_hashables(self._make)
+
+        def save_instance_state(self, _: mincepy.Referencer):
+            return {'make': self._make}
+
+        def load_instance_state(self, encoded_value, _: mincepy.Referencer):
+            self.__init__(encoded_value['make'])
+
+        @mincepy.track
+        def build(self):
+            return Car(self._make)
+
+    mincepy.set_historian(historian)
+
+    car_factory = CarFactory('zonda')
+    car = car_factory.build()
+
+    build_call = historian.find(mincepy.FunctionCall, limit=1)[0]
+    assert build_call.args[0] is car_factory
+    assert build_call.result() is car
+
+
+def test_get_latest(historian: mincepy.Historian):
+    car = Car()
+    ferrari_id = historian.save(car)
+    car.make = 'fiat'
+    car.colour = 'white'
+    fiat_id = historian.save(car)
+    assert ferrari_id != fiat_id
+
+    car.make = 'honda'
+    car.colour = 'wine red'
+    honda_id = historian.save(car)
+    assert honda_id != fiat_id
+    latest = historian.get_latest(ferrari_id)
+    assert len(latest) == 1
+    assert latest[0] == car
+
+
+def test_metadata(historian: mincepy.Historian):
+    car = Car()
+    ferrari_id = historian.save(car, with_meta={'reg': 'VD395'})
+    # Check that we get back what we just set
+    assert historian.get_meta(ferrari_id) == {'reg': 'VD395'}
+
+    car.make = 'fiat'
+    red_fiat_id = historian.save(car)
+    # Check that the metadata was inherited
+    assert historian.get_meta(red_fiat_id) == {'reg': 'VD395'}
+
+    historian.set_meta(ferrari_id, {'reg': 'N317'})
+    # Check the ferrari is now changed but the fiat retains the original value
+    assert historian.get_meta(ferrari_id) == {'reg': 'N317'}
+    assert historian.get_meta(red_fiat_id) == {'reg': 'VD395'}

@@ -7,6 +7,10 @@ __all__ = ('Referencer',)
 
 
 class Referencer(metaclass=ABCMeta):
+    """
+    A class capable of looking up objects form archive ids and archive ids from objects
+    """
+
     @abstractmethod
     def ref(self, obj):
         """Get a persistent reference for the given object"""
