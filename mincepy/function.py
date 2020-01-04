@@ -75,13 +75,13 @@ class FunctionCall:
             'done': self._done
         }
 
-    def load_instance_state(self, encoded_value, lookup: depositor.Referencer):
-        self._function = encoded_value['function']
-        self._args = lookup.autoderef(encoded_value['args'])
-        self._kwargs = lookup.autoderef(encoded_value['kwargs'])
-        self._result = lookup.autoderef(encoded_value['result'])
-        self._exception = encoded_value['exception']
-        self._done = encoded_value['done']
+    def load_instance_state(self, state, lookup: depositor.Referencer):
+        self._function = state['function']
+        self._args = lookup.autoderef(state['args'])
+        self._kwargs = lookup.autoderef(state['kwargs'])
+        self._result = lookup.autoderef(state['result'])
+        self._exception = state['exception']
+        self._done = state['done']
 
 
 def track(func):

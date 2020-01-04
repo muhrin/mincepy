@@ -101,8 +101,8 @@ class Historian:
                 saved_ids = copy.copy(self._up_to_date_ids)
                 saved_records = copy.copy(self._records)
 
-                with self.load_instance_state(record.type_id, record.encoded_value) as loaded_obj:
-                    self._up_to_date_ids[loaded_obj] = record.obj_id
+                with self.load_instance_state(record.type_id, record.state) as loaded_obj:
+                    self._up_to_date_ids[loaded_obj] = record.persistent_id
                     self._records[loaded_obj] = record
 
                 # Check the object to see if it's up to date
@@ -110,22 +110,22 @@ class Historian:
                     # No change, revert
                     self._up_to_date_ids = saved_ids
                     self._records = saved_records
-                    self._up_to_date_ids[obj] = record.obj_id
+                    self._up_to_date_ids[obj] = record.persistent_id
                     return record
                 else:
                     # Record is not up to date, this is a new version
-                    ancestor_id = record.obj_id
+                    ancestor_id = record.persistent_id
 
             # First update the archive ID so if it's required during encoding it's available
             archive_id = arch.create_archive_id()
             self._up_to_date_ids[obj] = archive_id
-            encoded_value = self.save_instance_state(obj)
+            state = self.save_instance_state(obj)
             # TODO: Check that the ancestor is getting set correctly
             record = archive.DataRecord(
                 archive_id,
                 helper.TYPE_ID,
                 ancestor_id,
-                encoded_value,
+                state,
                 obj_hash,
             )
             self._records[obj] = record
@@ -145,7 +145,7 @@ class Historian:
                 obj = self._historian.get_obj(archive_id)
             except ValueError:
                 # Have to load from storage
-                with self.load_instance_state(record.type_id, record.encoded_value) as loaded_obj:
+                with self.load_instance_state(record.type_id, record.state) as loaded_obj:
                     self._up_to_date_ids[loaded_obj] = archive_id
                     self._records[loaded_obj] = record
                 return loaded_obj
@@ -153,8 +153,8 @@ class Historian:
                 saved_ids = copy.copy(self._up_to_date_ids)
                 saved_records = copy.copy(self._records)
 
-                with self.load_instance_state(record.type_id, record.encoded_value) as loaded_obj:
-                    self._up_to_date_ids[loaded_obj] = record.obj_id
+                with self.load_instance_state(record.type_id, record.state) as loaded_obj:
+                    self._up_to_date_ids[loaded_obj] = record.persistent_id
                     self._records[loaded_obj] = record
 
                 # Check the object to see if it's up to date
@@ -191,7 +191,7 @@ class Historian:
                 # Try in this update action
                 return self.get_archive_id(obj)
             except ValueError:
-                return self.save_object(obj).obj_id
+                return self.save_object(obj).persistent_id
 
         def deref(self, persistent_id):
             """Get the object from a reference"""
@@ -239,7 +239,7 @@ class Historian:
     def _update_records(self, records: typing.Mapping[typing.Any, archive.DataRecord]):
         for obj, record in records.items():
             self._records[obj] = record
-            self._ids[record.obj_id] = obj
+            self._ids[record.persistent_id] = obj
 
     def save(self, obj, with_meta=None):
         """Save the object in the history producing a unique id"""
@@ -253,12 +253,12 @@ class Historian:
             # Update our in memory instances
             self._update_records(new_records)
 
-            persistent_id = self.get_record(obj).obj_id
+            persistent_id = self.get_record(obj).persistent_id
             if with_meta is not None:
                 self.set_meta(persistent_id, with_meta)
 
         # We know the records are up to date now
-        return self.get_record(obj).obj_id
+        return self.get_record(obj).persistent_id
 
     def load(self, persistent_id):
         """Load an object form its unique id"""
@@ -307,7 +307,7 @@ class Historian:
         """Find entries in the archive"""
         obj_type_id = self.get_obj_type_id(obj_type) if obj_type is not None else None
         results = self._archive.find(obj_type_id=obj_type_id, filter=filter, limit=limit)
-        return [self.load(result.obj_id) for result in results]
+        return [self.load(result.persistent_id) for result in results]
 
     def copy(self, obj):
         obj_copy = copy.copy(obj)
@@ -315,9 +315,9 @@ class Historian:
         return obj_copy
 
     def get_latest(self, archive_id):
-        # TODO: Change this from using the obj_id to using the record directly
+        # TODO: Change this from using the persistent_id to using the record directly
         # This will require the updater to be changed
-        return [self.load(record.obj_id) for record in self._archive.get_leaves(archive_id)]
+        return [self.load(record.persistent_id) for record in self._archive.get_leaves(archive_id)]
 
 
 def create_default_historian() -> Historian:

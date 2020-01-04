@@ -8,7 +8,7 @@ __all__ = ('Archive', 'DataRecord', 'TypeCodec')
 
 DataRecord = namedtuple(
     'DataRecord',
-    ('obj_id', 'type_id', 'ancestor_id', 'encoded_value', 'obj_hash'))
+    ('persistent_id', 'type_id', 'ancestor_id', 'state', 'obj_hash'))
 
 
 class TypeCodec(metaclass=ABCMeta):
@@ -25,7 +25,7 @@ class TypeCodec(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def decode(self, encoded_value, obj, lookup: Referencer):
+    def decode(self, state, obj, lookup: Referencer):
         pass
 
 

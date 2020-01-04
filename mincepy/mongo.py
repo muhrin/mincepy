@@ -30,7 +30,7 @@ class MongoArchive(BaseArchive):
         # Collect all the ones that have ancestors
         ancestor_ids = {record.ancestor_id for record in records if record.ancestor_id}
         # Now check that the ancestors are accounted for, either in the list passed or in the database
-        ancestor_ids -= {record.obj_id for record in records}
+        ancestor_ids -= {record.persistent_id for record in records}
 
         metadatas = {}
         if ancestor_ids:
@@ -111,8 +111,8 @@ class MongoArchive(BaseArchive):
         cursor = self._data_collection.find(filter=mfilter, limit=limit, sort=sort)
         return [self._to_record(result) for result in cursor]
 
-    def get_leaves(self, obj_id):
-        match_initial_document = {'$match': {'_id': obj_id}}
+    def get_leaves(self, persistent_id):
+        match_initial_document = {'$match': {'_id': persistent_id}}
         find_descendents = {
             "$graphLookup": {
                 "from": self._data_collection.name,
@@ -159,10 +159,10 @@ class MongoArchive(BaseArchive):
 
     def _to_entry(self, record, meta=None):
         return {
-            '_id': record.obj_id,
+            '_id': record.persistent_id,
             'type_id': record.type_id,
             'ancestor_id': record.ancestor_id,
-            'obj': record.encoded_value,
+            'obj': record.state,
             'hash': record.obj_hash,
             'meta': meta
         }

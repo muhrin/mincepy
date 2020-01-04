@@ -17,15 +17,15 @@ class WeakObjectIdDict(collections.MutableMapping):
             raise KeyError(str(item))
 
     def __setitem__(self, key, value):
-        obj_id = id(key)
+        persistent_id = id(key)
         wref = weakref.ref(key, self._finalised)
-        self._refs[obj_id] = wref
-        self._values[obj_id] = value
+        self._refs[persistent_id] = wref
+        self._values[persistent_id] = value
 
     def __delitem__(self, key):
-        obj_id = id(key)
-        del self._values[obj_id]
-        del self._refs[obj_id]
+        persistent_id = id(key)
+        del self._values[persistent_id]
+        del self._refs[persistent_id]
 
     def __len__(self):
         return len(self._values)
@@ -36,9 +36,9 @@ class WeakObjectIdDict(collections.MutableMapping):
 
     def _finalised(self, wref):
         found_id = None
-        for obj_id, ref in self._refs.items():
+        for persistent_id, ref in self._refs.items():
             if ref == wref:
-                found_id = obj_id
+                found_id = persistent_id
                 break
         # Delete both the object values and the reference itself
         del self._values[found_id]

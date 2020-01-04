@@ -11,8 +11,8 @@ class List(list):
     def save_instance_state(self, referencer: depositor.Referencer):
         return referencer.ref_many(self)
 
-    def load_instance_state(self, encoded_value, lookup: depositor.Referencer):
-        self.__init__(lookup.deref_many(encoded_value))
+    def load_instance_state(self, state, lookup: depositor.Referencer):
+        self.__init__(lookup.deref_many(state))
 
 
 class Tuple(tuple):
