@@ -68,16 +68,28 @@ def historian(mongodb_archive):
     return hist
 
 
-def test_save_change_load(historian: mincepy.Historian):
+def test_basic_save_load(historian: mincepy.Historian):
+    car = Car('nissan', 'white')
+
+    car_id = historian.save(car)
+    del car
+    loaded_car = historian.load(car_id)
+
+    assert loaded_car.make == 'nissan'
+    assert loaded_car.colour == 'white'
+
+
+def test_save_snapshot_change_load(historian: mincepy.Historian):
     car = Car()
 
-    ferrari_id = historian.save(car)
-    assert ferrari_id == historian.save(car)
+    # Saving twice without changing should produce the same snapshot id
+    ferrari_id = historian.save_get_snapshot_id(car)
+    assert ferrari_id == historian.save_get_snapshot_id(car)
 
     car.make = 'fiat'
     car.color = 'white'
 
-    fiat_id = historian.save(car)
+    fiat_id = historian.save_get_snapshot_id(car)
 
     assert fiat_id != ferrari_id
 
@@ -91,14 +103,14 @@ def test_nested_references(historian: mincepy.Historian):
     car = Car()
     garage = Garage(car)
 
-    ferrari_id = historian.save(car)
-    ferrari_garage_id = historian.save(garage)
+    ferrari_id = historian.save_get_snapshot_id(car)
+    ferrari_garage_id = historian.save_get_snapshot_id(garage)
 
     # Now change the car
     car.make = 'fiat'
     car.colour = 'white'
 
-    fiat_garage_id = historian.save(garage)
+    fiat_garage_id = historian.save_get_snapshot_id(garage)
     ferrari = historian.load(ferrari_id)
 
     assert ferrari.make == 'ferrari'
@@ -114,7 +126,7 @@ def test_nested_references(historian: mincepy.Historian):
 
 def test_create_delete_load(historian: mincepy.Historian):
     car = Car('honda', 'red')
-    car_id = historian.save(car)
+    car_id = historian.save_get_snapshot_id(car)
     del car
 
     loaded_car = historian.load(car_id)
@@ -127,11 +139,11 @@ def test_list_basics(historian: mincepy.Historian):
     for i in range(100):
         parking_lot.append(Car(str(i)))
 
-    list_id = historian.save(parking_lot)
+    list_id = historian.save_get_snapshot_id(parking_lot)
 
     # Change one element
     parking_lot[0].make = 'ferrari'
-    new_list_id = historian.save(parking_lot)
+    new_list_id = historian.save_get_snapshot_id(parking_lot)
 
     assert list_id != new_list_id
 
@@ -192,30 +204,37 @@ def test_track_method(historian: mincepy.Historian):
 
 
 def test_get_latest(historian: mincepy.Historian):
+    # Save the car
     car = Car()
-    ferrari_id = historian.save(car)
+    car_id = historian.save(car)
+
+    # Change it and save getting a snapshot
     car.make = 'fiat'
     car.colour = 'white'
-    fiat_id = historian.save(car)
-    assert ferrari_id != fiat_id
+    fiat_id = historian.save_get_snapshot_id(car)
+    assert car_id != fiat_id
 
+    # Change it again...
     car.make = 'honda'
     car.colour = 'wine red'
-    honda_id = historian.save(car)
+    honda_id = historian.save_get_snapshot_id(car)
     assert honda_id != fiat_id
-    latest = historian.get_latest(ferrari_id)
-    assert len(latest) == 1
-    assert latest[0] == car
+    assert honda_id != car_id
+
+    # Now delete and reload
+    del car
+    latest = historian.load(car_id)
+    assert latest == historian.load(honda_id)
 
 
 def test_metadata(historian: mincepy.Historian):
     car = Car()
-    ferrari_id = historian.save(car, with_meta={'reg': 'VD395'})
+    ferrari_id = historian.save_get_snapshot_id(car, with_meta={'reg': 'VD395'})
     # Check that we get back what we just set
     assert historian.get_meta(ferrari_id) == {'reg': 'VD395'}
 
     car.make = 'fiat'
-    red_fiat_id = historian.save(car)
+    red_fiat_id = historian.save_get_snapshot_id(car)
     # Check that the metadata was inherited
     assert historian.get_meta(red_fiat_id) == {'reg': 'VD395'}
 

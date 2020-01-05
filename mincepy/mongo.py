@@ -2,8 +2,10 @@ import typing
 
 import bson
 import pymongo
+import pymongo.database
 
 from .archive import BaseArchive, DataRecord
+from . import exceptions
 
 __all__ = ('MongoArchive',)
 
@@ -11,93 +13,118 @@ __all__ = ('MongoArchive',)
 class MongoArchive(BaseArchive):
     DATA_COLLECTION = 'data'
 
-    def __init__(self, db):
+    OBJ_ID = 'obj_id'
+    TYPE_ID = 'type_id'
+    SNAPSHOT_ID = '_id'
+    ANCESTOR_ID = 'ancestor_id'
+    VERSION = 'version'
+    STATE = 'state'
+    SNAPSHOT_HASH = 'snapshot_hash'
+    META = 'meta'
+
+    def __init__(self, db: pymongo.database.Database):
         super(MongoArchive, self).__init__()
         self._data_collection = db[self.DATA_COLLECTION]
+        self._create_indices()
+
+    def _create_indices(self):
+        # Make sure that no two entries can share the same ancestor
+        self._data_collection.create_index(
+            [(self.OBJ_ID, pymongo.ASCENDING),
+             (self.ANCESTOR_ID, pymongo.ASCENDING)], unique=True)
 
     def create_archive_id(self):
         return bson.ObjectId()
 
     def save(self, record: DataRecord):
-        meta = None
-        if record.ancestor_id:
-            meta = self._data_collection.find_one(_id=record.ancestor_id, projection={'meta': 1})['meta']
-
-        entry = self._to_entry(record, meta)
-        self._data_collection.insert_one(entry)
+        self.save_many([record])
+        return record
 
     def save_many(self, records: typing.List[DataRecord]):
-        # Collect all the ones that have ancestors
-        ancestor_ids = {record.ancestor_id for record in records if record.ancestor_id}
+        # Collect all the ones to where previous versions have to be accounted for
+        ancestors = {record.ancestor_id for record in records if record.ancestor_id}
+
         # Now check that the ancestors are accounted for, either in the list passed or in the database
-        ancestor_ids -= {record.persistent_id for record in records}
+        ancestors -= {record.snapshot_id for record in records}
 
         metadatas = {}
-        if ancestor_ids:
+        if ancestors:
             # Have to go look in the collection, collect the metadata while we're at it
-            results = self._data_collection.find({'_id': {'$in': list(ancestor_ids)}}, projection={'meta': 1})
-            for entry in results:
-                ancestor_ids.discard(entry['_id'])
-                metadatas[entry['_id']] = entry['meta']
+            spec = {'$or': [{self.SNAPSHOT_ID: ancestor_id} for ancestor_id in ancestors]}
+            results = list(self._data_collection.find(spec, projection={self.OBJ_ID: 1, self.META: 1}))
 
-        if ancestor_ids:
+            for entry in results:
+                metadatas[entry[self.SNAPSHOT_ID]] = entry[self.META]
+            ancestors -= {entry[self.SNAPSHOT_ID] for entry in results}
+
+        if ancestors:
             raise ValueError(
-                "Records were passed that refer to ancestors not present the passed list nor in the archive")
+                "Records were passed that refer to ancestors not present in the passed list nor in the archive")
 
         # Generate the entries for our collection collecting the metadata that we gathered
         entries = [self._to_entry(record, metadatas.get(record.ancestor_id, None)) for record in records]
         self._data_collection.insert_many(entries)
 
-    def load(self, archive_id) -> DataRecord:
-        entry = self._data_collection.find_one(filter=archive_id)
-        return self._to_record(entry)
+    def _get_organised(self, records: typing.List[DataRecord]):
+        # Organise the records into a dictionary where the key is the object id and the
+        # value is another dictionary where the key is the version number
+        organised = {}
+        for record in records:
+            organised.setdefault(record.obj_id, {})[record.version] = record
+        return organised
 
-    def get_meta(self, persistent_id):
-        result = self._data_collection.find_one(persistent_id, projection={'meta': 1})
+    def load(self, snapshot_id) -> DataRecord:
+        results = list(self._data_collection.find({self.SNAPSHOT_ID: snapshot_id}))
+        if not results:
+            raise exceptions.NotFound("Snapshot id '{}' not found".format(snapshot_id))
+        return self._to_record(results[0])
+
+    def get_snapshot_ids(self, obj_id):
+        # Start with the first snapshot and do a graph traversal from there
+        match_initial_document = {'$match': {self.OBJ_ID: obj_id, self.ANCESTOR_ID: None}}
+        find_ancestors = {
+            "$graphLookup": {
+                "from": self._data_collection.name,
+                "startWith": "${}".format(self.SNAPSHOT_ID),
+                "connectFromField": self.SNAPSHOT_ID,
+                "connectToField": self.ANCESTOR_ID,
+                "as": "descendents",
+                "depthField": "depth",
+                "restrictSearchWithMatch": {self.OBJ_ID: obj_id}
+            }
+        }
+        # unwind_descendents = {'$unwind': '$descendents'}
+        # depth_sort = {'$sort': {'descendents.depth': pymongo.ASCENDING}}
+        results = tuple(self._data_collection.aggregate([
+            match_initial_document,
+            find_ancestors,
+            # unwind_descendents,
+            # depth_sort,
+        ]))
+        if not results:
+            return []
+
+        entry = results[0]
+
+        # Preallocate an array
+        snapshot_ids = [None] * (len(entry['descendents']) + 1)
+        snapshot_ids[0] = entry[self.SNAPSHOT_ID]
+        for descendent in entry['descendents']:
+            snapshot_ids[descendent['depth'] + 1] = descendent[self.SNAPSHOT_ID]
+
+        return snapshot_ids
+
+    def get_meta(self, snapshot_id):
+        result = self._data_collection.find_one(snapshot_id, projection={self.META: 1})
         if not result:
-            # TODO: Should raise some kind of NotFound exception here
-            return None
+            raise exceptions.NotFound("No record with snapshot id '{}' found".format(snapshot_id))
 
         return result['meta']
 
-        # meta = result.get('meta', None)
-        # if meta:
-        #     return meta
-        #
-        # # OK, no meta, so search the ancestors
-        # match_initial_document = {'$match': {'_id': persistent_id}}
-        # find_ancestors = {
-        #     "$graphLookup": {
-        #         "from": self._data_collection.name,
-        #         "startWith": "$ancestor_id",
-        #         "connectFromField": "ancestor_id",
-        #         "connectToField": "_id",
-        #         "as": "ancestors",
-        #         "depthField": "depth"
-        #     }
-        # }
-        # unwind_ancestors = {'$unwind': '$ancestors'}
-        # match_with_meta = {'$match': {'ancestors.meta': {'$ne': None}}}
-        # sort_closest = {'$sort': {'ancestors.depth': pymongo.ASCENDING}}
-        # limit_1 = {'$limit': 1}
-        # result = tuple(self._data_collection.aggregate([
-        #     match_initial_document,
-        #     find_ancestors,
-        #     unwind_ancestors,
-        #     match_with_meta,
-        #     sort_closest,
-        #     limit_1
-        # ]))
-        #
-        # if not result:
-        #     return None
-        #
-        # entry = result[0]
-        # if result[0]['ancestors']:
-        #     return entry['ancestors']['meta']
-
-    def set_meta(self, persistent_id, meta):
-        self._data_collection.find_one_and_update({'_id': persistent_id}, {'$set': {'meta': meta}})
+    def set_meta(self, snapshot_id, meta):
+        found = self._data_collection.find_one_and_update({self.SNAPSHOT_ID: snapshot_id}, {'$set': {'meta': meta}})
+        if not found:
+            raise exceptions.NotFound("No record with snapshot id '{}' found".format(snapshot_id))
 
     def find(self, obj_type_id=None, hash=None, filter=None, limit=0, sort=None):
         mfilter = {}
@@ -111,14 +138,14 @@ class MongoArchive(BaseArchive):
         cursor = self._data_collection.find(filter=mfilter, limit=limit, sort=sort)
         return [self._to_record(result) for result in cursor]
 
-    def get_leaves(self, persistent_id):
-        match_initial_document = {'$match': {'_id': persistent_id}}
+    def get_leaves(self, obj_id):
+        match_initial_document = {'$match': {self.OBJ_ID: obj_id}}
         find_descendents = {
             "$graphLookup": {
                 "from": self._data_collection.name,
                 "startWith": "$_id",
                 "connectFromField": "_id",
-                "connectToField": "ancestor_id",
+                "connectToField": "version",
                 "as": "descendents"
             }
         }
@@ -130,7 +157,7 @@ class MongoArchive(BaseArchive):
                 "from": self._data_collection.name,
                 "startWith": "$_id",
                 "connectFromField": "_id",
-                "connectToField": "ancestor_id",
+                "connectToField": "version",
                 "as": "children",
                 'maxDepth': 1
             }
@@ -150,19 +177,21 @@ class MongoArchive(BaseArchive):
 
     def _to_record(self, entry):
         return DataRecord(
-            entry['_id'],
-            entry['type_id'],
-            entry['ancestor_id'],
-            entry['obj'],
-            entry['hash'],
+            entry[self.OBJ_ID],
+            entry[self.TYPE_ID],
+            entry[self.SNAPSHOT_ID],
+            entry[self.ANCESTOR_ID],
+            entry[self.STATE],
+            entry[self.SNAPSHOT_HASH]
         )
 
-    def _to_entry(self, record, meta=None):
+    def _to_entry(self, record: DataRecord, meta=None):
         return {
-            '_id': record.persistent_id,
-            'type_id': record.type_id,
-            'ancestor_id': record.ancestor_id,
-            'obj': record.state,
-            'hash': record.obj_hash,
-            'meta': meta
+            self.OBJ_ID: record.obj_id,
+            self.TYPE_ID: record.type_id,
+            self.SNAPSHOT_ID: record.snapshot_id,
+            self.ANCESTOR_ID: record.ancestor_id,
+            self.STATE: record.state,
+            self.SNAPSHOT_HASH: record.snapshot_hash,
+            self.META: meta
         }

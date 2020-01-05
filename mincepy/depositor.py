@@ -36,12 +36,12 @@ class Referencer(metaclass=ABCMeta):
         return self.ref(obj)
 
     @abstractmethod
-    def deref(self, persistent_id):
+    def deref(self, obj_id):
         """Retrieve an object given a persistent reference"""
 
-    def deref_many(self, persistent_ids: collections.abc.Iterable):
+    def deref_many(self, obj_ids: collections.abc.Iterable):
         """Dereference a number of objects given their persistent ids"""
-        return [self.deref(persistent_id) for persistent_id in persistent_ids]
+        return [self.deref(obj_id) for obj_id in obj_ids]
 
     def autoderef(self, obj):
         """

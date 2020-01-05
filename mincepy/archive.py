@@ -6,9 +6,11 @@ from .depositor import Referencer
 
 __all__ = ('Archive', 'DataRecord', 'TypeCodec')
 
-DataRecord = namedtuple(
-    'DataRecord',
-    ('persistent_id', 'type_id', 'ancestor_id', 'state', 'obj_hash'))
+
+class DataRecord(
+    namedtuple('DataRecord',
+               ('obj_id', 'type_id', 'snapshot_id', 'ancestor_id', 'state', 'snapshot_hash'))):
+    pass
 
 
 class TypeCodec(metaclass=ABCMeta):
@@ -43,16 +45,20 @@ class Archive(metaclass=ABCMeta):
         """Save many data records to the archive"""
 
     @abstractmethod
-    def get_meta(self, persistent_id):
-        """Get the metadata for the object with the corresponding persistent id."""
+    def get_meta(self, snapshot_id):
+        """Get the metadata for the given object snapshot."""
 
     @abstractmethod
-    def set_meta(self, persistent_id, meta):
+    def set_meta(self, snapshot_id, meta):
         """Set the metadata on on the object with the corresponding persistent id"""
 
     @abstractmethod
-    def load(self, archive_id) -> DataRecord:
-        """Load a data record from its archive id"""
+    def load(self, snapshot_id) -> DataRecord:
+        """Load a snapshot of an object with the given id, by default gives the latest"""
+
+    @abstractmethod
+    def get_snapshot_ids(self, obj_id):
+        """Returns a list of ordered snapshot ids for a given object"""
 
     @abstractmethod
     def find(self, obj_type_id=None, filter=None, limit=0, sort=None):

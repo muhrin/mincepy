@@ -14,7 +14,7 @@ class InMemory(archive.BaseArchive):
         return uuid.uuid4()
 
     def save(self, record: archive.DataRecord):
-        self._records[record.persistent_id] = record
+        self._records[record.obj_id] = record
 
-    def load(self, archive_id) -> archive.DataRecord:
-        return self._records[archive_id]
+    def load(self, snapshot_id) -> archive.DataRecord:
+        return self._records[snapshot_id]
