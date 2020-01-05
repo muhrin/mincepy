@@ -3,8 +3,6 @@ import copy
 import typing
 import weakref
 
-import bson
-
 from . import archive
 from . import defaults
 from . import depositor
@@ -90,14 +88,16 @@ class Historian:
                 pass  # Have to check it
 
             # Check if the record already exists in the historian
-            snapshot_hash = self._historian.hash(obj)
-            obj_id = None
-            ancestor_id = None
+            current_hash = self._historian.hash(obj)
 
             try:
                 record = self._historian.get_record(obj)
             except exceptions.NotFound:
-                obj_id = arch.create_archive_id()
+                builder = archive.DataRecord.get_builder(
+                    obj_id=arch.create_archive_id(),
+                    ancestor_id=None,
+                    type_id=helper.TYPE_ID,
+                )
             else:
                 # Now have to check if the historian's record is up to date
                 saved_ids = copy.copy(self._up_to_date_ids)
@@ -108,7 +108,7 @@ class Historian:
                     self._records[loaded_obj] = record
 
                 # Check the object to see if it's up to date
-                if snapshot_hash == record.snapshot_hash and self._historian.eq(obj, loaded_obj):
+                if current_hash == record.snapshot_hash and self._historian.eq(obj, loaded_obj):
                     # No change, revert
                     self._up_to_date_ids = saved_ids
                     self._records = saved_records
@@ -116,22 +116,15 @@ class Historian:
                     return record
                 else:
                     # Record is not up to date, this is a new version
-                    obj_id = record.obj_id
-                    ancestor_id = record.snapshot_id
+                    builder = record.child_builder()
 
-            # First update the archive ID so if it's required during encoding it's available
-            snapshot_id = arch.create_archive_id()
-            self._up_to_date_ids[obj] = snapshot_id
-            state = self.save_instance_state(obj)
-            # TODO: Check that the ancestor is getting set correctly
-            record = archive.DataRecord(
-                obj_id,
-                helper.TYPE_ID,
-                snapshot_id,
-                ancestor_id,
-                state,
-                snapshot_hash,
-            )
+            builder.snapshot_id = arch.create_archive_id()
+            builder.snapshot_hash = current_hash
+
+            # First update the archive ID so if it's required during saving it's available
+            self._up_to_date_ids[obj] = builder.snapshot_id
+            builder.state = self.save_instance_state(obj)
+            record = builder.build()
             self._records[obj] = record
             return record
 

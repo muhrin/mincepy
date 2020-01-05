@@ -3,14 +3,32 @@ from collections import namedtuple
 import typing
 
 from .depositor import Referencer
+from . import utils
 
 __all__ = ('Archive', 'DataRecord', 'TypeCodec')
 
 
 class DataRecord(
-    namedtuple('DataRecord',
-               ('obj_id', 'type_id', 'snapshot_id', 'ancestor_id', 'state', 'snapshot_hash'))):
-    pass
+    namedtuple(
+        'DataRecord',
+        (
+                'obj_id',  # The ID of the object (spanning all snapshots)
+                'type_id',  # The type ID of this object
+                'snapshot_id',  # The ID of this particular snapshot of the object
+                'ancestor_id',  # The ID of the previous snapshot of the object
+                'state',  # The saved state of the object
+                'snapshot_hash',  # The hash of the state
+                # 'created_in',  # The ID of the process the data was created in
+        ))):
+
+    @classmethod
+    def get_builder(cls, **kwargs):
+        return utils.NamedTupleBuilder(cls, kwargs)
+
+    def child_builder(self, **kwargs) -> utils.NamedTupleBuilder:
+        defaults = {'obj_id': self.obj_id, 'type_id': self.type_id, 'ancestor_id': self.snapshot_id}
+        defaults.update(kwargs)
+        return utils.NamedTupleBuilder(type(self), defaults)
 
 
 class TypeCodec(metaclass=ABCMeta):
@@ -63,10 +81,6 @@ class Archive(metaclass=ABCMeta):
     @abstractmethod
     def find(self, obj_type_id=None, filter=None, limit=0, sort=None):
         """Find objects matching the given criteria"""
-
-    @abstractmethod
-    def get_leaves(self, archive_id):
-        """Get the leaf records for a particular archive id"""
 
 
 class BaseArchive(Archive):

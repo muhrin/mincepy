@@ -138,43 +138,6 @@ class MongoArchive(BaseArchive):
         cursor = self._data_collection.find(filter=mfilter, limit=limit, sort=sort)
         return [self._to_record(result) for result in cursor]
 
-    def get_leaves(self, obj_id):
-        match_initial_document = {'$match': {self.OBJ_ID: obj_id}}
-        find_descendents = {
-            "$graphLookup": {
-                "from": self._data_collection.name,
-                "startWith": "$_id",
-                "connectFromField": "_id",
-                "connectToField": "version",
-                "as": "descendents"
-            }
-        }
-        unwind_descendents = {'$unwind': '$descendents'}
-        replace_root = {'$replaceRoot': {'newRoot': '$descendents'}}
-        # TODO: This can probably be replaced with a join rather than a graph lookup
-        find_descendent_descendents = {
-            "$graphLookup": {
-                "from": self._data_collection.name,
-                "startWith": "$_id",
-                "connectFromField": "_id",
-                "connectToField": "version",
-                "as": "children",
-                'maxDepth': 1
-            }
-        }
-        match_no_children = {'$match': {'children': []}}
-
-        pipeline = [
-            match_initial_document,
-            find_descendents,
-            unwind_descendents,
-            replace_root,
-            find_descendent_descendents,
-            match_no_children
-        ]
-        cursor = self._data_collection.aggregate(pipeline)
-        return [self._to_record(entry) for entry in cursor]
-
     def _to_record(self, entry):
         return DataRecord(
             entry[self.OBJ_ID],

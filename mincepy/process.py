@@ -2,15 +2,17 @@ import contextlib
 import uuid
 
 from . import depositor
+from . import types
 
 
-class ProcessRecord:
+class Process(types.Savable):
     TYPE_ID = uuid.UUID('bcf03171-a1f1-49c7-b890-b7f9d9f9e5a2')
     STACK = []
 
     DEFINING_ATTRIBUTES = ('_name',)
 
     def __init__(self, name: str):
+        super(Process, self).__init__()
         self._name = name
 
     @property

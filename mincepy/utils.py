@@ -43,3 +43,43 @@ class WeakObjectIdDict(collections.MutableMapping):
         # Delete both the object values and the reference itself
         del self._values[found_id]
         del self._refs[found_id]
+
+
+class NamedTupleBuilder:
+    def __init__(self, tuple_type, defaults={}):
+        # Have to do it this way because we overwrite __setattr__
+        object.__setattr__(self, '_tuple_type', tuple_type)
+        diff = set(defaults.keys()) - set(tuple_type._fields)
+        assert not diff, "Can't supply defaults that are not in the namedtuple: '{}'".format(diff)
+        object.__setattr__(self, '_values', defaults)
+
+    def __repr__(self):
+        """Representation of the object."""
+        return '%s(%s)' % (self.__class__.__name__, dict.__repr__(self._values))
+
+    def __getattr__(self, attr):
+        """Read a key as an attribute.
+
+        :raises AttributeError: if the attribute does not correspond to an existing key.
+        """
+        try:
+            return self._values[attr]
+        except KeyError:
+            errmsg = "'{}' object has no attribute '{}'".format(self.__class__.__name__, attr)
+            raise AttributeError(errmsg)
+
+    def __setattr__(self, attr, value):
+        """Set a key as an attribute."""
+        if attr not in self._tuple_type._fields:
+            raise AttributeError(
+                "AttributeError: '{}' is not a valid attribute of the object "
+                "'{}'".format(attr, self.__class__.__name__)
+            )
+
+        self._values[attr] = value
+
+    def __dir__(self):
+        return self._tuple_type._fields
+
+    def build(self):
+        return self._tuple_type(**self._values)
