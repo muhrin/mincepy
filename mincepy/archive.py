@@ -18,15 +18,24 @@ class DataRecord(
                 'ancestor_id',  # The ID of the previous snapshot of the object
                 'state',  # The saved state of the object
                 'snapshot_hash',  # The hash of the state
-                # 'created_in',  # The ID of the process the data was created in
+                'created_in',  # The ID of the process the data was created in
         ))):
 
     @classmethod
     def get_builder(cls, **kwargs):
+        """Get a DataRecord builder optionally passing in some initial values"""
         return utils.NamedTupleBuilder(cls, kwargs)
 
     def child_builder(self, **kwargs) -> utils.NamedTupleBuilder:
-        defaults = {'obj_id': self.obj_id, 'type_id': self.type_id, 'ancestor_id': self.snapshot_id}
+        """
+        Get a child builder from this DataRecord instance.  The following attributes will be copied over:
+            * obj_id
+            * type_id
+            * created_in
+        and ancestor_id will be used as the new snapshot id.
+        """
+        defaults = {'obj_id': self.obj_id, 'type_id': self.type_id, 'ancestor_id': self.snapshot_id,
+                    'created_in': self.created_in}
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
 

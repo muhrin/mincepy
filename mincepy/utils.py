@@ -6,6 +6,11 @@ import weakref
 
 
 class WeakObjectIdDict(collections.MutableMapping):
+    """
+    Like weakref.WeakKeyDict but internally uses object ids instead of the object reference
+    itself thereby avoiding the need for the object to be hashable (and therefore immutable).
+    """
+
     def __init__(self):
         self._refs: collections.abc.MutableMapping[int, weakref.ReferenceType] = {}
         self._values: collections.abc.MutableMapping[int, typing.Any] = {}
@@ -45,8 +50,13 @@ class WeakObjectIdDict(collections.MutableMapping):
         del self._refs[found_id]
 
 
-class NamedTupleBuilder:
-    def __init__(self, tuple_type, defaults={}):
+T = TypeVar('T')  # Declare type variable
+
+
+class NamedTupleBuilder(Generic[T]):
+    """A builder that allows namedtuples to be build step by step"""
+
+    def __init__(self, tuple_type: typing.Type[T], defaults={}):
         # Have to do it this way because we overwrite __setattr__
         object.__setattr__(self, '_tuple_type', tuple_type)
         diff = set(defaults.keys()) - set(tuple_type._fields)
@@ -81,5 +91,5 @@ class NamedTupleBuilder:
     def __dir__(self):
         return self._tuple_type._fields
 
-    def build(self):
+    def build(self) -> T:
         return self._tuple_type(**self._values)

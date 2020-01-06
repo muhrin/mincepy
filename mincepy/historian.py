@@ -8,6 +8,7 @@ from . import defaults
 from . import depositor
 from . import exceptions
 from . import inmemory
+from . import process
 from . import types
 from . import utils
 
@@ -44,7 +45,7 @@ class WrapperHelper(types.TypeHelper):
 class Historian:
     def __init__(self, archive: archive.Archive, equators=None):
         self._records = utils.WeakObjectIdDict()  # Object to record
-        self._ids = weakref.WeakValueDictionary()  # Archive id to object
+        self._ids = weakref.WeakValueDictionary()  # Snapshot id to object
         self._archive = archive
         equators = equators or defaults.get_default_equators()
         self._equator = types.Equator(equators)
@@ -93,10 +94,16 @@ class Historian:
             try:
                 record = self._historian.get_record(obj)
             except exceptions.NotFound:
+                try:
+                    pid = self._historian.get_record(process.Process.current_process()).obj_id
+                except exceptions.NotFound:
+                    pid = None
+
                 builder = archive.DataRecord.get_builder(
                     obj_id=arch.create_archive_id(),
                     ancestor_id=None,
                     type_id=helper.TYPE_ID,
+                    created_in=pid
                 )
             else:
                 # Now have to check if the historian's record is up to date
@@ -289,11 +296,11 @@ class Historian:
         sid = self._get_snapshot_id(identifier)
         self._archive.set_meta(sid, meta)
 
-    def get_obj(self, archive_id):
+    def get_obj(self, snapshot_id):
         try:
-            return self._ids[archive_id]
+            return self._ids[snapshot_id]
         except KeyError:
-            raise ValueError("Unknown object id '{}'".format(archive_id))
+            raise ValueError("Unknown object id '{}'".format(snapshot_id))
 
     def get_obj_type_id(self, obj_type):
         return self._type_registry[obj_type].TYPE_ID
@@ -324,12 +331,20 @@ class Historian:
         results = self._archive.find(obj_type_id=obj_type_id, filter=filter, limit=limit)
         return [self.load(result.obj_id) for result in results]
 
+    def created_in(self, obj_or_identifier):
+        """Return the id of the object that created the passed object"""
+        try:
+            return self.get_record(obj_or_identifier).created_in
+        except exceptions.NotFound:
+            return self._archive.load(self._get_snapshot_id(obj_or_identifier)).created_in
+
     def copy(self, obj):
         obj_copy = copy.copy(obj)
 
         return obj_copy
 
     def _get_snapshot_id(self, identifier):
+        """Given an object id this will return the id of the latest snapshot, otherwise just returns the identifier"""
         try:
             # Assume it's an object id
             return self._archive.get_snapshot_ids(identifier)[-1]

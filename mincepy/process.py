@@ -4,10 +4,18 @@ import uuid
 from . import depositor
 from . import types
 
+__all__ = ('Process',)
+
 
 class Process(types.Savable):
     TYPE_ID = uuid.UUID('bcf03171-a1f1-49c7-b890-b7f9d9f9e5a2')
     STACK = []
+
+    @classmethod
+    def current_process(cls):
+        if not cls.STACK:
+            return None
+        return cls.STACK[-1]
 
     DEFINING_ATTRIBUTES = ('_name',)
 

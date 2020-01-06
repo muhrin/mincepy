@@ -20,6 +20,7 @@ class MongoArchive(BaseArchive):
     VERSION = 'version'
     STATE = 'state'
     SNAPSHOT_HASH = 'snapshot_hash'
+    CREATED_IN = 'created_in'
     META = 'meta'
 
     def __init__(self, db: pymongo.database.Database):
@@ -145,7 +146,8 @@ class MongoArchive(BaseArchive):
             entry[self.SNAPSHOT_ID],
             entry[self.ANCESTOR_ID],
             entry[self.STATE],
-            entry[self.SNAPSHOT_HASH]
+            entry[self.SNAPSHOT_HASH],
+            entry[self.CREATED_IN]
         )
 
     def _to_entry(self, record: DataRecord, meta=None):
@@ -156,5 +158,6 @@ class MongoArchive(BaseArchive):
             self.ANCESTOR_ID: record.ancestor_id,
             self.STATE: record.state,
             self.SNAPSHOT_HASH: record.snapshot_hash,
+            self.CREATED_IN: record.created_in,
             self.META: meta
         }
