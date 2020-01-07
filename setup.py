@@ -27,8 +27,9 @@ setup(
     ],
     keywords='workflow',
     install_requires=[
-        'pymongo'
-   ],
+        'pymongo',
+        'pyhash'
+    ],
     extras_require={
         'dev': [
             'pip',

@@ -62,5 +62,9 @@ class Referencer(metaclass=ABCMeta):
         """Get a saved instance state for the given object"""
 
     @abstractmethod
-    def load_instance_state(self, type_id, saved_state):
+    def load_instance_state_from_typeid(self, type_id, saved_state):
+        """Load an instance of an object from a saved state"""
+
+    @abstractmethod
+    def load_instance_state_from_type(self, obj_type, saved_state):
         """Load an instance of an object from a saved state"""

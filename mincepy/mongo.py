@@ -143,21 +143,23 @@ class MongoArchive(BaseArchive):
         return DataRecord(
             entry[self.OBJ_ID],
             entry[self.TYPE_ID],
+            entry[self.CREATED_IN],
+
             entry[self.SNAPSHOT_ID],
             entry[self.ANCESTOR_ID],
             entry[self.STATE],
             entry[self.SNAPSHOT_HASH],
-            entry[self.CREATED_IN]
         )
 
     def _to_entry(self, record: DataRecord, meta=None):
         return {
             self.OBJ_ID: record.obj_id,
             self.TYPE_ID: record.type_id,
+            self.CREATED_IN: record.created_in,
+
             self.SNAPSHOT_ID: record.snapshot_id,
             self.ANCESTOR_ID: record.ancestor_id,
             self.STATE: record.state,
             self.SNAPSHOT_HASH: record.snapshot_hash,
-            self.CREATED_IN: record.created_in,
             self.META: meta
         }

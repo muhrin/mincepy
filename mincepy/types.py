@@ -24,6 +24,11 @@ class TypeHelper(metaclass=ABCMeta):
     def __init__(self):
         assert self.TYPE is not None, "Must set the equator TYPE to a type of or a tuple of types"
 
+    def create_blank(self):
+        """Create a new blank object of this type"""
+        cls = self.TYPE
+        return cls.__new__(cls)
+
     @abstractmethod
     def yield_hashables(self, value, hasher):
         """Produce a hash representing the value"""

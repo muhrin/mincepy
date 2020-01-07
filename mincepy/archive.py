@@ -12,13 +12,15 @@ class DataRecord(
     namedtuple(
         'DataRecord',
         (
+                # Object properties
                 'obj_id',  # The ID of the object (spanning all snapshots)
                 'type_id',  # The type ID of this object
+                'created_in',  # The ID of the process the data was created in
+                # Snapshot properties
                 'snapshot_id',  # The ID of this particular snapshot of the object
                 'ancestor_id',  # The ID of the previous snapshot of the object
                 'state',  # The saved state of the object
                 'snapshot_hash',  # The hash of the state
-                'created_in',  # The ID of the process the data was created in
         ))):
 
     @classmethod
@@ -34,8 +36,11 @@ class DataRecord(
             * created_in
         and ancestor_id will be used as the new snapshot id.
         """
-        defaults = {'obj_id': self.obj_id, 'type_id': self.type_id, 'ancestor_id': self.snapshot_id,
-                    'created_in': self.created_in}
+        defaults = {
+            'obj_id': self.obj_id,
+            'type_id': self.type_id,
+            'created_in': self.created_in,
+            'ancestor_id': self.snapshot_id, }
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
 

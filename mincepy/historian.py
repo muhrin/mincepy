@@ -43,12 +43,11 @@ class WrapperHelper(types.TypeHelper):
 
 
 class Historian:
-    def __init__(self, archive: archive.Archive, equators=None):
+    def __init__(self, archive: archive.Archive, equators=()):
         self._records = utils.WeakObjectIdDict()  # Object to record
         self._ids = weakref.WeakValueDictionary()  # Snapshot id to object
         self._archive = archive
-        equators = equators or defaults.get_default_equators()
-        self._equator = types.Equator(equators)
+        self._equator = types.Equator(defaults.get_default_equators() + equators)
         self._type_registry = {}
         self._type_ids = {}
 
@@ -78,7 +77,10 @@ class Historian:
 
         def save_object(self, obj) -> archive.DataRecord:
             # TODO: Remove this later, need a more general way to register the type
-            self._historian.register_type(type(obj))
+            try:
+                self._historian.register_type(type(obj))
+            except TypeError:
+                pass
             arch = self._historian._archive
             helper = self.get_helper(obj)
 
@@ -236,9 +238,27 @@ class Historian:
             except KeyError:
                 raise ValueError("Type with id '{}' has not been registered".format(type_id))
 
-            obj = obj_type.__new__(obj_type)
+            obj = helper.create_blank()
             yield obj
             helper.load_instance_state(obj, saved_state, self)
+
+        @contextlib.contextmanager
+        def load_instance_state_from_typeid(self, type_id, saved_state):
+            historian = self._historian
+            try:
+                obj_type = historian._type_ids[type_id]
+                return self.load_instance_state_from_type(obj_type, saved_state)
+            except KeyError:
+                raise ValueError("Type with id '{}' has not been registered".format(type_id))
+
+        def load_instance_state_from_type(self, obj_type, saved_state):
+            historian = self._historian
+            try:
+                helper = historian._type_registry[obj_type]
+            except KeyError:
+                raise ValueError("Type with id '{}' has not been registered".format(type_id))
+
+            helper.load_instance_state(helper.create_blank(), saved_state, self)
 
     def _update_records(self, records: typing.Mapping[typing.Any, archive.DataRecord]):
         for obj, record in records.items():
@@ -321,9 +341,13 @@ class Historian:
         if isinstance(obj_class_or_helper, types.TypeHelper):
             helper = obj_class_or_helper
         else:
+            if not hasattr(obj_class_or_helper, 'TYPE_ID'):
+                raise TypeError("Type '{}' does not declare a TYPE_ID and is therefore incompatible")
             helper = WrapperHelper(obj_class_or_helper)
+
         self._type_registry[helper.TYPE] = helper
         self._type_ids[helper.TYPE_ID] = helper.TYPE
+        self._equator.add_equator(helper)
 
     def find(self, obj_type=None, filter=None, limit=0):
         """Find entries in the archive"""
