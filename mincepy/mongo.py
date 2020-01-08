@@ -101,14 +101,7 @@ class MongoArchive(BaseArchive):
                 "restrictSearchWithMatch": {self.KEY_MAP[archive.OBJ_ID]: obj_id}
             }
         }
-        # unwind_descendents = {'$unwind': '$descendents'}
-        # depth_sort = {'$sort': {'descendents.depth': pymongo.ASCENDING}}
-        results = tuple(self._data_collection.aggregate([
-            match_initial_document,
-            find_ancestors,
-            # unwind_descendents,
-            # depth_sort,
-        ]))
+        results = tuple(self._data_collection.aggregate([match_initial_document, find_ancestors]))
         if not results:
             return []
 
@@ -151,7 +144,8 @@ class MongoArchive(BaseArchive):
         record_dict = dict(DataRecord.DEFAULTS)
 
         # Invert our mapping of keys back to the data record property names and update over any defaults
-        record_dict.update({self.KEY_MAP.inverse.get(key, key): value for key, value in entry.items() if key != self.META})
+        record_dict.update(
+            {self.KEY_MAP.inverse.get(key, key): value for key, value in entry.items() if key != self.META})
 
         return DataRecord(**record_dict)
 
