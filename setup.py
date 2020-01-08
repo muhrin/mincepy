@@ -29,6 +29,7 @@ setup(
     install_requires=[
         'pymongo',
         'pyhash'
+        'bidict'
     ],
     extras_require={
         'dev': [

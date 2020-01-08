@@ -7,26 +7,39 @@ from . import utils
 
 __all__ = ('Archive', 'DataRecord', 'TypeCodec')
 
+OBJ_ID = 'obj_id'
+TYPE_ID = 'type_id'
+CREATED_IN = 'created_in'
+SNAPSHOT_ID = 'snapshot_id'
+ANCESTOR_ID = 'ancestor_id'
+STATE = 'state'
+SNAPSHOT_HASH = 'snapshot_hash'
+
 
 class DataRecord(
     namedtuple(
         'DataRecord',
         (
                 # Object properties
-                'obj_id',  # The ID of the object (spanning all snapshots)
-                'type_id',  # The type ID of this object
-                'created_in',  # The ID of the process the data was created in
+                OBJ_ID,  # The ID of the object (spanning all snapshots)
+                TYPE_ID,  # The type ID of this object
+                CREATED_IN,  # The ID of the process the data was created in
                 # Snapshot properties
-                'snapshot_id',  # The ID of this particular snapshot of the object
-                'ancestor_id',  # The ID of the previous snapshot of the object
-                'state',  # The saved state of the object
-                'snapshot_hash',  # The hash of the state
+                SNAPSHOT_ID,  # The ID of this particular snapshot of the object
+                ANCESTOR_ID,  # The ID of the previous snapshot of the object
+                STATE,  # The saved state of the object
+                SNAPSHOT_HASH,  # The hash of the state
         ))):
+    DEFAULTS = {
+        CREATED_IN: None
+    }
 
     @classmethod
     def get_builder(cls, **kwargs):
         """Get a DataRecord builder optionally passing in some initial values"""
-        return utils.NamedTupleBuilder(cls, kwargs)
+        values = dict(cls.DEFAULTS)
+        values.update(kwargs)
+        return utils.NamedTupleBuilder(cls, values)
 
     def child_builder(self, **kwargs) -> utils.NamedTupleBuilder:
         """
