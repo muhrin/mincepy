@@ -12,7 +12,9 @@ from . import exceptions
 __all__ = ('MongoArchive',)
 
 
-class MongoArchive(BaseArchive):
+class MongoArchive(BaseArchive[bson.ObjectId]):
+    ID_TYPE = bson.ObjectId
+
     DATA_COLLECTION = 'data'
 
     # Here we map the data record property names onto ones in our entry format.
@@ -30,7 +32,6 @@ class MongoArchive(BaseArchive):
     META = 'meta'
 
     def __init__(self, db: pymongo.database.Database):
-        super(MongoArchive, self).__init__()
         self._data_collection = db[self.DATA_COLLECTION]
         self._create_indices()
 

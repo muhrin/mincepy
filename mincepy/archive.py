@@ -2,10 +2,9 @@ from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 import typing
 
-from .depositor import Referencer
 from . import utils
 
-__all__ = ('Archive', 'DataRecord', 'TypeCodec')
+__all__ = ('Archive', 'DataRecord')
 
 OBJ_ID = 'obj_id'
 TYPE_ID = 'type_id'
@@ -50,35 +49,25 @@ class DataRecord(
         and ancestor_id will be used as the new snapshot id.
         """
         defaults = {
-            'obj_id': self.obj_id,
-            'type_id': self.type_id,
-            'created_in': self.created_in,
-            'ancestor_id': self.snapshot_id, }
+            OBJ_ID: self.obj_id,
+            TYPE_ID: self.type_id,
+            CREATED_IN: self.created_in,
+            ANCESTOR_ID: self.snapshot_id, }
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
 
 
-class TypeCodec(metaclass=ABCMeta):
-    """Defines how to encode and decode an object"""
-    TYPE = None
-    TYPE_ID = None
+IdT = typing.TypeVar('IdT')
 
-    def __init__(self):
-        assert self.TYPE is not None, "Must set TYPE that this codec corresponds to"
-        assert self.TYPE_ID is not None, "Must set the TYPE_ID for this codec"
+
+class Archive(typing.Generic[IdT], metaclass=ABCMeta):
+    @classmethod
+    @abstractmethod
+    def get_id_type(cls) -> typing.Type[IdT]:
+        """Get the type used as an ID by this archive"""
 
     @abstractmethod
-    def encode(self, value, lookup: Referencer):
-        pass
-
-    @abstractmethod
-    def decode(self, state, obj, lookup: Referencer):
-        pass
-
-
-class Archive(metaclass=ABCMeta):
-    @abstractmethod
-    def create_archive_id(self):
+    def create_archive_id(self) -> IdT:
         """Create a new archive id"""
 
     @abstractmethod
@@ -90,19 +79,19 @@ class Archive(metaclass=ABCMeta):
         """Save many data records to the archive"""
 
     @abstractmethod
-    def get_meta(self, snapshot_id):
+    def get_meta(self, snapshot_id: IdT):
         """Get the metadata for the given object snapshot."""
 
     @abstractmethod
-    def set_meta(self, snapshot_id, meta):
+    def set_meta(self, snapshot_id: IdT, meta):
         """Set the metadata on on the object with the corresponding persistent id"""
 
     @abstractmethod
-    def load(self, snapshot_id) -> DataRecord:
+    def load(self, snapshot_id: IdT) -> DataRecord:
         """Load a snapshot of an object with the given id, by default gives the latest"""
 
     @abstractmethod
-    def get_snapshot_ids(self, obj_id):
+    def get_snapshot_ids(self, obj_id: IdT):
         """Returns a list of ordered snapshot ids for a given object"""
 
     @abstractmethod
@@ -110,7 +99,14 @@ class Archive(metaclass=ABCMeta):
         """Find objects matching the given criteria"""
 
 
-class BaseArchive(Archive):
+class BaseArchive(Archive[IdT]):
+    ID_TYPE: typing.Type[IdT] = None
+
+    @classmethod
+    def get_id_type(cls) -> typing.Type[IdT]:
+        assert cls.ID_TYPE, "The ID type has not been set on this archive"
+        return cls.ID_TYPE
+
     def save_many(self, records: typing.Sequence[DataRecord]):
         """
         This will save records one by one but subclass may want to override this behaviour if

@@ -1,0 +1,30 @@
+# yet another python formatter
+- repo: local
+  hooks:
+  # yapf = yet another python formatter
+  - id: yapf
+    name: yapf
+    entry: yapf
+    language: system
+    types: [python]
+    args: ["-i"]
+    exclude: &exclude_files >-
+      (?x)^(
+        ^docs/|
+      )$
+
+  # prospector: collection of linters
+  - id: prospector
+    language: system
+    types: [file, python]
+    name: prospector
+    description: "This hook runs Prospector: https://github.com/landscapeio/prospector"
+    entry: prospector
+    exclude: *exclude_files
+
+- repo: git://github.com/pre-commit/pre-commit-hooks
+  sha: v1.1.1
+  hooks:
+  - id: check-yaml
+
+

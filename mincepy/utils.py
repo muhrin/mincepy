@@ -11,9 +11,22 @@ class WeakObjectIdDict(collections.MutableMapping):
     itself thereby avoiding the need for the object to be hashable (and therefore immutable).
     """
 
-    def __init__(self):
+    def __init__(self, seq=None, **kwargs):
         self._refs: collections.abc.MutableMapping[int, weakref.ReferenceType] = {}
         self._values: collections.abc.MutableMapping[int, typing.Any] = {}
+        if seq:
+            if isinstance(seq, collections.Mapping):
+                for key, value in seq.items():
+                    self[key] = value
+            elif isinstance(seq, collections.Iterable):
+                for key, value in seq:
+                    self[key] = value
+        if kwargs:
+            for key, value in kwargs.items():
+                self[key] = value
+
+    def __copy__(self):
+        return WeakObjectIdDict(self)
 
     def __getitem__(self, item):
         try:
@@ -91,8 +104,9 @@ class NamedTupleBuilder(Generic[T]):
     def __dir__(self):
         return self._tuple_type._fields
 
+    def update(self, new_values: dict):
+        for key, value in new_values.items():
+            setattr(self, key, value)
+
     def build(self) -> T:
         return self._tuple_type(**self._values)
-
-
-

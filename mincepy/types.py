@@ -5,7 +5,7 @@ import pyhash
 
 __all__ = ('TypeHelper', 'Equator')
 
-BASE_TYPES = (int, float, str, dict, list, type(None), bytes, uuid.UUID)
+BASE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID)
 
 
 def eq_attributes(one, other, attributes) -> bool:
@@ -43,7 +43,7 @@ class TypeHelper(metaclass=ABCMeta):
 
     @abstractmethod
     def load_instance_state(self, obj, saved_state, referencer):
-        """Take the given object and load the instance state into it"""
+        """Take the given blank object and load the instance state into it"""
 
 
 class Savable(metaclass=ABCMeta):
@@ -63,7 +63,7 @@ class Savable(metaclass=ABCMeta):
 
 
 class Comparable(metaclass=ABCMeta):
-    """An object that can """
+    """An object that can be compared and hashed"""
 
     @abstractmethod
     def yield_hashables(self, hasher):

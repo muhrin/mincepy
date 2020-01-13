@@ -11,7 +11,7 @@ with open('mincepy/version.py') as f:
 setup(
     name='mincepy',
     version=about['__version__'],
-    description="Provenance tracking made simple",
+    description="Object storage with versioning made simple",
     long_description=open('README.rst').read(),
     url='https://github.com/muhrin/mincepy.git',
     author='Martin Uhrin',
@@ -28,8 +28,8 @@ setup(
     keywords='workflow',
     install_requires=[
         'pymongo',
-        'pyhash'
-        'bidict'
+        'pyhash',
+        'bidict',
     ],
     extras_require={
         'dev': [

@@ -1,0 +1,20 @@
+ignore-paths:
+    - doc
+    - examples
+    - test
+    - utils
+
+pylint:
+    max-line-length: 120
+    disable:
+      - missing-docstring
+
+pyflakes:
+  run: false
+
+pep8:
+  run: false
+
+mccabe:
+  run: false
+

@@ -19,7 +19,7 @@ class SimpleHelper(TypeHelper):
         return obj.save_instance_state(referencer)
 
     def load_instance_state(self, obj, saved_state, referencer):
-        return self.TYPE.load_instance_state_from_typeid(obj, saved_state, referencer)
+        return obj.load(saved_state, referencer)
 
 
 class BytesEquator(SimpleHelper):
