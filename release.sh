@@ -1,7 +1,6 @@
 
-
-
 PACKAGE="mincepy"
+REMOTE="muhrin"
 VERSION_FILE=${PACKAGE}/version.py
 
 version=$1
@@ -43,7 +42,7 @@ git merge $relbranch
 git branch -d $relbranch
 
 # Push everything
-git push --tags origin master $current_branch
+git push --tags $REMOTE master $current_branch
 
 
 # Release on pypi
