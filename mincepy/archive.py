@@ -104,7 +104,7 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
 
 
 class BaseArchive(Archive[IdT]):
-    ID_TYPE: typing.Type[IdT] = None
+    ID_TYPE = None  # type: typing.Type[IdT]
 
     @classmethod
     def get_id_type(cls) -> typing.Type[IdT]:

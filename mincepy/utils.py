@@ -12,8 +12,8 @@ class WeakObjectIdDict(collections.MutableMapping):
     """
 
     def __init__(self, seq=None, **kwargs):
-        self._refs: collections.abc.MutableMapping[int, weakref.ReferenceType] = {}
-        self._values: collections.abc.MutableMapping[int, typing.Any] = {}
+        self._refs = {}  # type: collections.abc.MutableMapping[int, weakref.ReferenceType]
+        self._values = {}  # type: collections.abc.MutableMapping[int, typing.Any]
         if seq:
             if isinstance(seq, collections.Mapping):
                 for key, value in seq.items():
@@ -63,7 +63,7 @@ class WeakObjectIdDict(collections.MutableMapping):
         del self._refs[found_id]
 
 
-T = TypeVar('T')  # Declare type variable
+T = TypeVar('T')  # Declare type variable pylint: disable=invalid-name
 
 
 class NamedTupleBuilder(Generic[T]):
@@ -94,10 +94,8 @@ class NamedTupleBuilder(Generic[T]):
     def __setattr__(self, attr, value):
         """Set a key as an attribute."""
         if attr not in self._tuple_type._fields:
-            raise AttributeError(
-                "AttributeError: '{}' is not a valid attribute of the object "
-                "'{}'".format(attr, self.__class__.__name__)
-            )
+            raise AttributeError("AttributeError: '{}' is not a valid attribute of the object "
+                                 "'{}'".format(attr, self.__class__.__name__))
 
         self._values[attr] = value
 
