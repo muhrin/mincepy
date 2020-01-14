@@ -12,7 +12,7 @@ class InvalidStateError(Exception):
     pass
 
 
-class FunctionCall:
+class FunctionCall(types.SavableComparable):
     TYPE_ID = uuid.UUID('dcacc483-c650-432e-b835-122f78e7a758')
 
     DEFINING_ATTRIBUTES = ('_function', '_args', '_kwargs', '_result', '_exception', '_done')
@@ -85,6 +85,7 @@ class FunctionCall:
 
 
 def track(func):
+
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         historian = get_historian()
@@ -92,7 +93,7 @@ def track(func):
         try:
             result = func(*args, **kwargs)
             call.set_result(result)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             call.set_exception(exc)
         else:
             return result

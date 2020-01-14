@@ -16,4 +16,6 @@ def mongodb_archive():
 @pytest.fixture
 def historian(mongodb_archive):
     hist = mincepy.Historian(mongodb_archive)
-    return hist
+    mincepy.set_historian(hist)
+    yield hist
+    mincepy.set_historian(None)

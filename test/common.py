@@ -3,10 +3,11 @@ import bson
 import mincepy
 
 
-class Car:
+class Car(mincepy.SavableComparable):
     TYPE_ID = bson.ObjectId('5e075d6244572f823ed93274')
 
     def __init__(self, make='ferrari', colour='red'):
+        super(Car, self).__init__()
         self.make = make
         self.colour = colour
 
@@ -27,10 +28,11 @@ class Car:
         self.__init__(encoded_value['make'], encoded_value['colour'])
 
 
-class Garage:
+class Garage(mincepy.SavableComparable):
     TYPE_ID = bson.ObjectId('5e07b40a44572f823ed9327b')
 
     def __init__(self, car=None):
+        super(Garage, self).__init__()
         self.car = car
 
     def __eq__(self, other):

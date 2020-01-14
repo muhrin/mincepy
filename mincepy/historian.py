@@ -25,7 +25,7 @@ class WrapperHelper(types.TypeHelper):
     TYPE = None
     TYPE_ID = None
 
-    def __init__(self, obj_type):
+    def __init__(self, obj_type: typing.Type[types.SavableComparable]):
         self.TYPE = obj_type
         self.TYPE_ID = obj_type.TYPE_ID
         super(WrapperHelper, self).__init__()
@@ -55,7 +55,7 @@ class Historian(depositor.Referencer):
         self._staged = []
         self._transaction_count = 0
 
-        self._type_registry = {}
+        self._type_registry = {}  # type: typing.MutableMapping[typing.Type, types.TypeHelper]
         self._type_ids = {}
 
     def save(self, obj, with_meta=None):
@@ -141,7 +141,7 @@ class Historian(depositor.Referencer):
             return obj
 
     def save_object(self, obj) -> archive.DataRecord:
-        self.register_type(type(obj))
+        self._ensure_compatible(type(obj))
 
         # Check if we already have an up to date record
         if obj in self._up_to_date_ids:
@@ -210,25 +210,25 @@ class Historian(depositor.Referencer):
     def hash(self, obj):
         return self._equator.hash(obj)
 
-    def eq(self, one, other):
+    def eq(self, one, other):  # pylint: disable=invalid-name
         return self._equator.eq(one, other)
 
-    def register_type(self, obj_class_or_helper):
+    def register_type(self, obj_class_or_helper: [types.TypeHelper, typing.Type[types.SavableComparable]]):
         if isinstance(obj_class_or_helper, types.TypeHelper):
             helper = obj_class_or_helper
         else:
-            if not hasattr(obj_class_or_helper, 'TYPE_ID'):
-                raise TypeError("Type '{}' does not declare a TYPE_ID and is therefore incompatible")
+            if not issubclass(obj_class_or_helper, types.SavableComparable):
+                raise TypeError("Type '{}' is nether a TypeHelper nor a SavableComparable".format(obj_class_or_helper))
             helper = WrapperHelper(obj_class_or_helper)
 
         self._type_registry[helper.TYPE] = helper
         self._type_ids[helper.TYPE_ID] = helper.TYPE
         self._equator.add_equator(helper)
 
-    def find(self, obj_type=None, filter=None, limit=0):
+    def find(self, obj_type=None, criteria=None, limit=0):
         """Find entries in the archive"""
         obj_type_id = self.get_obj_type_id(obj_type) if obj_type is not None else None
-        results = self._archive.find(obj_type_id=obj_type_id, criteria=filter, limit=limit)
+        results = self._archive.find(obj_type_id=obj_type_id, criteria=criteria, limit=limit)
         return [self.load(result.obj_id) for result in results]
 
     def created_in(self, obj_or_identifier):
@@ -293,7 +293,7 @@ class Historian(depositor.Referencer):
             # Deal with the special containers by encoding their values if need be
             if isinstance(obj, list):
                 return [self.encode(entry) for entry in obj]
-            elif isinstance(obj, dict):
+            if isinstance(obj, dict):
                 return {key: self.encode(value) for key, value in obj.items()}
 
             return obj
@@ -384,6 +384,16 @@ class Historian(depositor.Referencer):
         """Get a tuple of the primitive types"""
         return types.BASE_TYPES + (self._archive.get_id_type(),)
 
+    def _ensure_compatible(self, obj_type: typing.Type):
+        if obj_type not in self._type_registry:
+            if issubclass(obj_type, types.SavableComparable):
+                # Make a wrapper
+                self.register_type(WrapperHelper(obj_type))
+            else:
+                raise TypeError(
+                    "Object type '{}' is incompatible with the historian, either subclass from SavableComparable or "
+                    "provide a helper".format(obj_type))
+
 
 class RollbackTransaction(Exception):
     pass
@@ -400,12 +410,12 @@ def create_default_historian() -> Historian:
 
 
 def get_historian() -> Historian:
-    global CURRENT_HISTORIAN
+    global CURRENT_HISTORIAN  # pylint: disable=global-statement
     if CURRENT_HISTORIAN is None:
         CURRENT_HISTORIAN = create_default_historian()
     return CURRENT_HISTORIAN
 
 
 def set_historian(historian: Historian):
-    global CURRENT_HISTORIAN
+    global CURRENT_HISTORIAN  # pylint: disable=global-statement
     CURRENT_HISTORIAN = historian

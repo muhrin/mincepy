@@ -108,10 +108,11 @@ def test_track(historian: mincepy.Historian):
 
 def test_track_method(historian: mincepy.Historian):
 
-    class CarFactory:
+    class CarFactory(mincepy.SavableComparable):
         TYPE_ID = uuid.UUID('166a9446-c04e-4fbe-a3da-6f36c2f8292d')
 
         def __init__(self, make):
+            super(CarFactory, self).__init__()
             self._make = make
 
         def __eq__(self, other):
@@ -126,8 +127,8 @@ def test_track_method(historian: mincepy.Historian):
         def save_instance_state(self, _: mincepy.Referencer):
             return {'make': self._make}
 
-        def load_instance_state(self, encoded_value, _: mincepy.Referencer):
-            self.__init__(encoded_value['make'])
+        def load_instance_state(self, saved_state, _: mincepy.Referencer):
+            self.__init__(saved_state['make'])
 
         @mincepy.track
         def build(self):
@@ -202,3 +203,37 @@ def test_save_as(historian: mincepy.Historian):
         historian.get_current_record(car)
 
     assert historian.get_current_record(new_car) is not None
+
+
+def test_type_helper(historian: mincepy.Historian):
+    """Check that a type helper can be used to make a non-historian compatible type compatible"""
+
+    class Bird:
+
+        def __init__(self, specie='hoopoe'):
+            self.specie = specie
+
+    class BirdHelper(mincepy.TypeHelper):
+        TYPE = Bird
+        TYPE_ID = uuid.UUID('5cc59e03-ea5d-43ff-8814-3b6f2e22cd76')
+
+        def yield_hashables(self, bird, hasher):
+            yield from hasher.yield_hashables(bird.specie)
+
+        def eq(self, one, other) -> bool:
+            return one.specie == other.specie
+
+        def save_instance_state(self, bird, referencer):
+            return bird.specie
+
+        def load_instance_state(self, bird, saved_state, referencer):
+            bird.specie = saved_state
+
+    bird = Bird()
+    with pytest.raises(TypeError):
+        historian.save(bird)
+
+    # Now register the helper...
+    historian.register_type(BirdHelper())
+    # ...and we should be able to save
+    assert historian.save(bird) is not None

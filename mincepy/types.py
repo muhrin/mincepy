@@ -3,7 +3,7 @@ import uuid
 
 import pyhash
 
-__all__ = ('TypeHelper', 'Equator')
+__all__ = ('TypeHelper', 'Equator', 'SavableComparable')
 
 BASE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID)
 
@@ -70,7 +70,7 @@ class Comparable(metaclass=ABCMeta):
         """Produce a hash representing the value"""
 
     @abstractmethod
-    def eq(self, other) -> bool:
+    def __eq__(self, other) -> bool:
         """Determine if two objects are equal"""
 
 
@@ -79,6 +79,7 @@ class SavableComparable(Savable, Comparable):
 
 
 class Equator:
+
     def __init__(self, equators=tuple()):
         self._equators = list(equators)
 

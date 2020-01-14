@@ -15,7 +15,7 @@ class WeakObjectIdDict(collections.MutableMapping):
         self._refs = {}  # type: collections.abc.MutableMapping[int, weakref.ReferenceType]
         self._values = {}  # type: collections.abc.MutableMapping[int, typing.Any]
         if seq:
-            if isinstance(seq, collections.Mapping):
+            if isinstance(seq, collections.abc.Mapping):
                 for key, value in seq.items():
                     self[key] = value
             elif isinstance(seq, collections.Iterable):
