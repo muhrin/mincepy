@@ -283,9 +283,10 @@ class Historian(depositor.Referencer):
     def from_dict(self, encoded: dict):
         type_id = encoded[archive.TYPE_ID]
         helper = self.get_helper(type_id)
-        obj = helper.create_blank()
-        helper.load_instance_state(obj, encoded[archive.STATE], self)
-        return obj
+        saved_state = encoded[archive.STATE]
+
+        with helper.load(saved_state, self) as obj:
+            return obj
 
     def encode(self, obj):
         obj_type = type(obj)
@@ -323,11 +324,10 @@ class Historian(depositor.Referencer):
             raise ValueError("Type with id '{}' has not been registered".format(record.type_id))
 
         with self._transaction():
-            obj = helper.create_blank()
-            self._up_to_date_ids[obj] = record.snapshot_id
-            self._objects[record.snapshot_id] = obj
-            self._records[obj] = record
-            helper.load_instance_state(obj, record.state, self)
+            with helper.load(record.state, self) as obj:
+                self._up_to_date_ids[obj] = record.snapshot_id
+                self._objects[record.snapshot_id] = obj
+                self._records[obj] = record
         return obj
 
     def two_step_save(self, obj, builder):

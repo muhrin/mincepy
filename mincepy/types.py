@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+import contextlib
 import uuid
 
 import pyhash
@@ -24,22 +25,36 @@ class TypeHelper(metaclass=ABCMeta):
     def __init__(self):
         assert self.TYPE is not None, "Must set the equator TYPE to a type of or a tuple of types"
 
-    def create_blank(self):
-        """Create a new blank object of this type"""
-        cls = self.TYPE
-        return cls.__new__(cls)
-
     @abstractmethod
     def yield_hashables(self, value, hasher):
         """Produce a hash representing the value"""
 
     @abstractmethod
-    def eq(self, one, other) -> bool:
+    def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
         """Determine if two objects are equal"""
 
     @abstractmethod
     def save_instance_state(self, obj, referencer):
         """Save the instance state of an object, should return a saved instance"""
+
+    @contextlib.contextmanager
+    def load(self, saved_state, referencer):
+        """
+        Loading of an object takes place in two steps, analogously to the way python
+        creates objects.  First a 'blank' object is created and and yielded by this
+        context manager.  Then loading is finished in load_instance_state.  Naturally,
+        the state of the object should not be relied upon until the context exits.
+        """
+        new_obj = self.new(saved_state)
+        try:
+            yield new_obj
+        finally:
+            self.load_instance_state(new_obj, saved_state, referencer)
+
+    def new(self, saved_state):  # pylint: disable=unused-argument
+        """Create a new blank object of this type"""
+        cls = self.TYPE
+        return cls.__new__(cls)
 
     @abstractmethod
     def load_instance_state(self, obj, saved_state, referencer):
@@ -74,7 +89,7 @@ class Comparable(metaclass=ABCMeta):
         """Determine if two objects are equal"""
 
 
-class SavableComparable(Savable, Comparable):
+class SavableComparable(Savable, Comparable, metaclass=ABCMeta):
     """A class that is both savable and comparable"""
 
 
@@ -119,7 +134,7 @@ class Equator:
     def hash(self, obj):
         return self._hasher(*self.yield_hashables(obj))
 
-    def eq(self, obj1, obj2) -> bool:
+    def eq(self, obj1, obj2) -> bool:  # pylint: disable=invalid-name
         if not type(obj1) == type(obj2):
             return False
 
