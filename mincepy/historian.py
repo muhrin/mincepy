@@ -1,4 +1,3 @@
-from collections import namedtuple
 import contextlib
 import copy
 import typing
@@ -22,6 +21,7 @@ CURRENT_HISTORIAN = None
 
 class WrapperHelper(types.TypeHelper):
     """Wraps up an object type to perform the necessary Historian actions"""
+    # pylint: disable=invalid-name
     TYPE = None
     TYPE_ID = None
 
@@ -44,6 +44,7 @@ class WrapperHelper(types.TypeHelper):
 
 
 class Historian(depositor.Referencer):
+
     def __init__(self, archive: archive.Archive, equators=()):
         self._archive = archive
         self._equator = types.Equator(defaults.get_default_equators() + equators)
@@ -64,6 +65,36 @@ class Historian(depositor.Referencer):
             self._archive.set_meta(record.snapshot_id, with_meta)
         return record.obj_id
 
+    def save_as(self, obj, obj_id, with_meta=None):
+        """Save an object with a given id.  Will write to the history of an object if the id already exists"""
+        with self._transaction():
+            # Do we have any records with that id
+            current_obj = None
+            current_record = None
+            for stored, record in self._records.items():
+                if record.obj_id == obj_id:
+                    current_obj, current_record = stored, record
+
+            if current_obj is not None:
+                self._records.pop(current_obj)
+            else:
+                # Check the archive
+                try:
+                    current_record = self._archive.load_snapshot(obj_id, -1)
+                except exceptions.NotFound:
+                    pass
+
+            if current_record is not None:
+                self._records[obj] = current_record
+                self._objects[record.snapshot_id] = obj
+            # Now save the thing
+            record = self.save_object(obj)
+
+        if with_meta is not None:
+            self._archive.set_meta(record.snapshot_id, with_meta)
+
+        return obj_id
+
     def save_get_snapshot_id(self, obj, with_meta=None):
         """
         Convenience function that is equivalent to:
@@ -73,10 +104,10 @@ class Historian(depositor.Referencer):
         ```
         """
         self.save(obj, with_meta)
-        return self.get_record(obj).snapshot_id
+        return self.get_current_record(obj).snapshot_id
 
     def get_last_snapshot_id(self, obj):
-        return self.get_record(obj).snapshot_id
+        return self.get_current_record(obj).snapshot_id
 
     def load(self, identifier):
         """Load an object.  Identifier can be an object id or a snapshot id."""
@@ -126,18 +157,16 @@ class Historian(depositor.Referencer):
         except KeyError:
             # Completely new
             try:
-                created_in = self.get_record(process.Process.current_process()).obj_id
+                created_in = self.get_current_record(process.Process.current_process()).obj_id
             except exceptions.NotFound:
                 created_in = None
 
-            builder = archive.DataRecord.get_builder(
-                type_id=helper.TYPE_ID,
-                obj_id=self._archive.create_archive_id(),
-                created_in=created_in,
-                snapshot_id=self._archive.create_archive_id(),
-                ancestor_id=None,
-                snapshot_hash=current_hash
-            )
+            builder = archive.DataRecord.get_builder(type_id=helper.TYPE_ID,
+                                                     obj_id=self._archive.create_archive_id(),
+                                                     created_in=created_in,
+                                                     snapshot_id=self._archive.create_archive_id(),
+                                                     ancestor_id=None,
+                                                     snapshot_hash=current_hash)
             record = self.two_step_save(obj, builder)
             return record
         else:
@@ -172,7 +201,7 @@ class Historian(depositor.Referencer):
     def get_helper_from_obj_type(self, obj_type) -> types.TypeHelper:
         return self._type_registry[obj_type]
 
-    def get_record(self, obj) -> archive.DataRecord:
+    def get_current_record(self, obj) -> archive.DataRecord:
         try:
             return self._records[obj]
         except KeyError:
@@ -199,13 +228,13 @@ class Historian(depositor.Referencer):
     def find(self, obj_type=None, filter=None, limit=0):
         """Find entries in the archive"""
         obj_type_id = self.get_obj_type_id(obj_type) if obj_type is not None else None
-        results = self._archive.find(obj_type_id=obj_type_id, filter=filter, limit=limit)
+        results = self._archive.find(obj_type_id=obj_type_id, criteria=filter, limit=limit)
         return [self.load(result.obj_id) for result in results]
 
     def created_in(self, obj_or_identifier):
         """Return the id of the object that created the passed object"""
         try:
-            return self.get_record(obj_or_identifier).created_in
+            return self.get_current_record(obj_or_identifier).created_in
         except exceptions.NotFound:
             return self._archive.load(self._get_snapshot_id(obj_or_identifier)).created_in
 
@@ -249,10 +278,7 @@ class Historian(depositor.Referencer):
         obj_type = type(obj)
         helper = self._type_registry[obj_type]
         saved_state = helper.save_instance_state(obj, self)
-        return {
-            archive.TYPE_ID: helper.TYPE_ID,
-            archive.STATE: self.encode(saved_state)
-        }
+        return {archive.TYPE_ID: helper.TYPE_ID, archive.STATE: self.encode(saved_state)}
 
     def from_dict(self, encoded: dict):
         type_id = encoded[archive.TYPE_ID]
@@ -271,9 +297,9 @@ class Historian(depositor.Referencer):
                 return {key: self.encode(value) for key, value in obj.items()}
 
             return obj
-        else:
-            # Non base types should always be converted to encoded dictionaries
-            return self.to_dict(obj)
+
+        # Non base types should always be converted to encoded dictionaries
+        return self.to_dict(obj)
 
     def decode(self, encoded):
         enc_type = type(encoded)
@@ -316,7 +342,8 @@ class Historian(depositor.Referencer):
 
     @contextlib.contextmanager
     def _transaction(self):
-        """Carry out a transaction.  A checkpoint it created at the beginning so that the state can be rolled back
+        """
+        Carry out a transaction.  A checkpoint it created at the beginning so that the state can be rolled back
         if need be, otherwise the state changes are committed at the end of the context.
 
         e.g.:
@@ -363,6 +390,7 @@ class RollbackTransaction(Exception):
 
 
 class Transaction:
+
     def rollback(self):
         raise RollbackTransaction
 

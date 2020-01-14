@@ -1,5 +1,7 @@
 import uuid
 
+import pytest
+
 import mincepy
 from .common import Car, Garage
 
@@ -90,6 +92,7 @@ def test_list_basics(historian: mincepy.Historian):
 
 
 def test_track(historian: mincepy.Historian):
+
     @mincepy.track
     def put_car_in_garage(car: Car, garage: Garage):
         garage.car = car
@@ -104,6 +107,7 @@ def test_track(historian: mincepy.Historian):
 
 
 def test_track_method(historian: mincepy.Historian):
+
     class CarFactory:
         TYPE_ID = uuid.UUID('166a9446-c04e-4fbe-a3da-6f36c2f8292d')
 
@@ -178,3 +182,23 @@ def test_metadata(historian: mincepy.Historian):
     # Check the ferrari is now changed but the fiat retains the original value
     assert historian.get_meta(ferrari_id) == {'reg': 'N317'}
     assert historian.get_meta(red_fiat_id) == {'reg': 'VD395'}
+
+
+def test_save_as(historian: mincepy.Historian):
+    """Check the save_as functionality in historian"""
+    car = Car('ferrari')
+
+    car_id = historian.save(car)
+    assert historian.get_current_record(car) is not None
+
+    # Now create a new car and save that over the old one
+    new_car = Car('honda')
+
+    new_car_id = historian.save_as(new_car, car_id)
+    assert car_id == new_car_id
+
+    with pytest.raises(mincepy.NotFound):
+        # Now that 'old' car should not be known to the historian
+        historian.get_current_record(car)
+
+    assert historian.get_current_record(new_car) is not None

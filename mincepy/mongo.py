@@ -31,15 +31,15 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     META = 'meta'
 
-    def __init__(self, db: pymongo.database.Database):
-        self._data_collection = db[self.DATA_COLLECTION]
+    def __init__(self, database: pymongo.database.Database):
+        self._data_collection = database[self.DATA_COLLECTION]
         self._create_indices()
 
     def _create_indices(self):
         # Make sure that no two entries can share the same ancestor
-        self._data_collection.create_index(
-            [(self.KEY_MAP[archive.OBJ_ID], pymongo.ASCENDING),
-             (self.KEY_MAP[archive.ANCESTOR_ID], pymongo.ASCENDING)], unique=True)
+        self._data_collection.create_index([(self.KEY_MAP[archive.OBJ_ID], pymongo.ASCENDING),
+                                            (self.KEY_MAP[archive.ANCESTOR_ID], pymongo.ASCENDING)],
+                                           unique=True)
 
     def create_archive_id(self):
         return bson.ObjectId()
@@ -59,7 +59,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         if ancestors:
             # Have to go look in the collection, collect the metadata while we're at it
             spec = {'$or': [{self.KEY_MAP[archive.SNAPSHOT_ID]: ancestor_id} for ancestor_id in ancestors]}
-            results = list(self._data_collection.find(spec, projection={self.KEY_MAP[archive.OBJ_ID]: 1, self.META: 1}))
+            results = list(self._data_collection.find(spec))
 
             for entry in results:
                 metadatas[entry[self.KEY_MAP[archive.SNAPSHOT_ID]]] = entry[self.META]
@@ -90,7 +90,11 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     def get_snapshot_ids(self, obj_id):
         # Start with the first snapshot and do a graph traversal from there
         match_initial_document = {
-            '$match': {self.KEY_MAP[archive.OBJ_ID]: obj_id, self.KEY_MAP[archive.ANCESTOR_ID]: None}}
+            '$match': {
+                self.KEY_MAP[archive.OBJ_ID]: obj_id,
+                self.KEY_MAP[archive.ANCESTOR_ID]: None
+            }
+        }
         find_ancestors = {
             "$graphLookup": {
                 "from": self._data_collection.name,
@@ -99,7 +103,9 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                 "connectToField": self.KEY_MAP[archive.ANCESTOR_ID],
                 "as": "descendents",
                 "depthField": "depth",
-                "restrictSearchWithMatch": {self.KEY_MAP[archive.OBJ_ID]: obj_id}
+                "restrictSearchWithMatch": {
+                    self.KEY_MAP[archive.OBJ_ID]: obj_id
+                }
             }
         }
         results = tuple(self._data_collection.aggregate([match_initial_document, find_ancestors]))
@@ -125,18 +131,20 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     def set_meta(self, snapshot_id, meta):
         found = self._data_collection.find_one_and_update({self.KEY_MAP[archive.SNAPSHOT_ID]: snapshot_id},
-                                                          {'$set': {'meta': meta}})
+                                                          {'$set': {
+                                                              'meta': meta
+                                                          }})
         if not found:
             raise exceptions.NotFound("No record with snapshot id '{}' found".format(snapshot_id))
 
-    def find(self, obj_type_id=None, hash=None, filter=None, limit=0, sort=None):
+    def find(self, obj_type_id=None, snapshot_hash=None, criteria=None, limit=0, sort=None):
         mfilter = {}
         if obj_type_id is not None:
             mfilter['type_id'] = obj_type_id
-        if filter is not None:
-            mfilter['obj'] = filter
-        if hash is not None:
-            mfilter['hash'] = hash
+        if criteria is not None:
+            mfilter['obj'] = criteria
+        if snapshot_hash is not None:
+            mfilter[self.KEY_MAP[archive.SNAPSHOT_HASH]] = snapshot_hash
 
         cursor = self._data_collection.find(filter=mfilter, limit=limit, sort=sort)
         return [self._to_record(result) for result in cursor]

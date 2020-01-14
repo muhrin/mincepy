@@ -16,9 +16,9 @@ SNAPSHOT_HASH = 'snapshot_hash'
 
 
 class DataRecord(
-    namedtuple(
-        'DataRecord',
-        (
+        namedtuple(
+            'DataRecord',
+            (
                 # Object properties
                 OBJ_ID,  # The ID of the object (spanning all snapshots)
                 TYPE_ID,  # The type ID of this object
@@ -28,10 +28,8 @@ class DataRecord(
                 ANCESTOR_ID,  # The ID of the previous snapshot of the object
                 STATE,  # The saved state of the object
                 SNAPSHOT_HASH,  # The hash of the state
-        ))):
-    DEFAULTS = {
-        CREATED_IN: None
-    }
+            ))):
+    DEFAULTS = {CREATED_IN: None}
 
     @classmethod
     def get_builder(cls, **kwargs):
@@ -52,7 +50,8 @@ class DataRecord(
             OBJ_ID: self.obj_id,
             TYPE_ID: self.type_id,
             CREATED_IN: self.created_in,
-            ANCESTOR_ID: self.snapshot_id, }
+            ANCESTOR_ID: self.snapshot_id,
+        }
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
 
@@ -61,6 +60,7 @@ IdT = typing.TypeVar('IdT')
 
 
 class Archive(typing.Generic[IdT], metaclass=ABCMeta):
+
     @classmethod
     @abstractmethod
     def get_id_type(cls) -> typing.Type[IdT]:
@@ -91,11 +91,15 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         """Load a snapshot of an object with the given id, by default gives the latest"""
 
     @abstractmethod
+    def load_snapshot(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
+        """Load the snapshot records for a particular object, can return a single or multiple records"""
+
+    @abstractmethod
     def get_snapshot_ids(self, obj_id: IdT):
         """Returns a list of ordered snapshot ids for a given object"""
 
     @abstractmethod
-    def find(self, obj_type_id=None, filter=None, limit=0, sort=None):
+    def find(self, obj_type_id=None, snapshot_hash=None, criteria=None, limit=0, sort=None):
         """Find objects matching the given criteria"""
 
 
@@ -114,3 +118,11 @@ class BaseArchive(Archive[IdT]):
         """
         for record in records:
             self.save(record)
+
+    def load_snapshot(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
+        ids = self.get_snapshot_ids(obj_id)[idx_or_slice]
+        if len(ids) > 1:
+            return [self.load(sid) for sid in ids]
+
+        # Single one
+        return self.load(ids[0])
