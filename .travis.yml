@@ -2,10 +2,8 @@ dist: bionic
 language: python
 cache: pip
 
-addons:
-  apt:
-    packages:
-      - rabbitmq-server
+services:
+  - mongodb
 
 python:
   - 3.5
