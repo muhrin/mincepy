@@ -45,8 +45,8 @@ class Process(types.SavableComparable):
     def yield_hashables(self, hasher):
         yield from types.yield_hashable_attributes(self, self.DEFINING_ATTRIBUTES, hasher)
 
-    def save_instance_state(self, _: depositor.Referencer):
+    def save_instance_state(self, referencer: depositor.Referencer):  # pylint: disable=unused-argument
         return {'name': self.name}
 
-    def load_instance_state(self, state, _: depositor.Referencer):
-        self.__init__(state['name'])
+    def load_instance_state(self, saved_state, referencer: depositor.Referencer):  # pylint: disable=unused-argument
+        Process.__init__(self, saved_state['name'])
