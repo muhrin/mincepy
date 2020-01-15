@@ -1,6 +1,10 @@
 from abc import ABCMeta, abstractmethod
 import contextlib
-from hashlib import blake2b
+
+try:  # Python3
+    from hashlib import blake2b
+except ImportError:  # Python < 3.6
+    from pyblake2 import blake2b
 import uuid
 
 __all__ = ('TypeHelper', 'Equator', 'SavableComparable')

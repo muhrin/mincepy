@@ -25,10 +25,7 @@ setup(name='mincepy',
           'Programming Language :: Python :: 3.7',
       ],
       keywords='workflow',
-      install_requires=[
-          'pymongo',
-          'bidict',
-      ],
+      install_requires=['pymongo', 'bidict', 'pyblake2; python_version<"3.6"'],
       extras_require={
           'dev': [
               'pip',
