@@ -1,8 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import contextlib
+from hashlib import blake2b
 import uuid
-
-import pyhash
 
 __all__ = ('TypeHelper', 'Equator', 'SavableComparable')
 
@@ -100,8 +99,11 @@ class Equator:
         self._equators = list(equators)
 
         def do_hash(*args):
-            hasher = pyhash.xx_64()
-            return hex(hasher(*args))[2:]
+            hasher = blake2b(digest_size=32)
+            for arg in args:
+                hasher.update(arg)
+
+            return hasher.hexdigest()
 
         self._hasher = do_hash
 

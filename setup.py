@@ -27,7 +27,6 @@ setup(name='mincepy',
       keywords='workflow',
       install_requires=[
           'pymongo',
-          'pyhash',
           'bidict',
       ],
       extras_require={
