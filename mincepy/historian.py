@@ -168,15 +168,13 @@ class Historian(depositor.Referencer):
             return obj
 
     def save_object(self, obj) -> archive.DataRecord:
-        self._ensure_compatible(type(obj))
-
         # Check if we already have an up to date record
         if obj in self._up_to_date_ids:
             return self._records[obj]
 
         # Ok, have to save it
+        helper = self._ensure_compatible(type(obj))
         current_hash = self.hash(obj)
-        helper = self.get_helper_from_obj_type(type(obj))
 
         try:
             # Let's see if we have a record at all
@@ -288,20 +286,6 @@ class Historian(depositor.Referencer):
 
         return self.load_object(snapshot_id)
 
-    def to_dict(self, obj: types.Savable) -> dict:
-        obj_type = type(obj)
-        helper = self._type_registry[obj_type]
-        saved_state = helper.save_instance_state(obj, self)
-        return {archive.TYPE_ID: helper.TYPE_ID, archive.STATE: self.encode(saved_state)}
-
-    def from_dict(self, encoded: dict):
-        type_id = encoded[archive.TYPE_ID]
-        helper = self.get_helper(type_id)
-        saved_state = encoded[archive.STATE]
-
-        with helper.load(saved_state, self) as obj:
-            return obj
-
     def encode(self, obj):
         obj_type = type(obj)
         if obj_type in self._get_primitive_types():
@@ -316,7 +300,14 @@ class Historian(depositor.Referencer):
         # Non base types should always be converted to encoded dictionaries
         return self.to_dict(obj)
 
+    def to_dict(self, obj: types.Savable) -> dict:
+        obj_type = type(obj)
+        helper = self._ensure_compatible(obj_type)
+        saved_state = helper.save_instance_state(obj, self)
+        return {archive.TYPE_ID: helper.TYPE_ID, archive.STATE: self.encode(saved_state)}
+
     def decode(self, encoded):
+        """Decode the saved state recreating any saved objects within."""
         enc_type = type(encoded)
         primitives = self._get_primitive_types()
         if enc_type not in primitives:
@@ -325,11 +316,20 @@ class Historian(depositor.Referencer):
         if enc_type is dict:
             if archive.TYPE_ID in encoded:
                 return self.from_dict(encoded)
-            return {key: self.decode(value) for key, value in encoded.items()}
+            else:
+                return {key: self.decode(value) for key, value in encoded.items()}
         if enc_type is list:
             return [self.decode(value) for value in encoded]
 
+        # No decoding to be done
         return encoded
+
+    def from_dict(self, encoded: dict):
+        type_id = encoded[archive.TYPE_ID]
+        helper = self.get_helper(type_id)
+        saved_state = self.decode(encoded[archive.STATE])
+        with helper.load(saved_state, self) as obj:
+            return obj
 
     def two_step_load(self, record: archive.DataRecord):
         try:
@@ -408,12 +408,15 @@ class Historian(depositor.Referencer):
                     "Object type '{}' is incompatible with the historian, either subclass from SavableComparable or "
                     "provide a helper".format(obj_type))
 
+        return self._type_registry[obj_type]
+
 
 class RollbackTransaction(Exception):
     pass
 
 
 class Transaction:
+
     @staticmethod
     def rollback():
         raise RollbackTransaction

@@ -38,20 +38,21 @@ class TypeHelper(metaclass=ABCMeta):
         """Save the instance state of an object, should return a saved instance"""
 
     @contextlib.contextmanager
-    def load(self, saved_state, referencer):
+    def load(self, encoded_saved_state, referencer):
         """
         Loading of an object takes place in two steps, analogously to the way python
         creates objects.  First a 'blank' object is created and and yielded by this
         context manager.  Then loading is finished in load_instance_state.  Naturally,
         the state of the object should not be relied upon until the context exits.
         """
-        new_obj = self.new(saved_state)
+        new_obj = self.new(encoded_saved_state)
         try:
             yield new_obj
         finally:
-            self.load_instance_state(new_obj, saved_state, referencer)
+            decoded = referencer.decode(encoded_saved_state)
+            self.load_instance_state(new_obj, decoded, referencer)
 
-    def new(self, saved_state):  # pylint: disable=unused-argument
+    def new(self, encoded_saved_state):  # pylint: disable=unused-argument
         """Create a new blank object of this type"""
         cls = self.TYPE
         return cls.__new__(cls)

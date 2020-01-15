@@ -264,3 +264,36 @@ def test_history(historian: mincepy.Historian):
     old_version.colour = 'black'
     with pytest.raises(mincepy.ModificationError):
         historian.save(old_version)
+
+
+def test_storing_internal_object(historian: mincepy.Historian):
+
+    class Person(mincepy.SavableComparable):
+        TYPE_ID = uuid.UUID('f6f83595-6375-4bc4-89f2-d8f31a1286b0')
+
+        def __init__(self, car):
+            super(Person, self).__init__()
+            self.car = car  # This person 'own' the car
+
+        def __eq__(self, other):
+            return self.car == other.car
+
+        def yield_hashables(self, hasher):
+            yield from hasher.yield_hashables(self.car)
+
+        def save_instance_state(self, referencer):
+            return {'car': self.car}
+
+        def load_instance_state(self, saved_state, referencer):
+            self.car = saved_state['car']
+
+    ferrari = Car('ferrari')
+    mike = Person(ferrari)
+
+    mike_id = historian.save(mike)
+    del mike
+
+    loaded_mike = historian.load(mike_id)
+    assert loaded_mike.car.make == 'ferrari'
+    # Because mike owns the car, it is always an internal version, not a reference
+    assert loaded_mike.car is not ferrari
