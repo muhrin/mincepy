@@ -108,3 +108,22 @@ class NamedTupleBuilder(Generic[T]):
 
     def build(self) -> T:
         return self._tuple_type(**self._values)
+
+
+def to_slice(specifier) -> slice:
+    """
+    Turn the specifier into a slice object.  Accepts either:
+    1. a slice, which is just returned.
+    2. a concrete index (positive or negative) e.g. to_slice(5) will generate a slice that
+        returns the 5th element
+    3. a string containing '*' or ':' to get all entries.
+    """
+    if isinstance(specifier, slice):
+        return specifier
+    if isinstance(specifier, int):
+        sign = -1 if specifier < 0 else 1
+        return slice(specifier, specifier + sign, sign)
+    if isinstance(specifier, str) and specifier == ':' or specifier == '*':
+        return slice(None)
+
+    raise ValueError("Unknown slice specifier: {}".format(specifier))

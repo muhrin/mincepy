@@ -74,7 +74,7 @@ def test_create_delete_load(historian: mincepy.Historian):
 
 def test_list_basics(historian: mincepy.Historian):
     parking_lot = mincepy.builtins.List()
-    for i in range(100):
+    for i in range(50):
         parking_lot.append(Car(str(i)))
 
     list_id = historian.save_get_snapshot_id(parking_lot)
@@ -237,3 +237,30 @@ def test_type_helper(historian: mincepy.Historian):
     historian.register_type(BirdHelper())
     # ...and we should be able to save
     assert historian.save(bird) is not None
+
+
+def test_history(historian: mincepy.Historian):
+    rainbow = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet']
+
+    car = Car()
+    car_id = None
+    for colour in rainbow:
+        car.colour = colour
+        car_id = historian.save(car)
+
+    car_history = historian.history(car_id)
+    assert len(car_history) == len(rainbow)
+    for i, entry in enumerate(car_history):
+        assert entry[1].colour == rainbow[i]
+
+    # Test loading directly from snapshot id
+    assert historian.load(car_history[2].snapshot_id) == car_history[2].obj
+
+    # Test slicing
+    assert historian.history(car_id, -1)[0].obj.colour == rainbow[-1]
+
+    # Try changing history
+    old_version = car_history[2].obj
+    old_version.colour = 'black'
+    with pytest.raises(mincepy.ModificationError):
+        historian.save(old_version)

@@ -4,6 +4,7 @@ from bidict import bidict
 import bson
 import pymongo
 import pymongo.database
+import pymongo.errors
 
 from . import archive
 from .archive import BaseArchive, DataRecord
@@ -41,7 +42,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                                             (self.KEY_MAP[archive.ANCESTOR_ID], pymongo.ASCENDING)],
                                            unique=True)
 
-    def create_archive_id(self):
+    def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
 
     def save(self, record: DataRecord):
@@ -71,15 +72,13 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
         # Generate the entries for our collection collecting the metadata that we gathered
         entries = [self._to_entry(record, metadatas.get(record.ancestor_id, None)) for record in records]
-        self._data_collection.insert_many(entries)
-
-    def _get_organised(self, records: typing.List[DataRecord]):
-        # Organise the records into a dictionary where the key is the object id and the
-        # value is another dictionary where the key is the version number
-        organised = {}
-        for record in records:
-            organised.setdefault(record.obj_id, {})[record.version] = record
-        return organised
+        try:
+            self._data_collection.insert_many(entries)
+        except pymongo.errors.BulkWriteError as exc:
+            write_errors = exc.details['writeErrors']
+            if write_errors:
+                raise exceptions.ModificationError("You're trying to rewrite history, that's not allowed!")
+            raise  # Otherwise just raise what we got
 
     def load(self, snapshot_id) -> DataRecord:
         results = list(self._data_collection.find({self.KEY_MAP[archive.SNAPSHOT_ID]: snapshot_id}))

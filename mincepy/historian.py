@@ -1,3 +1,4 @@
+from collections import namedtuple
 import contextlib
 import copy
 import typing
@@ -18,6 +19,8 @@ INHERIT = 'INHERIT'
 
 CURRENT_HISTORIAN = None
 
+ObjectEntry = namedtuple('ObjectEntry', 'snapshot_id obj')
+
 
 class WrapperHelper(types.TypeHelper):
     """Wraps up an object type to perform the necessary Historian actions"""
@@ -30,8 +33,8 @@ class WrapperHelper(types.TypeHelper):
         self.TYPE_ID = obj_type.TYPE_ID
         super(WrapperHelper, self).__init__()
 
-    def yield_hashables(self, value, hasher):
-        yield from self.TYPE.yield_hashables(value, hasher)
+    def yield_hashables(self, obj, hasher):
+        yield from self.TYPE.yield_hashables(obj, hasher)
 
     def eq(self, one, other) -> bool:
         return self.TYPE.__eq__(one, other)
@@ -80,7 +83,7 @@ class Historian(depositor.Referencer):
             else:
                 # Check the archive
                 try:
-                    current_record = self._archive.load_snapshot(obj_id, -1)
+                    current_record = self._archive.history(obj_id, -1)
                 except exceptions.NotFound:
                     pass
 
@@ -113,6 +116,30 @@ class Historian(depositor.Referencer):
         """Load an object.  Identifier can be an object id or a snapshot id."""
         sid = self._get_snapshot_id(identifier)
         return self.load_object(sid)
+
+    def history(self, obj_id, idx_or_slice='*') -> typing.Sequence[ObjectEntry]:
+        """
+        Get a sequence of object ids and instances from the history of the given object.
+
+        Example:
+
+        >>> car = Car('ferrari', 'white')
+        >>> car_id = historian.save(car)
+        >>> car.colour = 'red'
+        >>> historian.save(car)
+        >>> history = historian.history(car_id)
+        >>> len(history)
+        2
+        >>> history[0].obj.colour == 'white'
+        True
+        >>> history[1].obj.colour == 'red'
+        True
+        >>> history[1].obj is car
+        """
+        snapshot_ids = self._archive.get_snapshot_ids(obj_id)
+        indices = utils.to_slice(idx_or_slice)
+        to_get = snapshot_ids[indices]
+        return [ObjectEntry(sid, self.load_object(sid)) for sid in to_get]
 
     def load_object(self, snapshot_id):
         # Try getting the object from the our dict of up to date ones
@@ -238,11 +265,6 @@ class Historian(depositor.Referencer):
         except exceptions.NotFound:
             return self._archive.load(self._get_snapshot_id(obj_or_identifier)).created_in
 
-    def copy(self, obj):
-        obj_copy = copy.copy(obj)
-
-        return obj_copy
-
     def _get_snapshot_id(self, identifier):
         """Given an object id this will return the id of the latest snapshot, otherwise just returns the identifier"""
         try:
@@ -257,21 +279,13 @@ class Historian(depositor.Referencer):
         if obj is None:
             return None
 
-        try:
-            return self._up_to_date_ids[obj]
-        except KeyError:
-            return self.save_object(obj).snapshot_id
+        return self.save_object(obj).snapshot_id
 
     def deref(self, snapshot_id):
         """Get the object from a reference"""
         if snapshot_id is None:
             return None
 
-        for obj, sid in self._up_to_date_ids.items():
-            if snapshot_id == sid:
-                return obj
-
-        # Ok, have to load it
         return self.load_object(snapshot_id)
 
     def to_dict(self, obj: types.Savable) -> dict:
@@ -400,8 +414,8 @@ class RollbackTransaction(Exception):
 
 
 class Transaction:
-
-    def rollback(self):
+    @staticmethod
+    def rollback():
         raise RollbackTransaction
 
 

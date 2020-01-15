@@ -26,7 +26,7 @@ class TypeHelper(metaclass=ABCMeta):
         assert self.TYPE is not None, "Must set the equator TYPE to a type of or a tuple of types"
 
     @abstractmethod
-    def yield_hashables(self, value, hasher):
+    def yield_hashables(self, obj, hasher):
         """Produce a hash representing the value"""
 
     @abstractmethod

@@ -91,7 +91,7 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         """Load a snapshot of an object with the given id, by default gives the latest"""
 
     @abstractmethod
-    def load_snapshot(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
+    def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
         """Load the snapshot records for a particular object, can return a single or multiple records"""
 
     @abstractmethod
@@ -119,7 +119,7 @@ class BaseArchive(Archive[IdT]):
         for record in records:
             self.save(record)
 
-    def load_snapshot(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
+    def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
         ids = self.get_snapshot_ids(obj_id)[idx_or_slice]
         if len(ids) > 1:
             return [self.load(sid) for sid in ids]
