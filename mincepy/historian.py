@@ -20,7 +20,7 @@ INHERIT = 'INHERIT'
 
 CURRENT_HISTORIAN = None
 
-ObjectEntry = namedtuple('ObjectEntry', 'snapshot_id obj')
+ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
 
 
 class WrapperHelper(types.TypeHelper):
@@ -53,9 +53,12 @@ class Historian(depositor.Referencer):
         self._archive = archive
         self._equator = types.Equator(defaults.get_default_equators() + equators)
 
-        self._up_to_date_ids = utils.WeakObjectIdDict()  # type: typing.MutableMapping[typing.Any, typing.Any]
-        self._records = utils.WeakObjectIdDict()  # Object to record
-        self._objects = weakref.WeakValueDictionary()  # Snapshot id to object
+        # Object that are up to date during a transaction
+        self._up_to_date_objects = utils.WeakObjectIdDict()  # type: typing.MutableMapping[archive.Ref, typing.Any]
+        # Object to record
+        self._records = utils.WeakObjectIdDict()  # type: MutableMapping[typing.Any, archive.DataRecord]
+        #  Reference -> object
+        self._objects = weakref.WeakValueDictionary()  # type: MutableMapping[archive.Ref, typing.Any]
         self._staged = []
         self._transaction_count = 0
 
@@ -90,7 +93,7 @@ class Historian(depositor.Referencer):
 
             if current_record is not None:
                 self._records[obj] = current_record
-                self._objects[record.snapshot_id] = obj
+                self._objects[record.version] = obj
             # Now save the thing
             record = self.save_object(obj, LatestReferencer(self))
 
@@ -146,16 +149,15 @@ class Historian(depositor.Referencer):
         return [ObjectEntry(ref, self.load_object(ref, self)) for ref in to_get]
 
     def load_object(self, reference, referencer):
-        snapshot_id = reference.snapshot_id
         # Try getting the object from the our dict of up to date ones
-        for obj, sid in self._up_to_date_ids.items():
-            if snapshot_id == sid:
+        for obj, ref in self._up_to_date_objects.items():
+            if reference == ref:
                 return obj
 
         # Couldn't find it, so let's check if we have one and check if it is up to date
         record = self._archive.load(reference)
         try:
-            obj = self._objects[snapshot_id]
+            obj = self._objects[reference]
         except KeyError:
             # Ok, just use the one from storage
             return self.two_step_load(record, referencer)
@@ -174,7 +176,7 @@ class Historian(depositor.Referencer):
 
     def save_object(self, obj, referencer) -> archive.DataRecord:
         # Check if we already have an up to date record
-        if obj in self._up_to_date_ids:
+        if obj in self._up_to_date_objects:
             return self._records[obj]
 
         # Ok, have to save it
@@ -194,8 +196,7 @@ class Historian(depositor.Referencer):
             builder = archive.DataRecord.get_builder(type_id=helper.TYPE_ID,
                                                      obj_id=self._archive.create_archive_id(),
                                                      created_in=created_in,
-                                                     snapshot_id=self._archive.create_archive_id(),
-                                                     ancestor_id=None,
+                                                     version=0,
                                                      snapshot_hash=current_hash)
             return self.two_step_save(obj, builder)
         else:
@@ -207,7 +208,6 @@ class Historian(depositor.Referencer):
                     transaction.rollback()
                 else:
                     builder = record.child_builder()
-                    builder.snapshot_id = self._archive.create_archive_id()
                     builder.snapshot_hash = current_hash
                     record = self.two_step_save(obj, builder)
 
@@ -350,15 +350,16 @@ class Historian(depositor.Referencer):
 
         with self._transaction():
             with self.create_from(record.state, helper, referencer) as obj:
-                self._up_to_date_ids[obj] = record.snapshot_id
-                self._objects[record.snapshot_id] = obj
+                self._up_to_date_objects[obj] = record.get_reference()
+                self._objects[record.get_reference()] = obj
                 self._records[obj] = record
         return obj
 
     def two_step_save(self, obj, builder):
         with self._transaction():
-            self._up_to_date_ids[obj] = builder.snapshot_id
-            self._objects[builder.snapshot_id] = obj
+            ref = archive.Ref(builder.obj_id, builder.version)
+            self._up_to_date_objects[obj] = ref
+            self._objects[ref] = obj
             builder.update(self.encode(obj))
             record = builder.build()
             self._records[obj] = record
@@ -385,21 +386,21 @@ class Historian(depositor.Referencer):
         # Changes cancelled
         """
         initial_records = copy.copy(self._records)
-        initial_snapshot_ids = copy.copy(self._objects)
-        initial_up_to_date_ids = copy.copy(self._up_to_date_ids)
+        initial_objects = copy.copy(self._objects)
+        initial_up_to_date_objects = copy.copy(self._up_to_date_objects)
         transaction = Transaction()
         self._transaction_count += 1
         try:
             yield transaction
         except RollbackTransaction:
             self._records = initial_records
-            self._objects = initial_snapshot_ids
-            self._up_to_date_ids = initial_up_to_date_ids
+            self._objects = initial_objects
+            self._up_to_date_objects = initial_up_to_date_objects
         finally:
 
             self._transaction_count -= 1
             if not self._transaction_count:
-                self._up_to_date_ids = utils.WeakObjectIdDict()
+                self._up_to_date_objects = utils.WeakObjectIdDict()
                 # Save any records that were staged for archiving
                 if self._staged:
                     self._archive.save_many(self._staged)

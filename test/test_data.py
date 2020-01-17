@@ -260,7 +260,7 @@ def test_history(historian: mincepy.Historian):
         assert entry[1].colour == rainbow[i]
 
     # Test loading directly from snapshot id
-    assert historian.load_snapshot(car_history[2].snapshot_id) == car_history[2].obj
+    assert historian.load_snapshot(car_history[2].ref) == car_history[2].obj
 
     # Test slicing
     assert historian.history(car_id, -1)[0].obj.colour == rainbow[-1]

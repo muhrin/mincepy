@@ -12,6 +12,13 @@ from . import exceptions
 
 __all__ = ('MongoArchive',)
 
+OBJ_ID = archive.OBJ_ID
+TYPE_ID = archive.TYPE_ID
+CREATED_IN = archive.CREATED_IN
+VERSION = 'ver'
+STATE = 'state'
+SNAPSHOT_HASH = 'hash'
+
 
 class MongoArchive(BaseArchive[bson.ObjectId]):
     ID_TYPE = bson.ObjectId
@@ -22,13 +29,12 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     # Here we map the data record property names onto ones in our entry format.
     # If a record property doesn't appear here it means the name says the same
     KEY_MAP = bidict({
-        archive.OBJ_ID: archive.OBJ_ID,
-        archive.TYPE_ID: archive.TYPE_ID,
-        archive.CREATED_IN: archive.CREATED_IN,
-        archive.SNAPSHOT_ID: '_id',
-        archive.ANCESTOR_ID: archive.ANCESTOR_ID,
-        archive.STATE: archive.STATE,
-        archive.SNAPSHOT_HASH: archive.SNAPSHOT_HASH
+        archive.OBJ_ID: OBJ_ID,
+        archive.TYPE_ID: TYPE_ID,
+        archive.CREATED_IN: CREATED_IN,
+        archive.VERSION: VERSION,
+        archive.STATE: STATE,
+        archive.SNAPSHOT_HASH: SNAPSHOT_HASH
     })
 
     META = 'meta'
@@ -39,9 +45,9 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         self._create_indices()
 
     def _create_indices(self):
-        # Make sure that no two entries can share the same ancestor
+        # Make sure that no two entries can share the same object id and version
         self._data_collection.create_index([(self.KEY_MAP[archive.OBJ_ID], pymongo.ASCENDING),
-                                            (self.KEY_MAP[archive.ANCESTOR_ID], pymongo.ASCENDING)],
+                                            (self.KEY_MAP[archive.VERSION], pymongo.ASCENDING)],
                                            unique=True)
 
     def create_archive_id(self):  # pylint: disable=no-self-use
@@ -52,28 +58,8 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         return record
 
     def save_many(self, records: typing.List[DataRecord]):
-        # Collect all the ones to where previous versions have to be accounted for
-        ancestors = {record.ancestor_id for record in records if record.ancestor_id}
-
-        # Now check that the ancestors are accounted for, either in the list passed or in the database
-        ancestors -= {record.snapshot_id for record in records}
-
-        metadatas = {}
-        if ancestors:
-            # Have to go look in the collection, collect the metadata while we're at it
-            spec = {'$or': [{self.KEY_MAP[archive.SNAPSHOT_ID]: ancestor_id} for ancestor_id in ancestors]}
-            results = list(self._data_collection.find(spec))
-
-            for entry in results:
-                metadatas[entry[self.KEY_MAP[archive.SNAPSHOT_ID]]] = entry[self.META]
-            ancestors -= {entry[self.KEY_MAP[archive.SNAPSHOT_ID]] for entry in results}
-
-        if ancestors:
-            raise ValueError(
-                "Records were passed that refer to ancestors not present in the passed list nor in the archive")
-
         # Generate the entries for our collection collecting the metadata that we gathered
-        entries = [self._to_entry(record, metadatas.get(record.ancestor_id, None)) for record in records]
+        entries = [self._to_entry(record) for record in records]
         try:
             self._data_collection.insert_many(entries)
         except pymongo.errors.BulkWriteError as exc:
@@ -84,48 +70,23 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     def load(self, reference) -> DataRecord:
         results = list(
-            self._data_collection.find({
-                self.KEY_MAP[archive.OBJ_ID]: reference.obj_id,
-                self.KEY_MAP[archive.SNAPSHOT_ID]: reference.snapshot_id,
-            }))
+            self._data_collection.find(
+                {
+                    self.KEY_MAP[archive.OBJ_ID]: reference.obj_id,
+                    self.KEY_MAP[archive.VERSION]: reference.version,
+                },
+                projection={'_id': False}))
         if not results:
             raise exceptions.NotFound("Snapshot id '{}' not found".format(reference))
         return self._to_record(results[0])
 
     def get_snapshot_refs(self, obj_id):
-        # Start with the first snapshot and do a graph traversal from there
-        match_initial_document = {
-            '$match': {
-                self.KEY_MAP[archive.OBJ_ID]: obj_id,
-                self.KEY_MAP[archive.ANCESTOR_ID]: None
-            }
-        }
-        find_ancestors = {
-            "$graphLookup": {
-                "from": self._data_collection.name,
-                "startWith": "${}".format(self.KEY_MAP[archive.SNAPSHOT_ID]),
-                "connectFromField": self.KEY_MAP[archive.SNAPSHOT_ID],
-                "connectToField": self.KEY_MAP[archive.ANCESTOR_ID],
-                "as": "descendents",
-                "depthField": "depth",
-                "restrictSearchWithMatch": {
-                    self.KEY_MAP[archive.OBJ_ID]: obj_id
-                }
-            }
-        }
-        results = tuple(self._data_collection.aggregate([match_initial_document, find_ancestors]))
+        results = self._data_collection.find({OBJ_ID: obj_id},
+                                             projection={VERSION: 1},
+                                             sort=[(VERSION, pymongo.ASCENDING)])
         if not results:
             return []
-
-        entry = results[0]
-
-        # Preallocate an array
-        snapshot_ids = [None] * (len(entry['descendents']) + 1)
-        snapshot_ids[0] = entry[self.KEY_MAP[archive.SNAPSHOT_ID]]
-        for descendent in entry['descendents']:
-            snapshot_ids[descendent['depth'] + 1] = descendent[self.KEY_MAP[archive.SNAPSHOT_ID]]
-
-        return [archive.Ref(obj_id, sid) for sid in snapshot_ids]
+        return [archive.Ref(obj_id, result[VERSION]) for result in results]
 
     def get_meta(self, obj_id):
         assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
@@ -153,22 +114,21 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         cursor = self._data_collection.find(filter=mfilter, limit=limit, sort=sort)
         return [self._to_record(result) for result in cursor]
 
-    def _to_record(self, entry):
+    def _to_record(self, entry) -> archive.DataRecord:
+        """Convert a MongoDB data collection entry to a DataRecord"""
         record_dict = dict(DataRecord.DEFAULTS)
 
         # Invert our mapping of keys back to the data record property names and update over any defaults
-        record_dict.update(
-            {self.KEY_MAP.inverse.get(key, key): value for key, value in entry.items() if key != self.META})
+        record_dict.update({recordkey: entry[dbkey] for recordkey, dbkey in self.KEY_MAP.items() if dbkey in entry})
 
         return DataRecord(**record_dict)
 
-    def _to_entry(self, record: DataRecord, meta=None):
+    def _to_entry(self, record: DataRecord) -> dict:
+        """Convert a DataRecord to a MongoDB data collection entry"""
         entry = {}
         for key, item in record._asdict().items():
-            # Exclude defaults
+            # Exclude entries that have the default value
             if not (key in DataRecord.DEFAULTS and DataRecord.DEFAULTS[key] == item):
                 entry[self.KEY_MAP[key]] = item
 
-        # Add the metadata
-        entry[self.META] = meta
         return entry

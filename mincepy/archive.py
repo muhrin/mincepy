@@ -11,8 +11,7 @@ __all__ = ('Archive', 'DataRecord', 'Ref')
 OBJ_ID = 'obj_id'
 TYPE_ID = 'type_id'
 CREATED_IN = 'created_in'
-SNAPSHOT_ID = 'snapshot_id'
-ANCESTOR_ID = 'ancestor_id'
+VERSION = 'version'
 STATE = 'state'
 SNAPSHOT_HASH = 'snapshot_hash'
 
@@ -22,31 +21,34 @@ IdT = typing.TypeVar('IdT')  # The archive ID type
 class Ref(typing.Generic[IdT], types.SavableComparable):
     TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
 
-    def __init__(self, obj_id, snapshot_id):
+    def __init__(self, obj_id, version):
         super(Ref, self).__init__()
         self._obj_id = obj_id
-        self._snapshot_id = snapshot_id
+        self._version = version
+
+    def __hash__(self):
+        return (self.obj_id, self.version).__hash__()
 
     def __eq__(self, other):
         if not isinstance(other, Ref):
             return False
 
-        return self.obj_id == other.obj_id and self.snapshot_id == other.snapshot_id
+        return self.obj_id == other.obj_id and self.version == other.version
 
     @property
     def obj_id(self) -> IdT:
         return self._obj_id
 
     @property
-    def snapshot_id(self):
-        return self._snapshot_id
+    def version(self):
+        return self._version
 
     def yield_hashables(self, hasher):
         yield from hasher.hash(self.obj_id)
-        yield from hasher.hash(self.snapshot_id)
+        yield from hasher.hash(self.version)
 
     def save_instance_state(self, referencer):
-        return [self.obj_id, self.snapshot_id]
+        return [self.obj_id, self.version]
 
     def load_instance_state(self, saved_state, referencer):
         self.__init__(*saved_state)
@@ -61,8 +63,7 @@ class DataRecord(
                 TYPE_ID,  # The type ID of this object
                 CREATED_IN,  # The ID of the process the data was created in
                 # Snapshot properties
-                SNAPSHOT_ID,  # The ID of this particular snapshot of the object
-                ANCESTOR_ID,  # The ID of the previous snapshot of the object
+                VERSION,  # The ID of this particular snapshot of the object
                 STATE,  # The saved state of the object
                 SNAPSHOT_HASH,  # The hash of the state
             ))):
@@ -76,7 +77,7 @@ class DataRecord(
         return utils.NamedTupleBuilder(cls, values)
 
     def get_reference(self) -> Ref:
-        return Ref(self.obj_id, self.snapshot_id)
+        return Ref(self.obj_id, self.version)
 
     def child_builder(self, **kwargs) -> utils.NamedTupleBuilder:
         """
@@ -84,13 +85,13 @@ class DataRecord(
             * obj_id
             * type_id
             * created_in
-        and ancestor_id will be used as the new snapshot id.
+        and version will be incremented by one.
         """
         defaults = {
             OBJ_ID: self.obj_id,
             TYPE_ID: self.type_id,
             CREATED_IN: self.created_in,
-            ANCESTOR_ID: self.snapshot_id,
+            VERSION: self.version + 1,
         }
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
