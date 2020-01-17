@@ -17,6 +17,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     ID_TYPE = bson.ObjectId
 
     DATA_COLLECTION = 'data'
+    META_COLLECTION = 'meta'
 
     # Here we map the data record property names onto ones in our entry format.
     # If a record property doesn't appear here it means the name says the same
@@ -34,6 +35,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     def __init__(self, database: pymongo.database.Database):
         self._data_collection = database[self.DATA_COLLECTION]
+        self._meta_collection = database[self.META_COLLECTION]
         self._create_indices()
 
     def _create_indices(self):
@@ -80,13 +82,17 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                 raise exceptions.ModificationError("You're trying to rewrite history, that's not allowed!")
             raise  # Otherwise just raise what we got
 
-    def load(self, snapshot_id) -> DataRecord:
-        results = list(self._data_collection.find({self.KEY_MAP[archive.SNAPSHOT_ID]: snapshot_id}))
+    def load(self, reference) -> DataRecord:
+        results = list(
+            self._data_collection.find({
+                self.KEY_MAP[archive.OBJ_ID]: reference.obj_id,
+                self.KEY_MAP[archive.SNAPSHOT_ID]: reference.snapshot_id,
+            }))
         if not results:
-            raise exceptions.NotFound("Snapshot id '{}' not found".format(snapshot_id))
+            raise exceptions.NotFound("Snapshot id '{}' not found".format(reference))
         return self._to_record(results[0])
 
-    def get_snapshot_ids(self, obj_id):
+    def get_snapshot_refs(self, obj_id):
         # Start with the first snapshot and do a graph traversal from there
         match_initial_document = {
             '$match': {
@@ -119,22 +125,21 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         for descendent in entry['descendents']:
             snapshot_ids[descendent['depth'] + 1] = descendent[self.KEY_MAP[archive.SNAPSHOT_ID]]
 
-        return snapshot_ids
+        return [archive.Ref(obj_id, sid) for sid in snapshot_ids]
 
-    def get_meta(self, snapshot_id):
-        result = self._data_collection.find_one(snapshot_id, projection={self.META: 1})
+    def get_meta(self, obj_id):
+        assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
+
+        result = self._meta_collection.find_one({'_id': obj_id}, projection={'_id': False})
         if not result:
-            raise exceptions.NotFound("No record with snapshot id '{}' found".format(snapshot_id))
+            raise exceptions.NotFound("No record with object id '{}' found".format(obj_id))
 
-        return result['meta']
+        return result
 
-    def set_meta(self, snapshot_id, meta):
-        found = self._data_collection.find_one_and_update({self.KEY_MAP[archive.SNAPSHOT_ID]: snapshot_id},
-                                                          {'$set': {
-                                                              'meta': meta
-                                                          }})
+    def set_meta(self, obj_id, meta):
+        found = self._meta_collection.replace_one({'_id': obj_id}, meta, upsert=True)
         if not found:
-            raise exceptions.NotFound("No record with snapshot id '{}' found".format(snapshot_id))
+            raise exceptions.NotFound("No record with snapshot id '{}' found".format(obj_id))
 
     def find(self, obj_type_id=None, snapshot_hash=None, criteria=None, limit=0, sort=None):
         mfilter = {}

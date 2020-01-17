@@ -1,10 +1,12 @@
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 import typing
+import uuid
 
+from . import types
 from . import utils
 
-__all__ = ('Archive', 'DataRecord')
+__all__ = ('Archive', 'DataRecord', 'Ref')
 
 OBJ_ID = 'obj_id'
 TYPE_ID = 'type_id'
@@ -13,6 +15,41 @@ SNAPSHOT_ID = 'snapshot_id'
 ANCESTOR_ID = 'ancestor_id'
 STATE = 'state'
 SNAPSHOT_HASH = 'snapshot_hash'
+
+IdT = typing.TypeVar('IdT')  # The archive ID type
+
+
+class Ref(typing.Generic[IdT], types.SavableComparable):
+    TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
+
+    def __init__(self, obj_id, snapshot_id):
+        super(Ref, self).__init__()
+        self._obj_id = obj_id
+        self._snapshot_id = snapshot_id
+
+    def __eq__(self, other):
+        if not isinstance(other, Ref):
+            return False
+
+        return self.obj_id == other.obj_id and self.snapshot_id == other.snapshot_id
+
+    @property
+    def obj_id(self) -> IdT:
+        return self._obj_id
+
+    @property
+    def snapshot_id(self):
+        return self._snapshot_id
+
+    def yield_hashables(self, hasher):
+        yield from hasher.hash(self.obj_id)
+        yield from hasher.hash(self.snapshot_id)
+
+    def save_instance_state(self, referencer):
+        return [self.obj_id, self.snapshot_id]
+
+    def load_instance_state(self, saved_state, referencer):
+        self.__init__(*saved_state)
 
 
 class DataRecord(
@@ -38,6 +75,9 @@ class DataRecord(
         values.update(kwargs)
         return utils.NamedTupleBuilder(cls, values)
 
+    def get_reference(self) -> Ref:
+        return Ref(self.obj_id, self.snapshot_id)
+
     def child_builder(self, **kwargs) -> utils.NamedTupleBuilder:
         """
         Get a child builder from this DataRecord instance.  The following attributes will be copied over:
@@ -54,9 +94,6 @@ class DataRecord(
         }
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
-
-
-IdT = typing.TypeVar('IdT')
 
 
 class Archive(typing.Generic[IdT], metaclass=ABCMeta):
@@ -79,24 +116,24 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         """Save many data records to the archive"""
 
     @abstractmethod
-    def get_meta(self, snapshot_id: IdT):
+    def get_meta(self, obj_id: IdT):
         """Get the metadata for the given object snapshot."""
 
     @abstractmethod
-    def set_meta(self, snapshot_id: IdT, meta):
+    def set_meta(self, obj_id: IdT, meta):
         """Set the metadata on on the object with the corresponding persistent id"""
 
     @abstractmethod
-    def load(self, snapshot_id: IdT) -> DataRecord:
-        """Load a snapshot of an object with the given id, by default gives the latest"""
+    def load(self, reference: Ref[IdT]) -> DataRecord:
+        """Load a snapshot of an object with the given reference"""
 
     @abstractmethod
     def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
         """Load the snapshot records for a particular object, can return a single or multiple records"""
 
     @abstractmethod
-    def get_snapshot_ids(self, obj_id: IdT):
-        """Returns a list of ordered snapshot ids for a given object"""
+    def get_snapshot_refs(self, obj_id: IdT) -> typing.Sequence[Ref[IdT]]:
+        """Returns a list of time ordered snapshot references"""
 
     @abstractmethod
     def find(self, obj_type_id=None, snapshot_hash=None, criteria=None, limit=0, sort=None):
@@ -120,9 +157,9 @@ class BaseArchive(Archive[IdT]):
             self.save(record)
 
     def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
-        ids = self.get_snapshot_ids(obj_id)[idx_or_slice]
-        if len(ids) > 1:
-            return [self.load(sid) for sid in ids]
+        refs = self.get_snapshot_refs(obj_id)[idx_or_slice]
+        if len(refs) > 1:
+            return [self.load(ref) for ref in refs]
 
         # Single one
-        return self.load(ids[0])
+        return self.load(refs[0])

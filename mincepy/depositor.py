@@ -1,7 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import collections.abc
 
-from . import archive
 from . import types
 
 __all__ = ('Referencer',)
@@ -29,7 +28,7 @@ class Referencer(metaclass=ABCMeta):
         if type(obj) in types.BASE_TYPES:
             if isinstance(obj, list):
                 return [self.autoref(entry) for entry in obj]
-            elif isinstance(obj, dict):
+            if isinstance(obj, dict):
                 return {key: self.autoref(val) for key, val in obj.items()}
             return obj
 
@@ -52,12 +51,8 @@ class Referencer(metaclass=ABCMeta):
         if type(obj) in types.BASE_TYPES:
             if isinstance(obj, list):
                 return [self.autoderef(entry) for entry in obj]
-            elif isinstance(obj, dict):
+            if isinstance(obj, dict):
                 return {key: self.autoderef(val) for key, val in obj.items()}
             return obj
 
         return self.deref(obj)
-
-    @abstractmethod
-    def to_dict(self, obj: types.Savable):
-        """Get a saved instance state for the given object"""

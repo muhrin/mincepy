@@ -2,6 +2,7 @@ from collections import namedtuple
 import contextlib
 import copy
 import typing
+from typing import Optional
 import weakref
 
 from . import archive
@@ -63,9 +64,9 @@ class Historian(depositor.Referencer):
 
     def save(self, obj, with_meta=None):
         """Save the object in the history producing a unique id"""
-        record = self.save_object(obj)
+        record = self.save_object(obj, LatestReferencer(self))
         if with_meta is not None:
-            self._archive.set_meta(record.snapshot_id, with_meta)
+            self._archive.set_meta(record.obj_id, with_meta)
         return record.obj_id
 
     def save_as(self, obj, obj_id, with_meta=None):
@@ -91,31 +92,34 @@ class Historian(depositor.Referencer):
                 self._records[obj] = current_record
                 self._objects[record.snapshot_id] = obj
             # Now save the thing
-            record = self.save_object(obj)
+            record = self.save_object(obj, LatestReferencer(self))
 
         if with_meta is not None:
-            self._archive.set_meta(record.snapshot_id, with_meta)
+            self._archive.set_meta(record.obj_id, with_meta)
 
         return obj_id
 
-    def save_get_snapshot_id(self, obj, with_meta=None):
+    def save_snapshot(self, obj, with_meta=None) -> archive.Ref:
         """
-        Convenience function that is equivalent to:
-        ```
-            historian.save(obj)
-            sid = historian.get_last_snapshot_id(obj)
-        ```
+        Save a snapshot of the current state of the object.  Returns a reference that can
+        then be used with load_snapshot()
         """
-        self.save(obj, with_meta)
-        return self.get_current_record(obj).snapshot_id
+        record = self.save_object(obj, self)
+        if with_meta is not None:
+            self._archive.set_meta(record.obj_id, with_meta)
+        return record.get_reference()
 
-    def get_last_snapshot_id(self, obj):
-        return self.get_current_record(obj).snapshot_id
+    def load(self, obj_id):
+        """Load an object."""
+        if not isinstance(obj_id, self._archive.get_id_type()):
+            raise TypeError("Object id must be of type '{}'".format(self._archive.get_id_type()))
 
-    def load(self, identifier):
-        """Load an object.  Identifier can be an object id or a snapshot id."""
-        sid = self._get_snapshot_id(identifier)
-        return self.load_object(sid)
+        ref = self._get_latest_snapshot_reference(obj_id)
+        return self.load_object(ref, LatestReferencer(self))
+
+    def load_snapshot(self, reference: archive.Ref):
+        """Load a snapshot of the object using a reference."""
+        return self.load_object(reference, self)
 
     def history(self, obj_id, idx_or_slice='*') -> typing.Sequence[ObjectEntry]:
         """
@@ -136,38 +140,39 @@ class Historian(depositor.Referencer):
         True
         >>> history[1].obj is car
         """
-        snapshot_ids = self._archive.get_snapshot_ids(obj_id)
+        snapshot_refs = self._archive.get_snapshot_refs(obj_id)
         indices = utils.to_slice(idx_or_slice)
-        to_get = snapshot_ids[indices]
-        return [ObjectEntry(sid, self.load_object(sid)) for sid in to_get]
+        to_get = snapshot_refs[indices]
+        return [ObjectEntry(ref, self.load_object(ref, self)) for ref in to_get]
 
-    def load_object(self, snapshot_id):
+    def load_object(self, reference, referencer):
+        snapshot_id = reference.snapshot_id
         # Try getting the object from the our dict of up to date ones
         for obj, sid in self._up_to_date_ids.items():
             if snapshot_id == sid:
                 return obj
 
         # Couldn't find it, so let's check if we have one and check if it is up to date
-        record = self._archive.load(snapshot_id)
+        record = self._archive.load(reference)
         try:
             obj = self._objects[snapshot_id]
         except KeyError:
             # Ok, just use the one from storage
-            return self.two_step_load(record)
+            return self.two_step_load(record, referencer)
         else:
             # Need to check if the version we have is up to date
             with self._transaction() as transaction:
-                loaded_obj = self.two_step_load(record)
+                loaded_obj = self.two_step_load(record, referencer)
 
-                if self.hash(obj) == record.snapshot_hash and self.eq(obj, loaded_obj):
-                    # Objects identical
+                if self.hash(obj) == self.hash(loaded_obj) and self.eq(obj, loaded_obj):
+                    # Objects identical, keep the one we have
                     transaction.rollback()
                 else:
                     obj = loaded_obj
 
             return obj
 
-    def save_object(self, obj) -> archive.DataRecord:
+    def save_object(self, obj, referencer) -> archive.DataRecord:
         # Check if we already have an up to date record
         if obj in self._up_to_date_ids:
             return self._records[obj]
@@ -192,12 +197,11 @@ class Historian(depositor.Referencer):
                                                      snapshot_id=self._archive.create_archive_id(),
                                                      ancestor_id=None,
                                                      snapshot_hash=current_hash)
-            record = self.two_step_save(obj, builder)
-            return record
+            return self.two_step_save(obj, builder)
         else:
             # Check if our record is up to date
             with self._transaction() as transaction:
-                loaded_obj = self.two_step_load(record)
+                loaded_obj = self.two_step_load(record, referencer)
                 if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
                     # Objects identical
                     transaction.rollback()
@@ -209,13 +213,15 @@ class Historian(depositor.Referencer):
 
             return record
 
-    def get_meta(self, identifier):
-        sid = self._get_snapshot_id(identifier)
-        return self._archive.get_meta(sid)
+    def get_meta(self, obj_id):
+        if isinstance(obj_id, archive.Ref):
+            obj_id = obj_id.obj_id
+        return self._archive.get_meta(obj_id)
 
-    def set_meta(self, identifier, meta):
-        sid = self._get_snapshot_id(identifier)
-        self._archive.set_meta(sid, meta)
+    def set_meta(self, obj_id, meta):
+        if isinstance(obj_id, archive.Ref):
+            obj_id = obj_id.obj_id
+        self._archive.set_meta(obj_id, meta)
 
     def get_obj_type_id(self, obj_type):
         return self._type_registry[obj_type].TYPE_ID
@@ -261,30 +267,26 @@ class Historian(depositor.Referencer):
         try:
             return self.get_current_record(obj_or_identifier).created_in
         except exceptions.NotFound:
-            return self._archive.load(self._get_snapshot_id(obj_or_identifier)).created_in
+            return self._archive.load(self._get_latest_snapshot_reference(obj_or_identifier)).created_in
 
-    def _get_snapshot_id(self, identifier):
-        """Given an object id this will return the id of the latest snapshot, otherwise just returns the identifier"""
-        try:
-            # Assume it's an object id
-            return self._archive.get_snapshot_ids(identifier)[-1]
-        except IndexError:
-            # Ok, maybe a snapshot id then
-            return identifier
+    def _get_latest_snapshot_reference(self, obj_id) -> archive.Ref:
+        """Given an object id this will return a refernce to the latest snapshot"""
+        return self._archive.get_snapshot_refs(obj_id)[-1]
 
-    def ref(self, obj):
-        """Get a reference id to an object.  Returns a snapshot id."""
+    def ref(self, obj) -> Optional[archive.Ref]:
+        """Get a reference id to an object."""
         if obj is None:
             return None
 
-        return self.save_object(obj).snapshot_id
+        return self.save_object(obj, self).get_reference()
 
-    def deref(self, snapshot_id):
+    def deref(self, reference: Optional[archive.Ref]):
         """Get the object from a reference"""
-        if snapshot_id is None:
+        if reference is None:
             return None
 
-        return self.load_object(snapshot_id)
+        return self.load_object(reference, self)
+        # return self.load(reference.obj_id)
 
     def encode(self, obj):
         obj_type = type(obj)
@@ -298,15 +300,11 @@ class Historian(depositor.Referencer):
             return obj
 
         # Non base types should always be converted to encoded dictionaries
-        return self.to_dict(obj)
-
-    def to_dict(self, obj: types.Savable) -> dict:
-        obj_type = type(obj)
         helper = self._ensure_compatible(obj_type)
         saved_state = helper.save_instance_state(obj, self)
         return {archive.TYPE_ID: helper.TYPE_ID, archive.STATE: self.encode(saved_state)}
 
-    def decode(self, encoded):
+    def decode(self, encoded, referencer: depositor.Referencer):
         """Decode the saved state recreating any saved objects within."""
         enc_type = type(encoded)
         primitives = self._get_primitive_types()
@@ -315,30 +313,43 @@ class Historian(depositor.Referencer):
 
         if enc_type is dict:
             if archive.TYPE_ID in encoded:
-                return self.from_dict(encoded)
+                # Assume object encoded as dictionary, decode it as such
+                type_id = encoded[archive.TYPE_ID]
+                helper = self.get_helper(type_id)
+                saved_state = self.decode(encoded[archive.STATE], referencer)
+                with self.create_from(saved_state, helper, referencer) as obj:
+                    return obj
             else:
-                return {key: self.decode(value) for key, value in encoded.items()}
+                return {key: self.decode(value, referencer) for key, value in encoded.items()}
         if enc_type is list:
-            return [self.decode(value) for value in encoded]
+            return [self.decode(value, referencer) for value in encoded]
 
         # No decoding to be done
         return encoded
 
-    def from_dict(self, encoded: dict):
-        type_id = encoded[archive.TYPE_ID]
-        helper = self.get_helper(type_id)
-        saved_state = self.decode(encoded[archive.STATE])
-        with helper.load(saved_state, self) as obj:
-            return obj
+    @contextlib.contextmanager
+    def create_from(self, encoded_saved_state, helper: types.TypeHelper, referencer: depositor.Referencer):
+        """
+        Loading of an object takes place in two steps, analogously to the way python
+        creates objects.  First a 'blank' object is created and and yielded by this
+        context manager.  Then loading is finished in load_instance_state.  Naturally,
+        the state of the object should not be relied upon until the context exits.
+        """
+        new_obj = helper.new(encoded_saved_state)
+        try:
+            yield new_obj
+        finally:
+            decoded = self.decode(encoded_saved_state, referencer)
+            helper.load_instance_state(new_obj, decoded, referencer)
 
-    def two_step_load(self, record: archive.DataRecord):
+    def two_step_load(self, record: archive.DataRecord, referencer):
         try:
             helper = self.get_helper(record.type_id)
         except KeyError:
             raise ValueError("Type with id '{}' has not been registered".format(record.type_id))
 
         with self._transaction():
-            with helper.load(record.state, self) as obj:
+            with self.create_from(record.state, helper, referencer) as obj:
                 self._up_to_date_ids[obj] = record.snapshot_id
                 self._objects[record.snapshot_id] = obj
                 self._records[obj] = record
@@ -348,7 +359,7 @@ class Historian(depositor.Referencer):
         with self._transaction():
             self._up_to_date_ids[obj] = builder.snapshot_id
             self._objects[builder.snapshot_id] = obj
-            builder.update(self.to_dict(obj))
+            builder.update(self.encode(obj))
             record = builder.build()
             self._records[obj] = record
             self._staged.append(record)
@@ -420,6 +431,22 @@ class Transaction:
     @staticmethod
     def rollback():
         raise RollbackTransaction
+
+
+class LatestReferencer(depositor.Referencer):
+
+    def __init__(self, historian: Historian):
+        self._historian = historian
+
+    def ref(self, obj):
+        return self._historian.ref(obj)
+
+    def deref(self, reference):
+        if reference is None:
+            return None
+
+        ref = self._historian._get_latest_snapshot_reference(reference.obj_id)
+        return self._historian.load_object(ref, self)
 
 
 def create_default_historian() -> Historian:
