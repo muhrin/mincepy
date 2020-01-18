@@ -124,6 +124,16 @@ class Historian(depositor.Referencer):
         """Load a snapshot of the object using a reference."""
         return self.load_object(reference, self)
 
+    def copy(self, obj):
+        with self._transaction():
+            record = self.save_object(obj, LatestReferencer(self))
+            copy_builder = record.copy_builder(obj_id=self._archive.create_archive_id(),)
+            obj_copy = copy.copy(obj)
+            obj_copy_record = copy_builder.build()
+            self._insert_object(obj_copy, obj_copy_record)
+            self._staged.append(obj_copy_record)
+        return obj_copy
+
     def history(self, obj_id, idx_or_slice='*') -> typing.Sequence[ObjectEntry]:
         """
         Get a sequence of object ids and instances from the history of the given object.
@@ -350,9 +360,7 @@ class Historian(depositor.Referencer):
 
         with self._transaction():
             with self.create_from(record.state, helper, referencer) as obj:
-                self._up_to_date_objects[obj] = record.get_reference()
-                self._objects[record.get_reference()] = obj
-                self._records[obj] = record
+                self._insert_object(obj, record)
         return obj
 
     def two_step_save(self, obj, builder):
@@ -421,6 +429,11 @@ class Historian(depositor.Referencer):
                     "provide a helper".format(obj_type))
 
         return self._type_registry[obj_type]
+
+    def _insert_object(self, obj, record):
+        self._up_to_date_objects[obj] = record.get_reference()
+        self._objects[record.get_reference()] = obj
+        self._records[obj] = record
 
 
 class RollbackTransaction(Exception):

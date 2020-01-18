@@ -279,7 +279,7 @@ def test_storing_internal_object(historian: mincepy.Historian):
 
         def __init__(self, car):
             super(Person, self).__init__()
-            self.car = car  # This person 'own' the car
+            self.car = car  # This person 'owns' the car
 
         def __eq__(self, other):
             return self.car == other.car
@@ -303,3 +303,18 @@ def test_storing_internal_object(historian: mincepy.Historian):
     assert loaded_mike.car.make == 'ferrari'
     # Because mike owns the car, it is always an internal version, not a reference
     assert loaded_mike.car is not ferrari
+
+
+def test_copy(historian: mincepy.Historian):
+    car = Car('zonda')
+
+    historian.save(car)
+    car_copy = historian.copy(car)
+    assert car == car_copy
+    assert car is not car_copy
+
+    record = historian.get_current_record(car)
+    copy_record = historian.get_current_record(car_copy)
+
+    assert record is not copy_record
+    assert copy_record.get_copied_from() == record.get_reference()

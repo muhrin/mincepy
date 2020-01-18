@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
+import copy
 import typing
 import uuid
 
@@ -11,6 +12,7 @@ __all__ = ('Archive', 'DataRecord', 'Ref')
 OBJ_ID = 'obj_id'
 TYPE_ID = 'type_id'
 CREATED_IN = 'created_in'
+COPIED_FROM = 'copied_from'
 VERSION = 'version'
 STATE = 'state'
 SNAPSHOT_HASH = 'snapshot_hash'
@@ -62,22 +64,51 @@ class DataRecord(
                 OBJ_ID,  # The ID of the object (spanning all snapshots)
                 TYPE_ID,  # The type ID of this object
                 CREATED_IN,  # The ID of the process the data was created in
+                COPIED_FROM,  # The reference to the snapshot that this object was copied from
                 # Snapshot properties
                 VERSION,  # The ID of this particular snapshot of the object
                 STATE,  # The saved state of the object
                 SNAPSHOT_HASH,  # The hash of the state
             ))):
-    DEFAULTS = {CREATED_IN: None}
+    """An immutable record that describes a shot of an object"""
+
+    @classmethod
+    def defaults(cls):
+        return {CREATED_IN: None, COPIED_FROM: None}
 
     @classmethod
     def get_builder(cls, **kwargs):
         """Get a DataRecord builder optionally passing in some initial values"""
-        values = dict(cls.DEFAULTS)
+        values = cls.defaults()
         values.update(kwargs)
         return utils.NamedTupleBuilder(cls, values)
 
     def get_reference(self) -> Ref:
         return Ref(self.obj_id, self.version)
+
+    def get_copied_from(self):
+        if self.copied_from is None:
+            return None
+
+        return Ref(*self.copied_from)
+
+    def copy_builder(self, **kwargs) -> utils.NamedTupleBuilder:
+        """Get a copy builder from this DataRecord instance.  The following attributes will be copied over:
+            * type_id
+            * state [deepcopy]
+            * snapshot_hash
+        the version will be set to 0.
+        """
+        defaults = self.defaults()
+        defaults.update({
+            TYPE_ID: self.type_id,
+            STATE: copy.deepcopy(self.state),
+            SNAPSHOT_HASH: self.snapshot_hash,
+            VERSION: 0,
+            COPIED_FROM: self.get_reference().save_instance_state(None)
+        })
+        defaults.update(kwargs)
+        return utils.NamedTupleBuilder(type(self), defaults)
 
     def child_builder(self, **kwargs) -> utils.NamedTupleBuilder:
         """
@@ -87,12 +118,13 @@ class DataRecord(
             * created_in
         and version will be incremented by one.
         """
-        defaults = {
+        defaults = self.defaults()
+        defaults.update({
             OBJ_ID: self.obj_id,
             TYPE_ID: self.type_id,
             CREATED_IN: self.created_in,
             VERSION: self.version + 1,
-        }
+        })
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
 

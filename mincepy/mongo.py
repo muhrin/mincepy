@@ -15,6 +15,7 @@ __all__ = ('MongoArchive',)
 OBJ_ID = archive.OBJ_ID
 TYPE_ID = archive.TYPE_ID
 CREATED_IN = archive.CREATED_IN
+COPIED_FROM = archive.COPIED_FROM
 VERSION = 'ver'
 STATE = 'state'
 SNAPSHOT_HASH = 'hash'
@@ -32,6 +33,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         archive.OBJ_ID: OBJ_ID,
         archive.TYPE_ID: TYPE_ID,
         archive.CREATED_IN: CREATED_IN,
+        archive.COPIED_FROM: COPIED_FROM,
         archive.VERSION: VERSION,
         archive.STATE: STATE,
         archive.SNAPSHOT_HASH: SNAPSHOT_HASH
@@ -86,7 +88,11 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                                              sort=[(VERSION, pymongo.ASCENDING)])
         if not results:
             return []
-        return [archive.Ref(obj_id, result[VERSION]) for result in results]
+        try:
+            return [archive.Ref(obj_id, result[VERSION]) for result in results]
+        except KeyError as err:
+            print(err)
+            raise
 
     def get_meta(self, obj_id):
         assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
@@ -116,7 +122,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     def _to_record(self, entry) -> archive.DataRecord:
         """Convert a MongoDB data collection entry to a DataRecord"""
-        record_dict = dict(DataRecord.DEFAULTS)
+        record_dict = DataRecord.defaults()
 
         # Invert our mapping of keys back to the data record property names and update over any defaults
         record_dict.update({recordkey: entry[dbkey] for recordkey, dbkey in self.KEY_MAP.items() if dbkey in entry})
@@ -125,10 +131,11 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     def _to_entry(self, record: DataRecord) -> dict:
         """Convert a DataRecord to a MongoDB data collection entry"""
+        defaults = DataRecord.defaults()
         entry = {}
         for key, item in record._asdict().items():
             # Exclude entries that have the default value
-            if not (key in DataRecord.DEFAULTS and DataRecord.DEFAULTS[key] == item):
+            if not (key in defaults and defaults[key] == item):
                 entry[self.KEY_MAP[key]] = item
 
         return entry
