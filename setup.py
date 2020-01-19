@@ -27,6 +27,7 @@ setup(name='mincepy',
       keywords='workflow',
       install_requires=['pymongo', 'bidict', 'pyblake2; python_version<"3.6"'],
       extras_require={
+          'cli': ['click', 'tabulate'],
           'dev': [
               'pip',
               'pytest>4',

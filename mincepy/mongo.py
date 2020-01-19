@@ -108,7 +108,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         if not found:
             raise exceptions.NotFound("No record with snapshot id '{}' found".format(obj_id))
 
-    def find(self, obj_type_id=None, snapshot_hash=None, criteria=None, limit=0, sort=None):
+    def find(self, obj_type_id=None, snapshot_hash=None, criteria=None, limit=0, sort=None, latest_only=False):
         mfilter = {}
         if obj_type_id is not None:
             mfilter['type_id'] = obj_type_id
