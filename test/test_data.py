@@ -80,7 +80,7 @@ def test_create_delete_load(historian: mincepy.Historian):
 
 def test_list_basics(historian: mincepy.Historian):
     parking_lot = mincepy.builtins.List()
-    for i in range(50):
+    for i in range(1000):
         parking_lot.append(Car(str(i)))
 
     list_id = historian.save_snapshot(parking_lot)
@@ -191,24 +191,24 @@ def test_metadata(historian: mincepy.Historian):
     assert historian.get_meta(red_fiat_id) == {'reg': 'N317'}
 
 
-def test_save_as(historian: mincepy.Historian):
-    """Check the save_as functionality in historian"""
-    car = Car('ferrari')
-
-    car_id = historian.save(car)
-    assert historian.get_current_record(car) is not None
-
-    # Now create a new car and save that over the old one
-    new_car = Car('honda')
-
-    new_car_id = historian.save_as(new_car, car_id)
-    assert car_id == new_car_id
-
-    with pytest.raises(mincepy.NotFound):
-        # Now that 'old' car should not be known to the historian
-        historian.get_current_record(car)
-
-    assert historian.get_current_record(new_car) is not None
+# def test_save_as(historian: mincepy.Historian):
+#     """Check the save_as functionality in historian"""
+#     car = Car('ferrari')
+#
+#     car_id = historian.save(car)
+#     assert historian.get_current_record(car) is not None
+#
+#     # Now create a new car and save that over the old one
+#     new_car = Car('honda')
+#
+#     new_car_id = historian.save_as(new_car, car_id)
+#     assert car_id == new_car_id
+#
+#     with pytest.raises(mincepy.NotFound):
+#         # Now that 'old' car should not be known to the historian
+#         historian.get_current_record(car)
+#
+#     assert historian.get_current_record(new_car) is not None
 
 
 def test_type_helper(historian: mincepy.Historian):
