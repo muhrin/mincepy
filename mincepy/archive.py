@@ -28,6 +28,9 @@ class Ref(typing.Generic[IdT], types.SavableComparable):
         self._obj_id = obj_id
         self._version = version
 
+    def __str__(self):
+        return "{}#{}".format(self._obj_id, self._version)
+
     def __hash__(self):
         return (self.obj_id, self.version).__hash__()
 
@@ -169,8 +172,8 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         """Returns a list of time ordered snapshot references"""
 
     @abstractmethod
-    def find(self, obj_type_id=None, snapshot_hash=None, criteria=None, limit=0, sort=None):
-        """Find objects matching the given criteria"""
+    def find(self, obj_type_id=None, snapshot_hash=None, criteria=None, limit=0, sort=None, latest_only=False):
+        """Find records matching the given criteria"""
 
 
 class BaseArchive(Archive[IdT]):

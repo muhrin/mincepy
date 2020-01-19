@@ -2,7 +2,7 @@ from collections import namedtuple
 import contextlib
 import copy
 import typing
-from typing import Optional, overload, MutableMapping, Any
+from typing import MutableMapping, Any
 import weakref
 
 from . import archive
@@ -300,11 +300,14 @@ class Historian:  # (depositor.Referencer):
         self._type_ids[helper.TYPE_ID] = helper.TYPE
         self._equator.add_equator(helper)
 
-    def find(self, obj_type=None, criteria=None, limit=0):
+    def find(self, obj_type=None, criteria=None, limit=0, as_objects=True):
         """Find entries in the archive"""
         obj_type_id = self.get_obj_type_id(obj_type) if obj_type is not None else None
         results = self._archive.find(obj_type_id=obj_type_id, criteria=criteria, limit=limit)
-        return [self.load(result.obj_id) for result in results]
+        if as_objects:
+            return [self.load(result.obj_id) for result in results]
+        else:
+            return results
 
     def created_in(self, obj_or_identifier):
         """Return the id of the object that created the passed object"""
