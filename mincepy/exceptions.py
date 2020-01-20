@@ -1,4 +1,4 @@
-__all__ = ('NotFound', 'ModificationError')
+__all__ = ('NotFound', 'ModificationError', 'ObjectDeleted')
 
 
 class NotFound(Exception):
@@ -7,3 +7,7 @@ class NotFound(Exception):
 
 class ModificationError(Exception):
     """Raised when a modification of the history encountered a problem"""
+
+
+class ObjectDeleted(Exception):
+    """Raise when the user tries to interact with a deleted object"""

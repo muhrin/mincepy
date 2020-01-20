@@ -17,6 +17,8 @@ VERSION = 'version'
 STATE = 'state'
 SNAPSHOT_HASH = 'snapshot_hash'
 
+DELETED = '!!deleted'
+
 IdT = typing.TypeVar('IdT')  # The archive ID type
 
 
@@ -80,16 +82,22 @@ class DataRecord(
         return {CREATED_IN: None, COPIED_FROM: None}
 
     @classmethod
-    def get_builder(cls, **kwargs):
+    def get_builder(cls, **kwargs) -> utils.NamedTupleBuilder:
         """Get a DataRecord builder optionally passing in some initial values"""
         values = cls.defaults()
         values.update(kwargs)
         return utils.NamedTupleBuilder(cls, values)
 
+    def is_deleted_record(self):
+        """Does this record represent the object having been deleted"""
+        return self.state == DELETED
+
     def get_reference(self) -> Ref:
+        """Get a reference for this data record"""
         return Ref(self.obj_id, self.version)
 
-    def get_copied_from(self):
+    def get_copied_from(self) -> Ref:
+        """Get the reference of the data record this object was originally copied from"""
         if self.copied_from is None:
             return None
 
@@ -130,6 +138,11 @@ class DataRecord(
         })
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
+
+
+def make_deleted_record(last_record: DataRecord) -> DataRecord:
+    """Get a record that represents the deletion of this object"""
+    return last_record.child_builder(state=DELETED, snapshot_hash=None).build()
 
 
 class Archive(typing.Generic[IdT], metaclass=ABCMeta):

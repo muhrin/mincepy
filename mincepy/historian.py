@@ -135,9 +135,29 @@ class Historian:  # (depositor.Referencer):
             trans.stage(obj_copy_record)
         return obj_copy
 
-    def history(self, obj_id, idx_or_slice='*') -> typing.Sequence[ObjectEntry]:
+    def delete(self, obj):
+        """Delete an object"""
+        record = self.get_current_record(obj)
+        with self._live_transaction() as trans:
+            deleted_record = archive.make_deleted_record(record)
+            trans.stage(deleted_record)
+        del self._objects[record.get_reference()]
+        del self._records[obj]
+
+    def load_snapshot(self, reference: archive.Ref) -> Any:
+        with self._snapshot_transaction():
+            return self._load_snapshot(reference, SnapshotReferencer(self))
+
+    def history(self,
+                obj_id,
+                idx_or_slice='*',
+                as_objects=True) -> [typing.Sequence[ObjectEntry], typing.Sequence[archive.DataRecord]]:
         """
         Get a sequence of object ids and instances from the history of the given object.
+
+        :param obj_id: The id of the object to get the history for
+        :param idx_or_slice: The particular index or a slice of which historical versions to get
+        :param as_objects: if True return the object instances, otherwise returns the DataRecords
 
         Example:
 
@@ -157,11 +177,14 @@ class Historian:  # (depositor.Referencer):
         snapshot_refs = self._archive.get_snapshot_refs(obj_id)
         indices = utils.to_slice(idx_or_slice)
         to_get = snapshot_refs[indices]
-        return [ObjectEntry(ref, self.load_snapshot(ref)) for ref in to_get]
+        if as_objects:
+            return [ObjectEntry(ref, self.load_snapshot(ref)) for ref in to_get]
 
-    def load_snapshot(self, reference: archive.Ref) -> Any:
-        with self._snapshot_transaction():
-            return self._load_snapshot(reference, SnapshotReferencer(self))
+        return [self._archive.load(ref) for ref in to_get]
+
+    def load_object(self, reference, referencer):
+        with self._live_transaction():
+            return self._load_object(reference, referencer)
 
     def _load_snapshot(self, reference: archive.Ref, referencer=None):
         """Load a snapshot of the object using a reference."""
@@ -174,12 +197,11 @@ class Historian:  # (depositor.Referencer):
         except ValueError:
             # Couldn't find it, so let's load it from storage
             record = self._archive.load(reference)
+            if record.is_deleted_record():
+                return record.state
+
             # Ok, just use the one from storage
             return self.two_step_load(record, referencer)
-
-    def load_object(self, reference, referencer):
-        with self._live_transaction():
-            return self._load_object(reference, referencer)
 
     def _load_object(self, reference, referencer):
         trans = self._current_transaction()
@@ -192,6 +214,9 @@ class Historian:  # (depositor.Referencer):
 
         # Couldn't find it, so let's check if we have one and check if it is up to date
         record = self._archive.load(reference)
+        if record.is_deleted_record():
+            raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(reference.obj_id))
+
         try:
             obj = self._objects[reference]
         except KeyError:
@@ -318,7 +343,10 @@ class Historian:  # (depositor.Referencer):
 
     def _get_latest_snapshot_reference(self, obj_id) -> archive.Ref:
         """Given an object id this will return a refernce to the latest snapshot"""
-        return self._archive.get_snapshot_refs(obj_id)[-1]
+        try:
+            return self._archive.get_snapshot_refs(obj_id)[-1]
+        except IndexError:
+            raise exceptions.NotFound("Object with id '{}' not found.".format(obj_id))
 
     def encode(self, obj, referencer):
         obj_type = type(obj)

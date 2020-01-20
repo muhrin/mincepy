@@ -1,3 +1,4 @@
+from collections import OrderedDict
 import typing
 
 import click
@@ -27,15 +28,62 @@ def query(obj_type, filter, limit):
         print_records(records)
 
 
-def print_records(records: typing.Sequence[mincepy.DataRecord]):
-    if isinstance(records[0].state, dict):
-        headers, table = get_dict_table(records)
-    elif isinstance(records[0], list):
-        headers, table = get_list_table(records)
-    else:
-        headers, table = [str(record.state) for record in records]
+SCALAR_VALUE = '<value>'
+UNSET = ''
+REF = 'ref'
 
-    print(tabulate(table, headers=headers))
+
+def print_records(records: typing.Sequence[mincepy.DataRecord]):
+    columns = OrderedDict()
+    columns[REF] = [
+        record.get_reference() if not record.is_deleted_record() else "{} [deleted]".format(record.get_reference())
+        for record in records
+    ]
+
+    for record in records:
+        for column_name in get_all_columns(record):
+            columns[column_name] = []
+
+    for column_name in columns.keys():
+        if column_name != REF:
+            columns[column_name] = [get_value(column_name, record.state) for record in records]
+
+    rows = []
+    for row in range(len(records)):
+        rows.append([columns[column][row] for column in columns.keys()])
+
+    print(tabulate(rows, headers=columns.keys()))
+
+
+def get_all_columns(record):
+    if isinstance(record.state, dict):
+        for key in record.state:
+            yield key
+    elif isinstance(record.state, list):
+        yield from range(len(record.state))
+    else:
+        if not record.is_deleted_record():
+            yield SCALAR_VALUE
+
+
+def get_value(title, state):
+    if isinstance(state, (dict, list)):
+        try:
+            return state[title]
+        except (KeyError, IndexError):
+            return UNSET
+    if title == SCALAR_VALUE:
+        return state
+
+    return UNSET
+
+
+def get_row(headers, state):
+    if isinstance(state, dict, list):
+        for title in headers:
+            yield state[title]
+    else:
+        yield state
 
 
 def get_dict_table(records: typing.Sequence[mincepy.DataRecord]):

@@ -318,3 +318,23 @@ def test_copy(historian: mincepy.Historian):
 
     assert record is not copy_record
     assert copy_record.get_copied_from() == record.get_reference()
+
+
+def test_delete(historian: mincepy.Historian):
+    """Test deleting and then attempting to load an object"""
+    car = Car('lada')
+    car_id = historian.save(car)
+    historian.delete(car)
+    with pytest.raises(mincepy.ObjectDeleted):
+        historian.load(car_id)
+
+    records = historian.history(car_id, as_objects=False)
+    assert len(records) == 2, "There should be two record, the initial and the delete"
+    assert records[-1].is_deleted_record()
+
+
+def test_load_unknown_object(mongodb_archive, historian: mincepy.Historian):
+    """Make up an ID an try to load it"""
+    obj_id = mongodb_archive.create_archive_id()
+    with pytest.raises(mincepy.NotFound):
+        historian.load(obj_id)
