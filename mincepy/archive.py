@@ -73,7 +73,7 @@ class DataRecord(
                 STATE,  # The saved state of the object
                 SNAPSHOT_HASH,  # The hash of the state
             ))):
-    """An immutable record that describes a shot of an object"""
+    """An immutable record that describes a snapshot of an object"""
 
     @classmethod
     def defaults(cls):
@@ -172,7 +172,16 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         """Returns a list of time ordered snapshot references"""
 
     @abstractmethod
-    def find(self, obj_type_id=None, snapshot_hash=None, criteria=None, limit=0, sort=None, latest_only=False):
+    def find(self,
+             obj_id=None,
+             type_id=None,
+             created_in=None,
+             copied_from=None,
+             version=-1,
+             state=None,
+             snapshot_hash=None,
+             limit=0,
+             sort=None):  # pylint: disable=too-many-arguments
         """Find records matching the given criteria"""
 
 

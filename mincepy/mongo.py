@@ -1,4 +1,5 @@
 import typing
+from typing import Optional
 
 from bidict import bidict
 import bson
@@ -72,20 +73,16 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     def load(self, reference) -> DataRecord:
         results = list(
-            self._data_collection.find(
-                {
-                    self.KEY_MAP[archive.OBJ_ID]: reference.obj_id,
-                    self.KEY_MAP[archive.VERSION]: reference.version,
-                },
-                projection={'_id': False}))
+            self._data_collection.find({
+                self.KEY_MAP[archive.OBJ_ID]: reference.obj_id,
+                self.KEY_MAP[archive.VERSION]: reference.version,
+            }))
         if not results:
             raise exceptions.NotFound("Snapshot id '{}' not found".format(reference))
         return self._to_record(results[0])
 
     def get_snapshot_refs(self, obj_id):
-        results = self._data_collection.find({OBJ_ID: obj_id},
-                                             projection={VERSION: 1},
-                                             sort=[(VERSION, pymongo.ASCENDING)])
+        results = self._data_collection.find({OBJ_ID: obj_id}, sort=[(VERSION, pymongo.ASCENDING)])
         if not results:
             return []
         try:
@@ -108,17 +105,77 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         if not found:
             raise exceptions.NotFound("No record with snapshot id '{}' found".format(obj_id))
 
-    def find(self, obj_type_id=None, snapshot_hash=None, criteria=None, limit=0, sort=None, latest_only=False):
+    def find(self,
+             obj_id: Optional[bson.ObjectId] = None,
+             type_id=None,
+             created_in=None,
+             copied_from=None,
+             version=-1,
+             state=None,
+             snapshot_hash=None,
+             limit=0,
+             sort=None):
         mfilter = {}
-        if obj_type_id is not None:
-            mfilter['type_id'] = obj_type_id
-        if criteria is not None:
-            mfilter['obj'] = criteria
+        if obj_id is not None:
+            mfilter['obj_id'] = obj_id
+        if type_id is not None:
+            mfilter['type_id'] = type_id
+        if state is not None:
+            mfilter[STATE] = state
         if snapshot_hash is not None:
             mfilter[self.KEY_MAP[archive.SNAPSHOT_HASH]] = snapshot_hash
+        if version is not None and version != -1:
+            mfilter[VERSION] = version
 
-        cursor = self._data_collection.find(filter=mfilter, limit=limit, sort=sort)
-        return [self._to_record(result) for result in cursor]
+        pipeline = [{'$match': mfilter}]
+
+        if version == -1:
+            # Join with a collection that is grouped to get the maximum version for each object ID
+            # then only take the the matching documents
+            pipeline.append({
+                '$lookup': {
+                    'from': self.DATA_COLLECTION,
+                    'let': {
+                        'obj_id': '$obj_id',
+                        'ver': '$ver'
+                    },
+                    'pipeline': [
+                        # Get the maximum version
+                        {
+                            '$group': {
+                                '_id': '$obj_id',
+                                'ver': {
+                                    '$max': '$ver'
+                                }
+                            }
+                        },
+                        # Then match these with the obj id and version in our collection
+                        {
+                            '$match': {
+                                '$expr': {
+                                    '$and': [
+                                        {
+                                            '$eq': ['$_id', '$$obj_id']
+                                        },
+                                        {
+                                            '$eq': ['$ver', '$$ver']
+                                        },
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    'as': "max_version"
+                }
+            })
+            # Finally sepect those from our collection that have a 'max_version' array entry
+            pipeline.append({"$match": {"max_version": {"$ne": []}}},)
+
+        if limit:
+            pipeline.append({'$limit': limit})
+
+        results = self._data_collection.aggregate(pipeline)
+        return [self._to_record(result) for result in results]
 
     def _to_record(self, entry) -> archive.DataRecord:
         """Convert a MongoDB data collection entry to a DataRecord"""

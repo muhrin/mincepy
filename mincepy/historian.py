@@ -300,14 +300,14 @@ class Historian:  # (depositor.Referencer):
         self._type_ids[helper.TYPE_ID] = helper.TYPE
         self._equator.add_equator(helper)
 
-    def find(self, obj_type=None, criteria=None, limit=0, as_objects=True):
+    def find(self, obj_type=None, criteria=None, version=-1, limit=0, as_objects=True):
         """Find entries in the archive"""
-        obj_type_id = self.get_obj_type_id(obj_type) if obj_type is not None else None
-        results = self._archive.find(obj_type_id=obj_type_id, criteria=criteria, limit=limit)
+        type_id = self.get_obj_type_id(obj_type) if obj_type is not None else None
+        results = self._archive.find(type_id=type_id, state=criteria, version=version, limit=limit)
         if as_objects:
             return [self.load(result.obj_id) for result in results]
-        else:
-            return results
+
+        return results
 
     def created_in(self, obj_or_identifier):
         """Return the id of the object that created the passed object"""
@@ -584,7 +584,7 @@ class SnapshotReferencer(depositor.Referencer):
     def __init__(self, historian: Historian):
         self._historian = historian
 
-    def ref(self, obj):
+    def ref(self, obj):  # pylint: disable=no-self-use
         raise RuntimeError("Cannot get a reference to an object during snapshot transactions")
 
     def deref(self, reference):

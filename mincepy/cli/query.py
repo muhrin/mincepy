@@ -14,8 +14,8 @@ import mincepy
 def query(obj_type, filter, limit):
     historian = mincepy.get_historian()
 
-    results = historian.find(obj_type, criteria=filter, limit=limit,
-                             as_objects=False)  # type: typing.Sequence[mincepy.DataRecord]
+    results = historian.find(obj_type, criteria=filter, limit=limit, as_objects=False,
+                             version=-1)  # type: typing.Sequence[mincepy.DataRecord]
 
     # Gather by object types
     gathered = {}
@@ -47,12 +47,12 @@ def get_dict_table(records: typing.Sequence[mincepy.DataRecord]):
 
     table = []
     for record in records:
-        row = [record.obj_id]
+        row = [str(record.get_reference())]
         for column in columns:
             row.append(str(record.state.get(column, '-')))
         table.append(row)
 
-    headers = ['Obj-id']
+    headers = ['ref']
     headers.extend(columns)
 
     return headers, table
