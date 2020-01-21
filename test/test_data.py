@@ -98,7 +98,6 @@ def test_list_basics(historian: mincepy.Historian):
 
 
 def test_track(historian: mincepy.Historian):
-
     @mincepy.track
     def put_car_in_garage(car: Car, garage: Garage):
         garage.car = car
@@ -113,7 +112,6 @@ def test_track(historian: mincepy.Historian):
 
 
 def test_track_method(historian: mincepy.Historian):
-
     class CarFactory(mincepy.SavableComparable):
         TYPE_ID = uuid.UUID('166a9446-c04e-4fbe-a3da-6f36c2f8292d')
 
@@ -273,7 +271,6 @@ def test_history(historian: mincepy.Historian):
 
 
 def test_storing_internal_object(historian: mincepy.Historian):
-
     class Person(mincepy.SavableComparable):
         TYPE_ID = uuid.UUID('f6f83595-6375-4bc4-89f2-d8f31a1286b0')
 
@@ -338,3 +335,30 @@ def test_load_unknown_object(mongodb_archive, historian: mincepy.Historian):
     obj_id = mongodb_archive.create_archive_id()
     with pytest.raises(mincepy.NotFound):
         historian.load(obj_id)
+
+
+# def test_cyclic_ref(historian: mincepy.Historian):
+#     class Cycle(mincepy.SavableComparable):
+#         TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
+#
+#         def __init__(self, ref=None):
+#             super(Cycle, self).__init__()
+#             self.ref = ref
+#
+#         def __eq__(self, other):
+#             return self.ref.__eq__(other.ref)
+#
+#         def yield_hashables(self, hasher):
+#             yield from hasher.yield_hashables(id(self.ref))
+#
+#         def save_instance_state(self, referencer):
+#             return referencer.ref(self.ref)
+#
+#         def load_instance_state(self, saved_state, referencer):
+#             self.__init__(referencer.deref(saved_state))
+#
+#     a = Cycle()
+#     b = Cycle(a)
+#     a.ref = b  # Cycle complete
+#
+#     a_id = historian.save(a)

@@ -13,6 +13,7 @@ from . import inmemory
 from . import process
 from . import types
 from . import utils
+from .transactions import RollbackTransaction, Transaction, NestedTransaction
 
 __all__ = ('Historian', 'set_historian', 'get_historian', 'INHERIT')
 
@@ -21,6 +22,10 @@ INHERIT = 'INHERIT'
 CURRENT_HISTORIAN = None
 
 ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
+
+# Keys used in to store the state state of an object when encoding/decoding
+TYPE_KEY = '!!type'
+STATE_KEY = '!!state'
 
 
 class WrapperHelper(types.TypeHelper):
@@ -117,6 +122,10 @@ class Historian:  # (depositor.Referencer):
             self._archive.set_meta(record.obj_id, with_meta)
         return record.get_reference()
 
+    def load_snapshot(self, reference: archive.Ref) -> Any:
+        with self._snapshot_transaction():
+            return self._load_snapshot(reference, SnapshotReferencer(self))
+
     def load(self, obj_id):
         """Load an object."""
         if not isinstance(obj_id, self._archive.get_id_type()):
@@ -143,10 +152,6 @@ class Historian:  # (depositor.Referencer):
             trans.stage(deleted_record)
         del self._objects[record.get_reference()]
         del self._records[obj]
-
-    def load_snapshot(self, reference: archive.Ref) -> Any:
-        with self._snapshot_transaction():
-            return self._load_snapshot(reference, SnapshotReferencer(self))
 
     def history(self,
                 obj_id,
@@ -186,101 +191,9 @@ class Historian:  # (depositor.Referencer):
         with self._live_transaction():
             return self._load_object(reference, referencer)
 
-    def _load_snapshot(self, reference: archive.Ref, referencer=None):
-        """Load a snapshot of the object using a reference."""
-        referencer = referencer or SnapshotReferencer(self)
-        trans = self._current_transaction()
-
-        # Try getting the object from the transaction
-        try:
-            return trans.get_object(reference)
-        except ValueError:
-            # Couldn't find it, so let's load it from storage
-            record = self._archive.load(reference)
-            if record.is_deleted_record():
-                return record.state
-
-            # Ok, just use the one from storage
-            return self.two_step_load(record, referencer)
-
-    def _load_object(self, reference, referencer):
-        trans = self._current_transaction()
-
-        # Try getting the object from the our dict of up to date ones
-        try:
-            return trans.get_object(reference)
-        except ValueError:
-            pass
-
-        # Couldn't find it, so let's check if we have one and check if it is up to date
-        record = self._archive.load(reference)
-        if record.is_deleted_record():
-            raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(reference.obj_id))
-
-        try:
-            obj = self._objects[reference]
-        except KeyError:
-            # Ok, just use the one from storage
-            return self.two_step_load(record, referencer)
-        else:
-            # Need to check if the version we have is up to date
-            with self._nested_transaction() as nested:
-                loaded_obj = self.two_step_load(record, referencer)
-
-                if self.hash(obj) == self.hash(loaded_obj) and self.eq(obj, loaded_obj):
-                    # Objects identical, keep the one we have
-                    nested.rollback()
-                else:
-                    obj = loaded_obj
-
-            return obj
-
     def save_object(self, obj) -> archive.DataRecord:
         with self._live_transaction():
             return self._save_object(obj, LiveReferencer(self))
-
-    def _save_object(self, obj, referencer) -> archive.DataRecord:
-        trans = self._current_transaction()
-
-        # Check if we already have an up to date record
-        try:
-            return trans.get_record(obj)
-        except ValueError:
-            pass
-
-        # Ok, have to save it
-        helper = self._ensure_compatible(type(obj))
-        current_hash = self.hash(obj)
-
-        try:
-            # Let's see if we have a record at all
-            record = self._records[obj]
-        except KeyError:
-            # Completely new
-            try:
-                created_in = self.get_current_record(process.Process.current_process()).obj_id
-            except exceptions.NotFound:
-                created_in = None
-
-            builder = archive.DataRecord.get_builder(type_id=helper.TYPE_ID,
-                                                     obj_id=self._archive.create_archive_id(),
-                                                     created_in=created_in,
-                                                     version=0,
-                                                     snapshot_hash=current_hash)
-            return self.two_step_save(obj, builder, referencer)
-        else:
-            # Check if our record is up to date
-            with self._nested_transaction() as transaction:
-                loaded_obj = self.two_step_load(record, referencer)
-                if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
-                    # Objects identical
-                    transaction.rollback()
-                else:
-                    builder = record.child_builder()
-                    builder.snapshot_hash = current_hash
-                    record = self.two_step_save(obj, builder, referencer)
-
-            return record
 
     def get_meta(self, obj_id):
         if isinstance(obj_id, archive.Ref):
@@ -292,6 +205,8 @@ class Historian:  # (depositor.Referencer):
             obj_id = obj_id.obj_id
         self._archive.set_meta(obj_id, meta)
 
+    # region Registry
+
     def get_obj_type_id(self, obj_type):
         return self._type_registry[obj_type].TYPE_ID
 
@@ -301,9 +216,35 @@ class Historian:  # (depositor.Referencer):
     def get_helper_from_obj_type(self, obj_type) -> types.TypeHelper:
         return self._type_registry[obj_type]
 
+    # endregion
+
     def get_current_record(self, obj) -> archive.DataRecord:
+        """Get a record for an object known to the historian"""
+        trans = self._current_transaction()
+        # Try the transaction first
+        if trans:
+            try:
+                return trans.records[obj]
+            except KeyError:
+                pass
         try:
             return self._records[obj]
+        except KeyError:
+            raise exceptions.NotFound("Unknown object '{}'".format(obj))
+
+    def get_obj_id(self, obj):
+        """Get the object id for an object known to the historian"""
+        trans = self._current_transaction()
+        # Try the transaction first
+        if trans:
+            for cached, ref in trans.objects.items():
+                if obj is cached:
+                    return ref.obj_id
+
+        try:
+            for local, ref in self._objects.items():
+                if obj is local:
+                    return ref.obj_id
         except KeyError:
             raise exceptions.NotFound("Unknown object '{}'".format(obj))
 
@@ -359,25 +300,28 @@ class Historian:  # (depositor.Referencer):
 
             return obj
 
-        # Non base types should always be converted to encoded dictionaries
+        # Non-primitives should always be converted to encoded dictionaries
         helper = self._ensure_compatible(obj_type)
         saved_state = helper.save_instance_state(obj, referencer)
-        return {archive.TYPE_ID: helper.TYPE_ID, archive.STATE: self.encode(saved_state, referencer)}
+        return {
+            TYPE_KEY: helper.TYPE_ID,
+            STATE_KEY: self.encode(saved_state, referencer)
+        }
 
     def decode(self, encoded, referencer: depositor.Referencer):
         """Decode the saved state recreating any saved objects within."""
         enc_type = type(encoded)
-        primitives = self._get_primitive_types()
-        if enc_type not in primitives:
-            raise TypeError("Encoded type must be one of '{}', got '{}'".format(primitives, enc_type))
+        if enc_type not in self._get_primitive_types():
+            raise TypeError("Encoded type must be one of '{}', got '{}'".format(self._get_primitive_types(), enc_type))
 
         if enc_type is dict:
-            if archive.TYPE_ID in encoded:
+            # It could be an encoded object
+            if TYPE_KEY in encoded and STATE_KEY in encoded:
                 # Assume object encoded as dictionary, decode it as such
-                type_id = encoded[archive.TYPE_ID]
+                type_id = encoded[TYPE_KEY]
                 helper = self.get_helper(type_id)
-                saved_state = self.decode(encoded[archive.STATE], referencer)
-                with self.create_from(saved_state, helper, referencer) as obj:
+                # saved_state = self.decode(encoded[STATE_KEY], referencer)
+                with self.create_from(encoded[STATE_KEY], helper, referencer) as obj:
                     return obj
             else:
                 return {key: self.decode(value, referencer) for key, value in encoded.items()}
@@ -415,13 +359,111 @@ class Historian:  # (depositor.Referencer):
 
     def two_step_save(self, obj, builder, referencer):
         with self._nested_transaction() as trans:
+            # Create the reference and insert it into the transaction
             ref = archive.Ref(builder.obj_id, builder.version)
             trans.insert_object(obj, ref)
-            builder.update(self.encode(obj, referencer))
+
+            # Now ask the object to save itself and create the record
+            encoded = self.encode(obj, referencer)
+            builder.update(dict(type_id=encoded[TYPE_KEY], state=encoded[STATE_KEY]))
             record = builder.build()
+
+            # Insert the record into the transaction
             trans.insert_object_and_record(obj, record)
             trans.stage(record)
         return record
+
+    def _load_snapshot(self, reference: archive.Ref, referencer=None):
+        """Load a snapshot of the object using a reference."""
+        referencer = referencer or SnapshotReferencer(self)
+        trans = self._current_transaction()
+
+        # Try getting the object from the transaction
+        try:
+            return trans.get_object(reference)
+        except ValueError:
+            # Couldn't find it, so let's load it from storage
+            record = self._archive.load(reference)
+            if record.is_deleted_record():
+                return record.state
+
+            # Ok, just use the one from storage
+            return self.two_step_load(record, referencer)
+
+    def _load_object(self, reference, referencer):
+        trans = self._current_transaction()
+
+        # Try getting the object from the our dict of up to date ones
+        try:
+            return trans.get_object(reference)
+        except ValueError:
+            pass
+
+        # Couldn't find it, so let's check if we have one and check if it is up to date
+        record = self._archive.load(reference)
+        if record.is_deleted_record():
+            raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(reference.obj_id))
+
+        try:
+            obj = self._objects[reference]
+        except KeyError:
+            # Ok, just use the one from storage
+            return self.two_step_load(record, referencer)
+        else:
+            # Need to check if the version we have is up to date
+            with self._nested_transaction() as nested:
+                loaded_obj = self.two_step_load(record, referencer)
+
+                if self.hash(obj) == self.hash(loaded_obj) and self.eq(obj, loaded_obj):
+                    # Objects identical, keep the one we have
+                    nested.rollback()
+                else:
+                    obj = loaded_obj
+
+            return obj
+
+    def _save_object(self, obj, referencer) -> archive.DataRecord:
+        trans = self._current_transaction()
+
+        # Check if we already have an up to date record
+        try:
+            return trans.get_record(obj)
+        except ValueError:
+            pass
+
+        # Ok, have to save it
+        helper = self._ensure_compatible(type(obj))
+        current_hash = self.hash(obj)
+
+        try:
+            # Let's see if we have a record at all
+            record = self._records[obj]
+        except KeyError:
+            # Completely new
+            try:
+                created_in = self.get_current_record(process.Process.current_process()).obj_id
+            except exceptions.NotFound:
+                created_in = None
+
+            builder = archive.DataRecord.get_builder(type_id=helper.TYPE_ID,
+                                                     obj_id=self._archive.create_archive_id(),
+                                                     created_in=created_in,
+                                                     version=0,
+                                                     snapshot_hash=current_hash)
+            return self.two_step_save(obj, builder, referencer)
+        else:
+            # Check if our record is up to date
+            with self._nested_transaction() as transaction:
+                loaded_obj = self.two_step_load(record, referencer)
+                if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
+                    # Objects identical
+                    transaction.rollback()
+                else:
+                    builder = record.child_builder()
+                    builder.snapshot_hash = current_hash
+                    record = self.two_step_save(obj, builder, referencer)
+
+            return record
 
     @contextlib.contextmanager
     def _live_transaction(self):
@@ -477,7 +519,9 @@ class Historian:  # (depositor.Referencer):
                 assert self._transactions[-1] is nested
                 self._transactions.pop()
 
-    def _current_transaction(self):
+    def _current_transaction(self) -> Transaction:
+        if not self._transactions:
+            return None
         return self._transactions[-1]
 
     def _get_primitive_types(self) -> tuple:
@@ -497,97 +541,6 @@ class Historian:  # (depositor.Referencer):
         return self._type_registry[obj_type]
 
 
-class RollbackTransaction(Exception):
-    pass
-
-
-class Transaction:
-
-    def __init__(self):
-        self._objects = {}
-        self._records = utils.WeakObjectIdDict()  # type: MutableMapping[typing.Any, archive.DataRecord]
-        self._staged = []  # type: typing.List[archive.DataRecord]
-
-    def insert_object(self, obj, ref):
-        self._objects[ref] = obj
-
-    def insert_object_and_record(self, obj, record: archive.DataRecord):
-        self.insert_object(obj, record.get_reference())
-        self._records[obj] = record
-
-    def stage(self, record: archive.DataRecord):
-        """Stage a record to be saved once on completion of this transaction"""
-        self._staged.append(record)
-
-    @property
-    def objects(self):
-        """The objects and references in this transaction"""
-        return self._objects
-
-    @property
-    def records(self):
-        """The objects with corresponding data records in this transaction"""
-        return self._records
-
-    @property
-    def staged(self) -> typing.Sequence[archive.DataRecord]:
-        """The list of records that were staged during this transaction"""
-        return self._staged
-
-    def get_object(self, ref):
-        """Get an object with the given reference in this transaction"""
-        try:
-            return self._objects[ref]
-        except KeyError:
-            raise ValueError("Unknown object reference '{}'".format(ref))
-
-    def get_record(self, obj) -> archive.DataRecord:
-        """Get a data record corresponding to an object from this transaction"""
-        try:
-            return self._records[obj]
-        except KeyError:
-            raise ValueError("Unknown object '{}'".format(obj))
-
-    @contextlib.contextmanager
-    def nested(self):
-        nested = NestedTransaction(self)
-        try:
-            yield nested
-        except RollbackTransaction:
-            pass
-        else:
-            # Update our transaction with the nested
-            self._update(nested)
-
-    def _update(self, transaction):
-        self._objects.update(transaction.objects)
-        self._records.update(transaction.records)
-        self._staged.extend(transaction.staged)
-
-    @staticmethod
-    def rollback():
-        raise RollbackTransaction
-
-
-class NestedTransaction(Transaction):
-
-    def __init__(self, parent: Transaction):
-        super(NestedTransaction, self).__init__()
-        self._parent = parent
-
-    def get_object(self, ref):
-        try:
-            return super(NestedTransaction, self).get_object(ref)
-        except ValueError:
-            return self._parent.get_object(ref)
-
-    def get_record(self, obj):
-        try:
-            return super(NestedTransaction, self).get_record(obj)
-        except ValueError:
-            return self._parent.get_record(obj)
-
-
 class LiveReferencer(depositor.Referencer):
 
     def __init__(self, historian: Historian):
@@ -603,6 +556,7 @@ class LiveReferencer(depositor.Referencer):
         if reference is None:
             return None
 
+        # Always get the latest version
         ref = self._historian._get_latest_snapshot_reference(reference.obj_id)
         return self._historian._load_object(ref, self)
 

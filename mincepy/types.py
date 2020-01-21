@@ -23,9 +23,11 @@ def yield_hashable_attributes(obj, attributes, hasher):
 class TypeHelper(metaclass=ABCMeta):
     """Responsible for generating a hash and checking equality of objects"""
     TYPE = None  # The type that this equator can compare
+    TYPE_ID = None
 
     def __init__(self):
         assert self.TYPE is not None, "Must set the TYPE to a type of or a tuple of types"
+        # assert self.TYPE_ID is not None, "Must set the TYPE_ID to a unique type identifier (e.g. a uuid)"
 
     @abstractmethod
     def yield_hashables(self, obj, hasher):
