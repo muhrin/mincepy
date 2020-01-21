@@ -24,7 +24,7 @@ def query(obj_type, filter, limit):
         gathered.setdefault(result.type_id, []).append(result)
 
     for type_id, records in gathered.items():
-        print(type_id)
+        print("type: {}".format(type_id))
         print_records(records)
 
 
@@ -41,8 +41,9 @@ def print_records(records: typing.Sequence[mincepy.DataRecord]):
     ]
 
     for record in records:
-        for column_name in get_all_columns(record):
-            columns[column_name] = []
+        if not record.is_deleted_record():
+            for column_name in get_all_columns(record.state):
+                columns[tuple(column_name)] = []
 
     for column_name in columns.keys():
         if column_name != REF:
@@ -52,73 +53,47 @@ def print_records(records: typing.Sequence[mincepy.DataRecord]):
     for row in range(len(records)):
         rows.append([columns[column][row] for column in columns.keys()])
 
-    print(tabulate(rows, headers=columns.keys()))
+    print(tabulate(rows, headers=[".".join(path) if isinstance(path, tuple) else path for path in columns.keys()]))
 
 
-def get_all_columns(record):
-    if isinstance(record.state, dict):
-        for key in record.state:
-            yield key
-    elif isinstance(record.state, list):
-        yield from range(len(record.state))
+def get_all_columns(state):
+    if isinstance(state, dict):
+        if 'type_id' in state and 'state' in state:
+            yield []
+        else:
+            for key, value in state.items():
+                key_path = [key]
+                if isinstance(value, dict):
+                    for path in get_all_columns(value):
+                        yield key_path + path
+                else:
+                    yield key_path
+    elif isinstance(state, list):
+        yield from [(idx,) for idx in range(len(state))]
     else:
-        if not record.is_deleted_record():
-            yield SCALAR_VALUE
+        yield SCALAR_VALUE
 
 
 def get_value(title, state):
     if isinstance(state, (dict, list)):
+        idx = title[0]
+        value = state[idx]
+        # Check for references
+        if isinstance(value, dict) and set(value.keys()) == {'type_id', 'state'}:
+            return str(mincepy.Ref(*value['state']))
+
+        if len(title) > 1:
+            return get_value(title[1:], value)
+
         try:
-            return state[title]
+            return state[idx]
         except (KeyError, IndexError):
             return UNSET
+
     if title == SCALAR_VALUE:
         return state
 
     return UNSET
-
-
-def get_row(headers, state):
-    if isinstance(state, dict, list):
-        for title in headers:
-            yield state[title]
-    else:
-        yield state
-
-
-def get_dict_table(records: typing.Sequence[mincepy.DataRecord]):
-    # Gather columns
-
-    columns = set()
-    for record in records:
-        columns.update(record.state.keys())
-
-    table = []
-    for record in records:
-        row = [str(record.get_reference())]
-        for column in columns:
-            row.append(str(record.state.get(column, '-')))
-        table.append(row)
-
-    headers = ['ref']
-    headers.extend(columns)
-
-    return headers, table
-
-
-def dict_to_rows(data: typing.Mapping, path=None):
-    path = path or []
-    for key, value in data.items():
-        current_path = path + [key]
-        if isinstance(value, typing.Mapping):
-            yield from dict_to_rows(value, current_path)
-        else:
-            yield current_path
-
-
-def get_list_table(records: typing.Sequence[mincepy.DataRecord]):
-    longest = max(len(record.state) for record in records)
-    return list(range(longest)), [str(record.state) for record in records]
 
 
 if __name__ == '__main__':

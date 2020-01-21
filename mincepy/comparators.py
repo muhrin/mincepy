@@ -111,3 +111,10 @@ class NoneEquator(SimpleHelper):
 
     def yield_hashables(self, obj, hasher):
         yield from hasher.yield_hashables('None')
+
+
+class TupleEquator(SimpleHelper):
+    TYPE = tuple
+
+    def yield_hashables(self, obj, hasher):
+        yield from hasher.yield_hashables(obj)

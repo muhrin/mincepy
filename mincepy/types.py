@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-import contextlib
 
 try:  # Python3
     from hashlib import blake2b
@@ -26,7 +25,7 @@ class TypeHelper(metaclass=ABCMeta):
     TYPE = None  # The type that this equator can compare
 
     def __init__(self):
-        assert self.TYPE is not None, "Must set the equator TYPE to a type of or a tuple of types"
+        assert self.TYPE is not None, "Must set the TYPE to a type of or a tuple of types"
 
     @abstractmethod
     def yield_hashables(self, obj, hasher):

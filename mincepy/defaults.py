@@ -14,5 +14,6 @@ def get_default_equators():
         comparators.ComplexEquator(),
         comparators.IntegerEquator(),
         comparators.BoolEquator(),
-        comparators.NoneEquator()
+        comparators.NoneEquator(),
+        comparators.TupleEquator(),
     )
