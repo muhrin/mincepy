@@ -1,9 +1,48 @@
 import contextlib
 from typing import MutableMapping, Any, List, Sequence
+import weakref
 
 from . import archive
 from . import exceptions
 from . import utils
+
+
+class LiveObjects:
+
+    def __init__(self):
+        # Live object -> data records
+        self._records = utils.WeakObjectIdDict()  # type: MutableMapping[Any, archive.DataRecord]
+        # Obj id -> object
+        self._objects = weakref.WeakValueDictionary()  # type: MutableMapping[Any, Any]
+
+    def __str__(self):
+        return "{} live".format(len(self._objects))
+
+    def insert(self, obj, record):
+        self._records[obj] = record
+        self._objects[record.obj_id] = obj
+
+    def update(self, live_objects):
+        """Like a dictionary update, take the given live objects container and absorb it into ourselves
+        overwriting any existing values and incorporating any new"""
+        self._records.update(live_objects._records)
+        self._objects.update(live_objects._objects)
+
+    def delete(self, obj):
+        del self._objects[self.get_record(obj).obj_id]
+        del self._records[obj]
+
+    def get_record(self, obj):
+        try:
+            return self._records[obj]
+        except KeyError:
+            raise exceptions.NotFound("No live object found '{}'".format(obj))
+
+    def get_object(self, obj_id):
+        try:
+            return self._objects[obj_id]
+        except KeyError:
+            raise exceptions.NotFound("No live object with id '{}'".format(obj_id))
 
 
 class RollbackTransaction(Exception):
@@ -16,7 +55,7 @@ class Transaction:
         # Records staged for saving to the archive
         self._staged = []  # type: List[archive.DataRecord]
 
-        self._live_objects = utils.LiveObjects()
+        self._live_objects = LiveObjects()
         # Ref -> obj
         self._live_object_references = {}
 
@@ -29,7 +68,7 @@ class Transaction:
                                                                     len(self._snapshots), len(self._staged))
 
     @property
-    def live_objects(self) -> utils.LiveObjects:
+    def live_objects(self) -> LiveObjects:
         return self._live_objects
 
     @property

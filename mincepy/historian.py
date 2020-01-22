@@ -13,7 +13,7 @@ from . import inmemory
 from . import process
 from . import types
 from . import utils
-from .transactions import RollbackTransaction, Transaction
+from .transactions import RollbackTransaction, Transaction, LiveObjects
 
 __all__ = ('Historian', 'set_historian', 'get_historian', 'INHERIT')
 
@@ -33,7 +33,7 @@ class Historian:  # (depositor.Referencer):
         # Snapshot objects -> reference. Objects that were loaded from historical snapshots
         self._snapshots_objects = utils.WeakObjectIdDict()  # type: MutableMapping[Any, archive.Ref]
 
-        self._live_objects = utils.LiveObjects()
+        self._live_objects = LiveObjects()
 
         self._type_registry = {}  # type: MutableMapping[typing.Type, types.TypeHelper]
         self._type_ids = {}
