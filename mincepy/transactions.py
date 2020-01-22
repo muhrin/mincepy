@@ -2,6 +2,7 @@ import contextlib
 from typing import MutableMapping, Any, List, Sequence
 
 from . import archive
+from . import exceptions
 from . import utils
 
 
@@ -12,49 +13,75 @@ class RollbackTransaction(Exception):
 class Transaction:
 
     def __init__(self):
-        self._objects = {} # type: MutableMapping[archive.Ref, Any]
-        self._records = utils.WeakObjectIdDict()  # type: MutableMapping[Any, archive.DataRecord]
+        # Records staged for saving to the archive
         self._staged = []  # type: List[archive.DataRecord]
 
-    def insert_object(self, obj, ref):
-        self._objects[ref] = obj
+        self._live_objects = utils.LiveObjects()
+        # Ref -> obj
+        self._live_object_references = {}
 
-    def insert_object_and_record(self, obj, record: archive.DataRecord):
-        self.insert_object(obj, record.get_reference())
-        self._records[obj] = record
+        # Snapshots: ref -> obj
+        self._snapshots = {}  # type: MutableMapping[archive.Ref, Any]
+
+    def __str__(self):
+        return "{}, {} live ref(s), {} snapshots, {} staged".format(self._live_objects,
+                                                                    len(self._live_object_references),
+                                                                    len(self._snapshots), len(self._staged))
+
+    @property
+    def live_objects(self) -> utils.LiveObjects:
+        return self._live_objects
+
+    @property
+    def snapshots(self):
+        return self._snapshots
+
+    def insert_live_object(self, obj, record):
+        ref = record.get_reference()
+        if ref not in self._live_object_references:
+            self._live_object_references[ref] = obj
+        else:
+            assert self._live_object_references[ref] is obj
+        self._live_objects.insert(obj, record)
+
+    def get_live_object(self, obj_id):
+        return self._live_objects.get_object(obj_id)
+
+    def get_record_for_live_object(self, obj):
+        return self._live_objects.get_record(obj)
+
+    def insert_live_object_reference(self, ref, obj):
+        self._live_object_references[ref] = obj
+
+    def get_live_object_from_reference(self, ref):
+        try:
+            return self._live_object_references[ref]
+        except KeyError:
+            raise exceptions.NotFound("No live object with reference '{}' found".format(ref))
+
+    def get_reference_for_live_object(self, obj):
+        for ref, cached in self._live_object_references.items():
+            if obj is cached:
+                return ref
+        raise exceptions.NotFound("Live object '{} not found".format(obj))
+
+    def insert_snapshot(self, obj, ref):
+        self._snapshots[ref] = obj
+
+    def get_snapshot(self, ref):
+        try:
+            return self._snapshots[ref]
+        except KeyError:
+            raise exceptions.NotFound("No snapshot with reference '{}' found".format(ref))
 
     def stage(self, record: archive.DataRecord):
         """Stage a record to be saved once on completion of this transaction"""
         self._staged.append(record)
 
     @property
-    def objects(self):
-        """The objects and references in this transaction"""
-        return self._objects
-
-    @property
-    def records(self):
-        """The objects with corresponding data records in this transaction"""
-        return self._records
-
-    @property
     def staged(self) -> Sequence[archive.DataRecord]:
         """The list of records that were staged during this transaction"""
         return self._staged
-
-    def get_object(self, ref):
-        """Get an object with the given reference in this transaction"""
-        try:
-            return self._objects[ref]
-        except KeyError:
-            raise ValueError("Unknown object reference '{}'".format(ref))
-
-    def get_record(self, obj) -> archive.DataRecord:
-        """Get a data record corresponding to an object from this transaction"""
-        try:
-            return self._records[obj]
-        except KeyError:
-            raise ValueError("Unknown object '{}'".format(obj))
 
     @contextlib.contextmanager
     def nested(self):
@@ -68,8 +95,9 @@ class Transaction:
             self._update(nested)
 
     def _update(self, transaction):
-        self._objects.update(transaction.objects)
-        self._records.update(transaction.records)
+        self._live_objects.update(transaction.live_objects)
+        self._snapshots.update(transaction.snapshots)
+        self._live_object_references.update(transaction._live_object_references)
         self._staged.extend(transaction.staged)
 
     @staticmethod
@@ -83,14 +111,29 @@ class NestedTransaction(Transaction):
         super(NestedTransaction, self).__init__()
         self._parent = parent
 
-    def get_object(self, ref):
-        try:
-            return super(NestedTransaction, self).get_object(ref)
-        except ValueError:
-            return self._parent.get_object(ref)
+    def __str__(self):
+        return "{} (parent: {})".format(super().__str__(), self._parent)
 
-    def get_record(self, obj):
+    def get_live_object(self, obj_id):
         try:
-            return super(NestedTransaction, self).get_record(obj)
-        except ValueError:
-            return self._parent.get_record(obj)
+            return super().get_live_object(obj_id)
+        except exceptions.NotFound:
+            return self._parent.get_live_object(obj_id)
+
+    def get_live_object_from_reference(self, ref):
+        try:
+            return super().get_live_object_from_reference(ref)
+        except exceptions.NotFound:
+            return self._parent.get_live_object_from_reference(ref)
+
+    def get_reference_for_live_object(self, obj):
+        try:
+            return super().get_reference_for_live_object(obj)
+        except exceptions.NotFound:
+            return self._parent.get_reference_for_live_object(obj)
+
+    def get_snapshot(self, ref):
+        try:
+            return super(NestedTransaction, self).get_snapshot(ref)
+        except exceptions.NotFound:
+            return self._parent.get_snapshot(ref)

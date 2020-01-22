@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import collections.abc
 
+from . import archive
 from . import types
 
 __all__ = ('Referencer',)
@@ -12,7 +13,7 @@ class Referencer(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def ref(self, obj):
+    def ref(self, obj) -> archive.Ref:
         """Get a persistent reference for the given object"""
 
     def ref_many(self, objs: collections.abc.Iterable):
@@ -36,7 +37,7 @@ class Referencer(metaclass=ABCMeta):
         return self.ref(obj)
 
     @abstractmethod
-    def deref(self, obj_id):
+    def deref(self, reference: archive.Ref):
         """Retrieve an object given a persistent reference"""
 
     def deref_many(self, obj_ids: collections.abc.Iterable):

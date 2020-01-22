@@ -98,6 +98,7 @@ def test_list_basics(historian: mincepy.Historian):
 
 
 def test_track(historian: mincepy.Historian):
+
     @mincepy.track
     def put_car_in_garage(car: Car, garage: Garage):
         garage.car = car
@@ -112,6 +113,7 @@ def test_track(historian: mincepy.Historian):
 
 
 def test_track_method(historian: mincepy.Historian):
+
     class CarFactory(mincepy.SavableComparable):
         TYPE_ID = uuid.UUID('166a9446-c04e-4fbe-a3da-6f36c2f8292d')
 
@@ -271,6 +273,7 @@ def test_history(historian: mincepy.Historian):
 
 
 def test_storing_internal_object(historian: mincepy.Historian):
+
     class Person(mincepy.SavableComparable):
         TYPE_ID = uuid.UUID('f6f83595-6375-4bc4-89f2-d8f31a1286b0')
 
@@ -337,28 +340,109 @@ def test_load_unknown_object(mongodb_archive, historian: mincepy.Historian):
         historian.load(obj_id)
 
 
-# def test_cyclic_ref(historian: mincepy.Historian):
-#     class Cycle(mincepy.SavableComparable):
-#         TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
-#
-#         def __init__(self, ref=None):
-#             super(Cycle, self).__init__()
-#             self.ref = ref
-#
-#         def __eq__(self, other):
-#             return self.ref.__eq__(other.ref)
-#
-#         def yield_hashables(self, hasher):
-#             yield from hasher.yield_hashables(id(self.ref))
-#
-#         def save_instance_state(self, referencer):
-#             return referencer.ref(self.ref)
-#
-#         def load_instance_state(self, saved_state, referencer):
-#             self.__init__(referencer.deref(saved_state))
-#
-#     a = Cycle()
-#     b = Cycle(a)
-#     a.ref = b  # Cycle complete
-#
-#     a_id = historian.save(a)
+def test_cyclic_ref_simple(historian: mincepy.Historian):
+
+    class Cycle(mincepy.SavableComparable):
+        TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
+
+        def __init__(self, ref=None):
+            super(Cycle, self).__init__()
+            self.ref = ref
+
+        def __eq__(self, other):
+            return self.ref is other.ref
+
+        def yield_hashables(self, hasher):
+            yield from hasher.yield_hashables(id(self.ref))
+
+        def save_instance_state(self, referencer):
+            return referencer.ref(self.ref)
+
+        def load_instance_state(self, saved_state, referencer):
+            self.__init__(referencer.deref(saved_state))
+
+    a = Cycle()
+    a.ref = a  # Cycle complete
+
+    a_id = historian.save(a)
+    del a
+    loaded_a = historian.load(a_id)
+    assert loaded_a.ref is loaded_a
+
+
+def test_cyclic_ref_complex(historian: mincepy.Historian):
+
+    class Cycle(mincepy.SavableComparable):
+        TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
+
+        def __init__(self, ref=None):
+            super(Cycle, self).__init__()
+            self.ref = ref
+
+        def __eq__(self, other):
+            return self.ref is other.ref
+
+        def yield_hashables(self, hasher):
+            yield from hasher.yield_hashables(id(self.ref))
+
+        def save_instance_state(self, referencer):
+            return referencer.ref(self.ref)
+
+        def load_instance_state(self, saved_state, referencer):
+            self.__init__(referencer.deref(saved_state))
+
+    a = Cycle()
+    b = Cycle(a)
+    a.ref = b  # Cycle complete
+
+    a_id = historian.save(a)
+    del a
+    loaded_a = historian.load(a_id)
+    assert loaded_a.ref is b
+    assert b.ref is loaded_a
+
+
+def test_transaction_rollback(historian: mincepy.Historian):
+    ferrari = Car('ferrari')
+    with historian.transaction() as trans:
+        # Within the transaction should be able to save and load
+        ferrari_id = historian.save(ferrari)
+        loaded = historian.load(ferrari_id)
+        assert loaded is ferrari
+        trans.rollback()
+
+    # But now that I rolled back the object should not be available
+    with pytest.raises(mincepy.NotFound):
+        historian.load(ferrari_id)
+
+    ferrari_id = historian.save(ferrari)
+    assert historian.load(ferrari_id) is ferrari
+
+
+def test_transaction_snapshots(historian: mincepy.Historian):
+    ferrari = Car('ferrari')
+    ferrari_id = historian.save_snapshot(ferrari)
+
+    with historian.transaction():
+        ferrari_snapshot_1 = historian.load_snapshot(ferrari_id)
+        with historian.transaction():
+            ferrari_snapshot_2 = historian.load_snapshot(ferrari_id)
+            # Reference wise they should be unequal
+            assert ferrari_snapshot_1 is not ferrari_snapshot_2
+            assert ferrari is not ferrari_snapshot_1
+            assert ferrari is not ferrari_snapshot_2
+
+            # Value wise they should be equal
+            assert ferrari == ferrari_snapshot_1
+            assert ferrari == ferrari_snapshot_2
+
+        # Now check within the same transaction the result is the same
+        ferrari_snapshot_2 = historian.load_snapshot(ferrari_id)
+        # Reference wise they should be unequal
+        assert ferrari_snapshot_1 is not ferrari_snapshot_2
+        assert ferrari is not ferrari_snapshot_1
+        assert ferrari is not ferrari_snapshot_2
+
+        # Value wise they should be equal
+        assert ferrari == ferrari_snapshot_1
+        assert ferrari == ferrari_snapshot_2
