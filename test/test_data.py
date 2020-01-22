@@ -130,10 +130,10 @@ def test_track_method(historian: mincepy.Historian):
         def yield_hashables(self, hasher):
             yield from hasher.yield_hashables(self._make)
 
-        def save_instance_state(self, _: mincepy.Referencer):
+        def save_instance_state(self, _: mincepy.Depositor):
             return {'make': self._make}
 
-        def load_instance_state(self, saved_state, _: mincepy.Referencer):
+        def load_instance_state(self, saved_state, _: mincepy.Depositor):
             self.__init__(saved_state['make'])
 
         @mincepy.track
@@ -223,17 +223,17 @@ def test_type_helper(historian: mincepy.Historian):
         TYPE = Bird
         TYPE_ID = uuid.UUID('5cc59e03-ea5d-43ff-8814-3b6f2e22cd76')
 
-        def yield_hashables(self, bird, hasher):
-            yield from hasher.yield_hashables(bird.specie)
+        def yield_hashables(self, obj, hasher):
+            yield from hasher.yield_hashables(obj.specie)
 
         def eq(self, one, other) -> bool:
             return one.specie == other.specie
 
-        def save_instance_state(self, bird, referencer):
-            return bird.specie
+        def save_instance_state(self, obj, _depositor):
+            return obj.specie
 
-        def load_instance_state(self, bird, saved_state, referencer):
-            bird.specie = saved_state
+        def load_instance_state(self, obj, saved_state, _depositor):
+            obj.specie = saved_state
 
     bird = Bird()
     with pytest.raises(TypeError):
@@ -287,10 +287,10 @@ def test_storing_internal_object(historian: mincepy.Historian):
         def yield_hashables(self, hasher):
             yield from hasher.yield_hashables(self.car)
 
-        def save_instance_state(self, referencer):
+        def save_instance_state(self, _depositor):
             return {'car': self.car}
 
-        def load_instance_state(self, saved_state, referencer):
+        def load_instance_state(self, saved_state, _depositor):
             self.car = saved_state['car']
 
     ferrari = Car('ferrari')
@@ -353,10 +353,10 @@ class Cycle(mincepy.SavableComparable):
     def yield_hashables(self, hasher):
         yield from hasher.yield_hashables(id(self.ref))
 
-    def save_instance_state(self, referencer):
+    def save_instance_state(self, _depositor):
         return self.ref
 
-    def load_instance_state(self, saved_state, referencer):
+    def load_instance_state(self, saved_state, _depositor):
         self.__init__(saved_state)
 
 

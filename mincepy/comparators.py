@@ -2,7 +2,7 @@ import numbers
 import collections.abc
 from operator import itemgetter
 
-from .types import TypeHelper
+from .helpers import TypeHelper
 
 __all__ = ('SimpleHelper', 'BytesEquator')
 
@@ -15,11 +15,11 @@ class SimpleHelper(TypeHelper):
     def eq(self, one, other) -> bool:
         return one == other
 
-    def save_instance_state(self, obj, referencer):
-        return obj.save_instance_state(referencer)
+    def save_instance_state(self, obj, depositor):
+        return obj.save_instance_state(depositor)
 
-    def load_instance_state(self, obj, saved_state, referencer):
-        return obj.load(saved_state, referencer)
+    def load_instance_state(self, obj, saved_state, depositor):
+        return obj.load(saved_state, depositor)
 
 
 class BytesEquator(SimpleHelper):

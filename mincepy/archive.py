@@ -56,10 +56,10 @@ class Ref(typing.Generic[IdT], types.SavableComparable):
         yield from hasher.yield_hashables(self.obj_id)
         yield from hasher.yield_hashables(self.version)
 
-    def save_instance_state(self, referencer):
+    def save_instance_state(self, _depositor):
         return [self.obj_id, self.version]
 
-    def load_instance_state(self, saved_state, referencer):
+    def load_instance_state(self, saved_state, _depositor):
         self.__init__(*saved_state)
 
     def to_dict(self):

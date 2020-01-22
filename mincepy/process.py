@@ -1,7 +1,7 @@
 import contextlib
 import uuid
 
-from . import depositor
+from . import depositors
 from . import types
 
 __all__ = ('Process',)
@@ -45,8 +45,8 @@ class Process(types.SavableComparable):
     def yield_hashables(self, hasher):
         yield from types.yield_hashable_attributes(self, self.DEFINING_ATTRIBUTES, hasher)
 
-    def save_instance_state(self, referencer: depositor.Referencer):  # pylint: disable=unused-argument
+    def save_instance_state(self, depositor: depositors.Depositor):  # pylint: disable=unused-argument
         return {'name': self.name}
 
-    def load_instance_state(self, saved_state, referencer: depositor.Referencer):  # pylint: disable=unused-argument
+    def load_instance_state(self, saved_state, depositor: depositors.Depositor):  # pylint: disable=unused-argument
         Process.__init__(self, saved_state['name'])

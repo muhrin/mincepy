@@ -21,10 +21,10 @@ class Car(mincepy.SavableComparable):
         yield from hasher.yield_hashables(self.make)
         yield from hasher.yield_hashables(self.colour)
 
-    def save_instance_state(self, _: mincepy.Referencer):
+    def save_instance_state(self, _depositor: mincepy.Depositor):
         return {'make': self.make, 'colour': self.colour}
 
-    def load_instance_state(self, saved_state, _: mincepy.Referencer):
+    def load_instance_state(self, saved_state, _depositor: mincepy.Depositor):
         self.__init__(saved_state['make'], saved_state['colour'])
 
 
@@ -44,8 +44,8 @@ class Garage(mincepy.SavableComparable):
     def yield_hashables(self, hasher):
         yield from hasher.yield_hashables(self.car)
 
-    def save_instance_state(self, referencer: mincepy.Referencer):
+    def save_instance_state(self, _depositor: mincepy.Depositor):
         return {'car': self.car}
 
-    def load_instance_state(self, saved_state, referencer: mincepy.Referencer):
+    def load_instance_state(self, saved_state, _depositor: mincepy.Depositor):
         self.__init__(saved_state['car'])

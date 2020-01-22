@@ -6,7 +6,7 @@ except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 import uuid
 
-__all__ = ('TypeHelper', 'Equator', 'SavableComparable')
+__all__ = ('Equator', 'SavableComparable')
 
 BASE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID)
 
@@ -20,37 +20,6 @@ def yield_hashable_attributes(obj, attributes, hasher):
         yield from hasher.yield_hashables(obj.__getattribute__(attr))
 
 
-class TypeHelper(metaclass=ABCMeta):
-    """Responsible for generating a hash and checking equality of objects"""
-    TYPE = None  # The type that this equator can compare
-    TYPE_ID = None
-
-    def __init__(self):
-        assert self.TYPE is not None, "Must set the TYPE to a type of or a tuple of types"
-        # assert self.TYPE_ID is not None, "Must set the TYPE_ID to a unique type identifier (e.g. a uuid)"
-
-    @abstractmethod
-    def yield_hashables(self, obj, hasher):
-        """Produce a hash representing the value"""
-
-    @abstractmethod
-    def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
-        """Determine if two objects are equal"""
-
-    @abstractmethod
-    def save_instance_state(self, obj, referencer):
-        """Save the instance state of an object, should return a saved instance"""
-
-    def new(self, encoded_saved_state):  # pylint: disable=unused-argument
-        """Create a new blank object of this type"""
-        cls = self.TYPE
-        return cls.__new__(cls)
-
-    @abstractmethod
-    def load_instance_state(self, obj, saved_state, referencer):
-        """Take the given blank object and load the instance state into it"""
-
-
 class Savable(metaclass=ABCMeta):
     """An object that can save an load its instance state"""
     TYPE_ID = None
@@ -59,11 +28,11 @@ class Savable(metaclass=ABCMeta):
         assert self.TYPE_ID is not None, "Must set the TYPE_ID for an object to be savable"
 
     @abstractmethod
-    def save_instance_state(self, referencer):
+    def save_instance_state(self, depositor):
         """Save the instance state of an object, should return a saved instance"""
 
     @abstractmethod
-    def load_instance_state(self, saved_state, referencer):
+    def load_instance_state(self, saved_state, depositor):
         """Take the given object and load the instance state into it"""
 
 
@@ -97,7 +66,7 @@ class Equator:
 
         self._hasher = do_hash
 
-    def add_equator(self, equator: TypeHelper):
+    def add_equator(self, equator):
         self._equators.append(equator)
 
     def remove_equator(self, equator):
@@ -120,7 +89,10 @@ class Equator:
             equator = self.get_equator(obj)
         except TypeError:
             # Try the objects's method
-            yield from obj.yield_hashables(self)
+            try:
+                yield from obj.yield_hashables(self)
+            except AttributeError:
+                raise TypeError("No helper registered and no yield_hashabled method on '{}'".format(type(obj)))
         else:
             yield from equator.yield_hashables(obj, self)
 
@@ -139,7 +111,7 @@ class Equator:
         else:
             return equator.eq(obj1, obj2)
 
-    def float_to_str(self, value, sig=14):
+    def float_to_str(self, value, sig=14):  # pylint: disable=no-self-use
         """
         Convert float to text string for computing hash.
         Preserve up to N significant number given by sig.

@@ -9,9 +9,9 @@ import pymongo.database
 import pymongo.errors
 
 from . import archive
-from .archive import BaseArchive, DataRecord
 from . import exceptions
-from . import types
+from . import helpers
+from .archive import BaseArchive, DataRecord
 
 __all__ = ('MongoArchive',)
 
@@ -24,7 +24,7 @@ STATE = 'state'
 SNAPSHOT_HASH = 'hash'
 
 
-class ObjectIdHelper(types.TypeHelper):
+class ObjectIdHelper(helpers.TypeHelper):
     TYPE = bson.ObjectId
     TYPE_ID = uuid.UUID('bdde0765-36d2-4f06-bb8b-536a429f32ab')
 
@@ -34,10 +34,10 @@ class ObjectIdHelper(types.TypeHelper):
     def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
         return one.__eq__(other)
 
-    def save_instance_state(self, obj, referencer):
+    def save_instance_state(self, obj, _depositor):
         return obj
 
-    def load_instance_state(self, obj, saved_state, referencer):
+    def load_instance_state(self, obj, saved_state, _depositor):
         return obj.__init__(saved_state)
 
 
@@ -134,13 +134,13 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     def find(self,
              obj_id: Optional[bson.ObjectId] = None,
              type_id=None,
-             created_in=None,
-             copied_from=None,
+             _created_in=None,
+             _copied_from=None,
              version=-1,
              state=None,
              snapshot_hash=None,
              limit=0,
-             sort=None):
+             _sort=None):
         mfilter = {}
         if obj_id is not None:
             mfilter['obj_id'] = obj_id

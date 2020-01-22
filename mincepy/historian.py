@@ -6,8 +6,9 @@ from typing import MutableMapping, Any, Optional
 
 from . import archive
 from . import defaults
-from . import depositor
+from . import depositors
 from . import exceptions
+from . import helpers
 from . import inmemory
 from . import process
 from . import types
@@ -21,35 +22,6 @@ INHERIT = 'INHERIT'
 CURRENT_HISTORIAN = None
 
 ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
-
-# Keys used in to store the state state of an object when encoding/decoding
-TYPE_KEY = '!!type'
-STATE_KEY = '!!state'
-REF_KEY = '!!ref'
-
-
-class WrapperHelper(types.TypeHelper):
-    """Wraps up an object type to perform the necessary Historian actions"""
-    # pylint: disable=invalid-name
-    TYPE = None
-    TYPE_ID = None
-
-    def __init__(self, obj_type: typing.Type[types.SavableComparable]):
-        self.TYPE = obj_type
-        self.TYPE_ID = obj_type.TYPE_ID
-        super(WrapperHelper, self).__init__()
-
-    def yield_hashables(self, obj, hasher):
-        yield from self.TYPE.yield_hashables(obj, hasher)
-
-    def eq(self, one, other) -> bool:
-        return self.TYPE.__eq__(one, other)
-
-    def save_instance_state(self, obj: types.Savable, referencer):
-        return self.TYPE.save_instance_state(obj, referencer)
-
-    def load_instance_state(self, obj, saved_state: types.Savable, referencer):
-        return self.TYPE.load_instance_state(obj, saved_state, referencer)
 
 
 class Historian:  # (depositor.Referencer):
@@ -124,7 +96,7 @@ class Historian:  # (depositor.Referencer):
         return record.get_reference()
 
     def load_snapshot(self, reference: archive.Ref) -> Any:
-        return self._load_snapshot(reference, SnapshotReferencer(self))
+        return self._load_snapshot(reference, depositors.SnapshotDepositor(self))
 
     def load(self, obj_id):
         """Load an object."""
@@ -134,9 +106,9 @@ class Historian:  # (depositor.Referencer):
         return self.load_object(obj_id)
 
     def copy(self, obj):
-        """Create a shallow copy of the object and save that copy"""
+        """Create a shallow copy of the object, save that copy and return it"""
         with self.transaction() as trans:
-            record = self._save_object(obj, LiveReferencer(self))
+            record = self._save_object(obj, depositors.LiveDepositor(self))
             copy_builder = record.copy_builder(obj_id=self._archive.create_archive_id())
 
             # Copy the object and record
@@ -192,10 +164,10 @@ class Historian:  # (depositor.Referencer):
         return [self._archive.load(ref) for ref in to_get]
 
     def load_object(self, obj_id):
-        return self._load_object(obj_id, LiveReferencer(self))
+        return self._load_object(obj_id, depositors.LiveDepositor(self))
 
     def save_object(self, obj) -> archive.DataRecord:
-        return self._save_object(obj, LiveReferencer(self))
+        return self._save_object(obj, depositors.LiveDepositor(self))
 
     def get_meta(self, obj_id):
         if isinstance(obj_id, archive.Ref):
@@ -212,10 +184,10 @@ class Historian:  # (depositor.Referencer):
     def get_obj_type_id(self, obj_type):
         return self._type_registry[obj_type].TYPE_ID
 
-    def get_helper(self, type_id) -> types.TypeHelper:
+    def get_helper(self, type_id) -> helpers.TypeHelper:
         return self.get_helper_from_obj_type(self._type_ids[type_id])
 
-    def get_helper_from_obj_type(self, obj_type) -> types.TypeHelper:
+    def get_helper_from_obj_type(self, obj_type) -> helpers.TypeHelper:
         try:
             return self._type_registry[obj_type]
         except KeyError:
@@ -263,13 +235,13 @@ class Historian:  # (depositor.Referencer):
     def eq(self, one, other):  # pylint: disable=invalid-name
         return self._equator.eq(one, other)
 
-    def register_type(self, obj_class_or_helper: [types.TypeHelper, typing.Type[types.SavableComparable]]):
-        if isinstance(obj_class_or_helper, types.TypeHelper):
+    def register_type(self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableComparable]]):
+        if isinstance(obj_class_or_helper, helpers.TypeHelper):
             helper = obj_class_or_helper
         else:
             if not issubclass(obj_class_or_helper, types.SavableComparable):
                 raise TypeError("Type '{}' is nether a TypeHelper nor a SavableComparable".format(obj_class_or_helper))
-            helper = WrapperHelper(obj_class_or_helper)
+            helper = helpers.WrapperHelper(obj_class_or_helper)
 
         self._type_registry[helper.TYPE] = helper
         self._type_ids[helper.TYPE_ID] = helper.TYPE
@@ -291,78 +263,7 @@ class Historian:  # (depositor.Referencer):
         except exceptions.NotFound:
             return self._archive.load(self._get_latest_snapshot_reference(obj_or_identifier)).created_in
 
-    def encode(self, obj, referencer):
-        obj_type = type(obj)
-        if obj_type in self._get_primitive_types():
-            # Deal with the special containers by encoding their values if need be
-            if isinstance(obj, list):
-                return [self.encode(entry, referencer) for entry in obj]
-            if isinstance(obj, dict):
-                return {key: self.encode(value, referencer) for key, value in obj.items()}
-
-            return obj
-
-        # Non-primitives should always be converted to reference dictionaries
-        # if isinstance(obj, archive.Ref):
-        #     reference = obj
-        # else:
-        reference = referencer.ref(obj)
-        return reference.to_dict()
-
-    def to_dict(self, savable: types.Savable, referencer) -> dict:
-        obj_type = type(savable)
-        helper = self.get_helper_from_obj_type(obj_type)
-        saved_state = helper.save_instance_state(savable, referencer)
-
-        return {TYPE_KEY: self.get_obj_type_id(type(savable)), STATE_KEY: self.encode(saved_state, referencer)}
-
-    def from_dict(self, state_dict: dict, referencer: depositor.Referencer):
-        if not isinstance(state_dict, dict):
-            raise TypeError("State dict is of type '{}', should be dictionary!".format(type(state_dict)))
-        if not (TYPE_KEY in state_dict and STATE_KEY in state_dict):
-            raise ValueError("Passed non-state-dictionary: '{}'".format(state_dict))
-
-        with self.create_from(state_dict[STATE_KEY], self.get_helper(state_dict[TYPE_KEY]), referencer) as obj:
-            return obj
-
-    def decode(self, encoded, referencer: depositor.Referencer):
-        """Decode the saved state recreating any saved objects within."""
-        enc_type = type(encoded)
-        if enc_type not in self._get_primitive_types():
-            raise TypeError("Encoded type must be one of '{}', got '{}'".format(self._get_primitive_types(), enc_type))
-
-        if enc_type is dict:
-            # It could be a reference dictionary
-            try:
-                ref = archive.Ref.from_dict(encoded)
-            except (ValueError, TypeError):
-                return {key: self.decode(value, referencer) for key, value in encoded.items()}
-            else:
-                return referencer.deref(ref)
-        if enc_type is list:
-            return [self.decode(value, referencer) for value in encoded]
-
-        # No decoding to be done
-        return encoded
-
-    @contextlib.contextmanager
-    def create_from(self, encoded_saved_state, helper: types.TypeHelper, referencer: depositor.Referencer):
-        """
-        Loading of an object takes place in two steps, analogously to the way python
-        creates objects.  First a 'blank' object is created and and yielded by this
-        context manager.  Then loading is finished in load_instance_state.  Naturally,
-        the state of the object should not be relied upon until the context exits.
-        """
-        new_obj = helper.new(encoded_saved_state)
-        assert new_obj is not None, "Helper '{}' failed to create a class given state '{}'".format(
-            helper.__class__, encoded_saved_state)
-        try:
-            yield new_obj
-        finally:
-            decoded = self.decode(encoded_saved_state, referencer)
-            helper.load_instance_state(new_obj, decoded, referencer)
-
-    def two_step_save(self, obj, builder, referencer):
+    def two_step_save(self, obj, builder, depositor):
         """Save a live object"""
         with self.transaction() as trans:
             # Insert the object into the transaction so others can refer to it
@@ -370,8 +271,8 @@ class Historian:  # (depositor.Referencer):
             trans.insert_live_object_reference(ref, obj)
 
             # Now ask the object to save itself and create the record
-            encoded = self.to_dict(obj, referencer)
-            builder.update(dict(type_id=encoded[TYPE_KEY], state=encoded[STATE_KEY]))
+            saved_state = depositor.save_instance_state(obj)
+            builder.update(dict(type_id=builder.type_id, state=saved_state))
             record = builder.build()
 
             # Insert the record into the transaction
@@ -417,6 +318,10 @@ class Historian:  # (depositor.Referencer):
                 assert self._transactions[0] is trans
                 self._transactions = None
 
+    def get_primitive_types(self) -> tuple:
+        """Get a tuple of the primitive types"""
+        return types.BASE_TYPES + (self._archive.get_id_type(),)
+
     def _get_latest_snapshot_reference(self, obj_id) -> archive.Ref:
         """Given an object id this will return a refernce to the latest snapshot"""
         try:
@@ -424,7 +329,7 @@ class Historian:  # (depositor.Referencer):
         except IndexError:
             raise exceptions.NotFound("Object with id '{}' not found.".format(obj_id))
 
-    def _load_object(self, obj_id, referencer):
+    def _load_object(self, obj_id, depositor: depositors.Depositor):
         with self.transaction() as trans:
             # Try getting the object from the our dict of up to date ones
             try:
@@ -437,13 +342,12 @@ class Historian:  # (depositor.Referencer):
             archive_record = self._archive.load(ref)
             if archive_record.is_deleted_record():
                 raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(obj_id))
-            helper = self.get_helper(archive_record.type_id)
 
             try:
                 obj = self._live_objects.get_object(obj_id)
             except exceptions.NotFound:
                 # Ok, just use the one from the archive
-                with self.create_from(archive_record.state, helper, referencer) as obj:
+                with depositor.create_from(archive_record) as obj:
                     trans.insert_live_object(obj, archive_record)
                     return obj
             else:
@@ -452,11 +356,11 @@ class Historian:  # (depositor.Referencer):
                     return obj
 
                 # The one in the archive is newer, so use that
-                with self.create_from(archive_record.state, helper, referencer) as obj:
+                with depositor.create_from(archive_record) as obj:
                     trans.insert_live_object(obj, archive_record)
                     return obj
 
-    def _load_snapshot(self, reference: archive.Ref, referencer):
+    def _load_snapshot(self, reference: archive.Ref, depositor):
         """Load a snapshot of the object using a reference."""
         # Try getting the object from the transaction
         with self.transaction() as trans:
@@ -465,11 +369,11 @@ class Historian:  # (depositor.Referencer):
             if record.is_deleted_record():
                 return None
 
-            with self.create_from(record.state, self.get_helper(record.type_id), referencer) as obj:
+            with depositor.create_from(record) as obj:
                 trans.insert_snapshot(obj, record.get_reference())
                 return obj
 
-    def _save_object(self, obj, referencer) -> archive.DataRecord:
+    def _save_object(self, obj, depositor) -> archive.DataRecord:
         with self.transaction() as trans:
             # Check if an object is already being saved in the transaction
             try:
@@ -478,7 +382,6 @@ class Historian:  # (depositor.Referencer):
                 pass
 
             # Ok, have to save it
-            helper = self._ensure_compatible(type(obj))
             current_hash = self.hash(obj)
 
             try:
@@ -491,16 +394,17 @@ class Historian:  # (depositor.Referencer):
                 except exceptions.NotFound:
                     created_in = None
 
+                helper = self._ensure_compatible(type(obj))
                 builder = archive.DataRecord.get_builder(type_id=helper.TYPE_ID,
                                                          obj_id=self._archive.create_archive_id(),
                                                          created_in=created_in,
                                                          version=0,
                                                          snapshot_hash=current_hash)
-                return self.two_step_save(obj, builder, referencer)
+                return self.two_step_save(obj, builder, depositor)
             else:
                 # Check if our record is up to date
                 with self.transaction() as transaction:
-                    with self.create_from(record.state, helper, referencer) as loaded_obj:
+                    with depositor.create_from(record) as loaded_obj:
                         pass
 
                     if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
@@ -509,7 +413,7 @@ class Historian:  # (depositor.Referencer):
                     else:
                         builder = record.child_builder()
                         builder.snapshot_hash = current_hash
-                        record = self.two_step_save(obj, builder, referencer)
+                        record = self.two_step_save(obj, builder, depositor)
 
                 return record
 
@@ -519,62 +423,17 @@ class Historian:  # (depositor.Referencer):
             return None
         return self._transactions[-1]
 
-    def _get_primitive_types(self) -> tuple:
-        """Get a tuple of the primitive types"""
-        return types.BASE_TYPES + (self._archive.get_id_type(),)
-
     def _ensure_compatible(self, obj_type: typing.Type):
         if obj_type not in self._type_registry:
             if issubclass(obj_type, types.SavableComparable):
                 # Make a wrapper
-                self.register_type(WrapperHelper(obj_type))
+                self.register_type(helpers.WrapperHelper(obj_type))
             else:
                 raise TypeError(
                     "Object type '{}' is incompatible with the historian, either subclass from SavableComparable or "
                     "provide a helper".format(obj_type))
 
         return self._type_registry[obj_type]
-
-
-class LiveReferencer(depositor.Referencer):
-
-    def ref(self, obj) -> Optional[archive.Ref]:
-        if obj is None:
-            return None
-
-        try:
-            return self._historian.get_ref(obj)
-        except exceptions.NotFound:
-            # Then we have to save it and get the resulting reference
-            return self._historian._save_object(obj, self).get_reference()
-
-    def deref(self, reference: Optional[archive.Ref]):
-        if reference is None:
-            return None
-
-        if not isinstance(reference, archive.Ref):
-            raise TypeError(reference)
-
-        try:
-            return self._historian.get_obj(reference.obj_id)
-        except exceptions.NotFound:
-            return self._historian._load_object(reference.obj_id, self)
-
-
-class SnapshotReferencer(depositor.Referencer):
-
-    def ref(self, obj) -> Optional[archive.Ref]:  # pylint: disable=no-self-use
-        raise RuntimeError("Cannot get a reference to an object during snapshot transactions")
-
-    def deref(self, reference: Optional[archive.Ref]):
-        if reference is None:
-            return None
-
-        if not isinstance(reference, archive.Ref):
-            raise TypeError(reference)
-
-        # Always load a snapshot
-        return self._historian._load_snapshot(reference, self)
 
 
 def create_default_historian() -> Historian:
