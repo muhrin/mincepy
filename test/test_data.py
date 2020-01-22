@@ -301,8 +301,8 @@ def test_storing_internal_object(historian: mincepy.Historian):
 
     loaded_mike = historian.load(mike_id)
     assert loaded_mike.car.make == 'ferrari'
-    # Because mike owns the car, it is always an internal version, not a reference
-    assert loaded_mike.car is not ferrari
+    # Default is to save by reference so two cars should be the same
+    assert loaded_mike.car is ferrari
 
 
 def test_copy(historian: mincepy.Historian):
@@ -340,27 +340,27 @@ def test_load_unknown_object(mongodb_archive, historian: mincepy.Historian):
         historian.load(obj_id)
 
 
+class Cycle(mincepy.SavableComparable):
+    TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
+
+    def __init__(self, ref=None):
+        super(Cycle, self).__init__()
+        self.ref = ref
+
+    def __eq__(self, other):
+        return self.ref is other.ref
+
+    def yield_hashables(self, hasher):
+        yield from hasher.yield_hashables(id(self.ref))
+
+    def save_instance_state(self, referencer):
+        return self.ref
+
+    def load_instance_state(self, saved_state, referencer):
+        self.__init__(saved_state)
+
+
 def test_cyclic_ref_simple(historian: mincepy.Historian):
-
-    class Cycle(mincepy.SavableComparable):
-        TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
-
-        def __init__(self, ref=None):
-            super(Cycle, self).__init__()
-            self.ref = ref
-
-        def __eq__(self, other):
-            return self.ref is other.ref
-
-        def yield_hashables(self, hasher):
-            yield from hasher.yield_hashables(id(self.ref))
-
-        def save_instance_state(self, referencer):
-            return referencer.ref(self.ref)
-
-        def load_instance_state(self, saved_state, referencer):
-            self.__init__(referencer.deref(saved_state))
-
     a = Cycle()
     a.ref = a  # Cycle complete
 
@@ -371,26 +371,6 @@ def test_cyclic_ref_simple(historian: mincepy.Historian):
 
 
 def test_cyclic_ref_complex(historian: mincepy.Historian):
-
-    class Cycle(mincepy.SavableComparable):
-        TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
-
-        def __init__(self, ref=None):
-            super(Cycle, self).__init__()
-            self.ref = ref
-
-        def __eq__(self, other):
-            return self.ref is other.ref
-
-        def yield_hashables(self, hasher):
-            yield from hasher.yield_hashables(id(self.ref))
-
-        def save_instance_state(self, referencer):
-            return referencer.ref(self.ref)
-
-        def load_instance_state(self, saved_state, referencer):
-            self.__init__(referencer.deref(saved_state))
-
     a = Cycle()
     b = Cycle(a)
     a.ref = b  # Cycle complete

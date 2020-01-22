@@ -21,6 +21,8 @@ DELETED = '!!deleted'
 
 IdT = typing.TypeVar('IdT')  # The archive ID type
 
+REF_KEY = '!!ref'
+
 
 class Ref(typing.Generic[IdT], types.SavableComparable):
     TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
@@ -51,14 +53,26 @@ class Ref(typing.Generic[IdT], types.SavableComparable):
         return self._version
 
     def yield_hashables(self, hasher):
-        yield from hasher.hash(self.obj_id)
-        yield from hasher.hash(self.version)
+        yield from hasher.yield_hashables(self.obj_id)
+        yield from hasher.yield_hashables(self.version)
 
     def save_instance_state(self, referencer):
         return [self.obj_id, self.version]
 
     def load_instance_state(self, saved_state, referencer):
         self.__init__(*saved_state)
+
+    def to_dict(self):
+        return {REF_KEY: self.save_instance_state(None)}
+
+    @classmethod
+    def from_dict(cls, refdict):
+        if not isinstance(refdict, dict):
+            raise TypeError("Refdict is of type '{}', should be dictionary!".format(type(refdict)))
+        if REF_KEY not in refdict:
+            raise ValueError("Passed non-refdict: '{}'".format(refdict))
+
+        return Ref(*refdict[REF_KEY])
 
 
 class DataRecord(
@@ -146,6 +160,10 @@ def make_deleted_record(last_record: DataRecord) -> DataRecord:
 
 
 class Archive(typing.Generic[IdT], metaclass=ABCMeta):
+
+    @classmethod
+    def get_id_type_helper(cls):
+        return None
 
     @classmethod
     @abstractmethod

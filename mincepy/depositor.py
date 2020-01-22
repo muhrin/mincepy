@@ -6,11 +6,17 @@ from . import types
 
 __all__ = ('Referencer',)
 
+TYPE_KEY = '!!type'
+STATE_KEY = '!!state'
+
 
 class Referencer(metaclass=ABCMeta):
     """
     A class capable of looking up objects form archive ids and archive ids from objects
     """
+
+    def __init__(self, historian):
+        self._historian = historian
 
     @abstractmethod
     def ref(self, obj) -> archive.Ref:
@@ -57,3 +63,19 @@ class Referencer(metaclass=ABCMeta):
             return obj
 
         return self.deref(obj)
+
+    # def to_dict(self, savable: types.Savable) -> dict:
+    #     helper = self._historian.get_helper_from_obj_type(type(savable))
+    #     return {
+    #         TYPE_KEY: helper.TYPE_ID,
+    #         STATE_KEY: self.encode(savable, self)
+    #     }
+    #
+    # def from_dict(self, state_dict: dict, referencer: depositor.Referencer):
+    #     if not isinstance(state_dict, dict):
+    #         raise TypeError("State dict is of type '{}', should be dictionary!".format(type(state_dict)))
+    #     if not (TYPE_KEY in state_dict and STATE_KEY in state_dict):
+    #         raise ValueError("Passed non-state-dictionary: '{}'".format(state_dict))
+    #
+    #     with self.create_from(state_dict[STATE_KEY], self.get_helper(state_dict[TYPE_KEY]), referencer) as obj:
+    #         return obj

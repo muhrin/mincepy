@@ -25,6 +25,7 @@ ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
 # Keys used in to store the state state of an object when encoding/decoding
 TYPE_KEY = '!!type'
 STATE_KEY = '!!state'
+REF_KEY = '!!ref'
 
 
 class WrapperHelper(types.TypeHelper):
@@ -66,6 +67,10 @@ class Historian:  # (depositor.Referencer):
         self._type_ids = {}
 
         self._transactions = None
+
+        id_type_helper = archive.get_id_type_helper()
+        if id_type_helper is not None:
+            self.register_type(id_type_helper)
 
     def save(self, obj, with_meta=None):
         """Save the object in the history producing a unique id"""
@@ -297,10 +302,28 @@ class Historian:  # (depositor.Referencer):
 
             return obj
 
-        # Non-primitives should always be converted to encoded dictionaries
-        helper = self._ensure_compatible(obj_type)
-        saved_state = helper.save_instance_state(obj, referencer)
-        return {TYPE_KEY: helper.TYPE_ID, STATE_KEY: self.encode(saved_state, referencer)}
+        # Non-primitives should always be converted to reference dictionaries
+        # if isinstance(obj, archive.Ref):
+        #     reference = obj
+        # else:
+        reference = referencer.ref(obj)
+        return reference.to_dict()
+
+    def to_dict(self, savable: types.Savable, referencer) -> dict:
+        obj_type = type(savable)
+        helper = self.get_helper_from_obj_type(obj_type)
+        saved_state = helper.save_instance_state(savable, referencer)
+
+        return {TYPE_KEY: self.get_obj_type_id(type(savable)), STATE_KEY: self.encode(saved_state, referencer)}
+
+    def from_dict(self, state_dict: dict, referencer: depositor.Referencer):
+        if not isinstance(state_dict, dict):
+            raise TypeError("State dict is of type '{}', should be dictionary!".format(type(state_dict)))
+        if not (TYPE_KEY in state_dict and STATE_KEY in state_dict):
+            raise ValueError("Passed non-state-dictionary: '{}'".format(state_dict))
+
+        with self.create_from(state_dict[STATE_KEY], self.get_helper(state_dict[TYPE_KEY]), referencer) as obj:
+            return obj
 
     def decode(self, encoded, referencer: depositor.Referencer):
         """Decode the saved state recreating any saved objects within."""
@@ -309,14 +332,13 @@ class Historian:  # (depositor.Referencer):
             raise TypeError("Encoded type must be one of '{}', got '{}'".format(self._get_primitive_types(), enc_type))
 
         if enc_type is dict:
-            # It could be an encoded object
-            if TYPE_KEY in encoded and STATE_KEY in encoded:
-                # Assume object encoded as dictionary, decode it as such
-                type_id = encoded[TYPE_KEY]
-                with self.create_from(encoded[STATE_KEY], self.get_helper(type_id), referencer) as obj:
-                    return obj
-            else:
+            # It could be a reference dictionary
+            try:
+                ref = archive.Ref.from_dict(encoded)
+            except (ValueError, TypeError):
                 return {key: self.decode(value, referencer) for key, value in encoded.items()}
+            else:
+                return referencer.deref(ref)
         if enc_type is list:
             return [self.decode(value, referencer) for value in encoded]
 
@@ -348,7 +370,7 @@ class Historian:  # (depositor.Referencer):
             trans.insert_live_object_reference(ref, obj)
 
             # Now ask the object to save itself and create the record
-            encoded = self.encode(obj, referencer)
+            encoded = self.to_dict(obj, referencer)
             builder.update(dict(type_id=encoded[TYPE_KEY], state=encoded[STATE_KEY]))
             record = builder.build()
 
@@ -516,10 +538,7 @@ class Historian:  # (depositor.Referencer):
 
 class LiveReferencer(depositor.Referencer):
 
-    def __init__(self, historian: Historian):
-        self._historian = historian
-
-    def ref(self, obj):
+    def ref(self, obj) -> Optional[archive.Ref]:
         if obj is None:
             return None
 
@@ -529,9 +548,12 @@ class LiveReferencer(depositor.Referencer):
             # Then we have to save it and get the resulting reference
             return self._historian._save_object(obj, self).get_reference()
 
-    def deref(self, reference):
+    def deref(self, reference: Optional[archive.Ref]):
         if reference is None:
             return None
+
+        if not isinstance(reference, archive.Ref):
+            raise TypeError(reference)
 
         try:
             return self._historian.get_obj(reference.obj_id)
@@ -541,15 +563,15 @@ class LiveReferencer(depositor.Referencer):
 
 class SnapshotReferencer(depositor.Referencer):
 
-    def __init__(self, historian: Historian):
-        self._historian = historian
-
-    def ref(self, obj):  # pylint: disable=no-self-use
+    def ref(self, obj) -> Optional[archive.Ref]:  # pylint: disable=no-self-use
         raise RuntimeError("Cannot get a reference to an object during snapshot transactions")
 
-    def deref(self, reference):
+    def deref(self, reference: Optional[archive.Ref]):
         if reference is None:
             return None
+
+        if not isinstance(reference, archive.Ref):
+            raise TypeError(reference)
 
         # Always load a snapshot
         return self._historian._load_snapshot(reference, self)

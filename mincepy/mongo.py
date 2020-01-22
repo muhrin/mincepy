@@ -1,5 +1,6 @@
 import typing
 from typing import Optional
+import uuid
 
 from bidict import bidict
 import bson
@@ -10,6 +11,7 @@ import pymongo.errors
 from . import archive
 from .archive import BaseArchive, DataRecord
 from . import exceptions
+from . import types
 
 __all__ = ('MongoArchive',)
 
@@ -20,6 +22,23 @@ COPIED_FROM = archive.COPIED_FROM
 VERSION = 'ver'
 STATE = 'state'
 SNAPSHOT_HASH = 'hash'
+
+
+class ObjectIdHelper(types.TypeHelper):
+    TYPE = bson.ObjectId
+    TYPE_ID = uuid.UUID('bdde0765-36d2-4f06-bb8b-536a429f32ab')
+
+    def yield_hashables(self, obj, hasher):
+        yield from hasher.yield_hashables(obj.binary)
+
+    def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
+        return one.__eq__(other)
+
+    def save_instance_state(self, obj, referencer):
+        return obj
+
+    def load_instance_state(self, obj, saved_state, referencer):
+        return obj.__init__(saved_state)
 
 
 class MongoArchive(BaseArchive[bson.ObjectId]):
@@ -41,6 +60,10 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     })
 
     META = 'meta'
+
+    @classmethod
+    def get_id_type_helper(cls):
+        return ObjectIdHelper()
 
     def __init__(self, database: pymongo.database.Database):
         self._data_collection = database[self.DATA_COLLECTION]
@@ -71,7 +94,10 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                 raise exceptions.ModificationError("You're trying to rewrite history, that's not allowed!")
             raise  # Otherwise just raise what we got
 
-    def load(self, reference) -> DataRecord:
+    def load(self, reference: archive.Ref) -> DataRecord:
+        if not isinstance(reference, archive.Ref):
+            raise TypeError(reference)
+
         results = list(
             self._data_collection.find({
                 self.KEY_MAP[archive.OBJ_ID]: reference.obj_id,

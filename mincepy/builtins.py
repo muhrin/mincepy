@@ -26,20 +26,20 @@ class List(collections.UserList, UserType):
     TYPE_ID = uuid.UUID('2b033f70-168f-4412-99ea-d1f131e3a25a')
 
     def save_instance_state(self, referencer: depositor.Referencer):
-        return referencer.ref_many(self.data)
+        return self.data
 
     def load_instance_state(self, state, lookup: depositor.Referencer):
-        self.__init__(lookup.deref_many(state))
+        self.__init__(state)
 
 
 class Dict(collections.UserDict, UserType):
     TYPE_ID = uuid.UUID('a7584078-95b6-4e00-bb8a-b077852ca510')
 
     def save_instance_state(self, referencer: depositor.Referencer):
-        return referencer.ref_many(self.data)
+        return self.data
 
     def load_instance_state(self, state, lookup: depositor.Referencer):
-        self.__init__(lookup.deref_many(state))
+        self.__init__(state)
 
 
 class Str(collections.UserString, UserType):
