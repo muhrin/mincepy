@@ -114,27 +114,13 @@ def test_track(historian: mincepy.Historian):
 
 def test_track_method(historian: mincepy.Historian):
 
-    class CarFactory(mincepy.SavableComparable):
+    class CarFactory(mincepy.Archivable):
         TYPE_ID = uuid.UUID('166a9446-c04e-4fbe-a3da-6f36c2f8292d')
+        ATTRS = ('_make',)
 
         def __init__(self, make):
             super(CarFactory, self).__init__()
             self._make = make
-
-        def __eq__(self, other):
-            if type(other) != CarFactory:
-                return False
-
-            return self._make == other._make
-
-        def yield_hashables(self, hasher):
-            yield from hasher.yield_hashables(self._make)
-
-        def save_instance_state(self, _: mincepy.Depositor):
-            return {'make': self._make}
-
-        def load_instance_state(self, saved_state, _: mincepy.Depositor):
-            self.__init__(saved_state['make'])
 
         @mincepy.track
         def build(self):
@@ -340,8 +326,9 @@ def test_load_unknown_object(mongodb_archive, historian: mincepy.Historian):
         historian.load(obj_id)
 
 
-class Cycle(mincepy.SavableComparable):
+class Cycle(mincepy.Archivable):
     TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
+    ATTRS = ('ref',)
 
     def __init__(self, ref=None):
         super(Cycle, self).__init__()
@@ -352,12 +339,6 @@ class Cycle(mincepy.SavableComparable):
 
     def yield_hashables(self, hasher):
         yield from hasher.yield_hashables(id(self.ref))
-
-    def save_instance_state(self, _depositor):
-        return self.ref
-
-    def load_instance_state(self, saved_state, _depositor):
-        self.__init__(saved_state)
 
 
 def test_cyclic_ref_simple(historian: mincepy.Historian):

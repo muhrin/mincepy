@@ -1,7 +1,6 @@
 import functools
 import uuid
 
-from . import depositors
 from .historian import get_historian
 from . import types
 
@@ -12,24 +11,18 @@ class InvalidStateError(Exception):
     pass
 
 
-class FunctionCall(types.SavableComparable):
+class FunctionCall(types.Archivable):
     TYPE_ID = uuid.UUID('dcacc483-c650-432e-b835-122f78e7a758')
-
-    DEFINING_ATTRIBUTES = ('_function', '_args', '_kwargs', '_result', '_exception', '_done')
+    ATTRS = ('_function', '_args', '_kwargs', '_result', '_exception', '_done')
 
     def __init__(self, func, *args, **kwargs):
+        super(FunctionCall, self).__init__()
         self._function = func.__name__
-        self._args = args
+        self._args = list(args)
         self._kwargs = kwargs
         self._result = None
         self._exception = None
         self._done = False
-
-    def __eq__(self, other):
-        if not isinstance(other, FunctionCall):
-            return False
-
-        return types.eq_attributes(self, other, self.DEFINING_ATTRIBUTES)
 
     @property
     def function(self) -> str:
@@ -61,27 +54,6 @@ class FunctionCall(types.SavableComparable):
 
     def done(self):
         return self._done
-
-    def yield_hashables(self, hasher):
-        yield from types.yield_hashable_attributes(self, self.DEFINING_ATTRIBUTES, hasher)
-
-    def save_instance_state(self, depositor: depositors.Depositor):
-        return {
-            'function': self.function,
-            'args': list(self.args),
-            'kwargs': self.kwargs,
-            'result': self._result,
-            'exception': self._exception,
-            'done': self._done
-        }
-
-    def load_instance_state(self, state, depositor: depositors.Depositor):
-        self._function = state['function']
-        self._args = tuple(state['args'])
-        self._kwargs = state['kwargs']
-        self._result = state['result']
-        self._exception = state['exception']
-        self._done = state['done']
 
 
 def track(func):
