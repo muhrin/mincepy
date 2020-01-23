@@ -378,32 +378,3 @@ def test_transaction_rollback(historian: mincepy.Historian):
 
     ferrari_id = historian.save(ferrari)
     assert historian.load(ferrari_id) is ferrari
-
-
-def test_transaction_snapshots(historian: mincepy.Historian):
-    ferrari = Car('ferrari')
-    ferrari_id = historian.save_snapshot(ferrari)
-
-    with historian.transaction():
-        ferrari_snapshot_1 = historian.load_snapshot(ferrari_id)
-        with historian.transaction():
-            ferrari_snapshot_2 = historian.load_snapshot(ferrari_id)
-            # Reference wise they should be unequal
-            assert ferrari_snapshot_1 is not ferrari_snapshot_2
-            assert ferrari is not ferrari_snapshot_1
-            assert ferrari is not ferrari_snapshot_2
-
-            # Value wise they should be equal
-            assert ferrari == ferrari_snapshot_1
-            assert ferrari == ferrari_snapshot_2
-
-        # Now check within the same transaction the result is the same
-        ferrari_snapshot_2 = historian.load_snapshot(ferrari_id)
-        # Reference wise they should be unequal
-        assert ferrari_snapshot_1 is not ferrari_snapshot_2
-        assert ferrari is not ferrari_snapshot_1
-        assert ferrari is not ferrari_snapshot_2
-
-        # Value wise they should be equal
-        assert ferrari == ferrari_snapshot_1
-        assert ferrari == ferrari_snapshot_2

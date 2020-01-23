@@ -9,7 +9,7 @@ from . import types
 __all__ = ('Depositor',)
 
 # Keys used in to store the state state of an object when encoding/decoding
-TYPE_KEY = '!!type'
+TYPE_KEY = '!!type_id'
 STATE_KEY = '!!state'
 
 
@@ -43,12 +43,16 @@ class Depositor(metaclass=ABCMeta):
 
             return obj
 
-        # Assume that we should create a reference
-        reference = self.ref(obj)
-        return reference.to_dict()
+        if self._historian.is_trackable(obj):
+            # Make a reference
+            reference = self.ref(obj)
+            return reference.to_dict()
+
+        # Store by value
+        return self.to_dict(obj)
 
     def decode(self, encoded):
-        """Decode the saved state recreating any saved objects within."""
+        """Decode, in place, the saved state recreating any saved objects within."""
         enc_type = type(encoded)
         primitives = self._historian.get_primitive_types()
         if enc_type not in primitives:
@@ -59,18 +63,23 @@ class Depositor(metaclass=ABCMeta):
             try:
                 ref = archive.Ref.from_dict(encoded)
             except (ValueError, TypeError):
-                return {key: self.decode(value) for key, value in encoded.items()}
+                # Maybe it's a value dictionary
+                try:
+                    return self.from_dict(encoded)
+                except ValueError:
+                    for key, value in encoded.items():
+                        encoded[key] = self.decode(value)
             else:
                 return self.deref(ref)
         if enc_type is list:
-            return [self.decode(value) for value in encoded]
+            for idx, entry in enumerate(encoded):
+                encoded[idx] = self.decode(entry)
 
         # No decoding to be done
         return encoded
 
     def to_dict(self, savable: types.Savable) -> dict:
         obj_type = type(savable)
-
         return {TYPE_KEY: self._historian.get_obj_type_id(obj_type), STATE_KEY: self.save_instance_state(savable)}
 
     def from_dict(self, state_dict: dict):
@@ -79,7 +88,11 @@ class Depositor(metaclass=ABCMeta):
         if not (TYPE_KEY in state_dict and STATE_KEY in state_dict):
             raise ValueError("Passed non-state-dictionary: '{}'".format(state_dict))
 
-        return self.create(state_dict[STATE_KEY])
+        type_id, saved_state = state_dict[TYPE_KEY], state_dict[STATE_KEY]
+        with self._create_from(type_id, saved_state) as obj:
+            assert obj is not None, "Helper '{}' failed to create a class given state '{}'".format(
+                type(obj), saved_state)
+            return obj
 
     def save_instance_state(self, obj):
         """Save the state of an object and return the encoded state ready to be archived in a record"""
@@ -88,31 +101,33 @@ class Depositor(metaclass=ABCMeta):
         return self.encode(helper.save_instance_state(obj, self))
 
     @contextmanager
-    def create_from(self, record: archive.DataRecord):
+    def _create_from(self, type_id, saved_state):
         """
         Loading of an object takes place in two steps, analogously to the way python
         creates objects.  First a 'blank' object is created and and yielded by this
         context manager.  Then loading is finished in load_instance_state.  Naturally,
         the state of the object should not be relied upon until the context exits.
         """
-        with self._create_from(record.type_id, record.state) as obj:
-            yield obj
-
-    @contextmanager
-    def _create_from(self, type_id, saved_state):
         helper = self._historian.get_helper(type_id)
+        if helper.IMMUTABLE:
+            # Decode straight away
+            saved_state = self.decode(saved_state)
+
         new_obj = helper.new(saved_state)
         assert new_obj is not None, "Helper '{}' failed to create a class given state '{}'".format(
             helper.__class__, saved_state)
+
         try:
             yield new_obj
         finally:
-            decoded = self.decode(saved_state)
-            helper.load_instance_state(new_obj, decoded, self)
+            if not helper.IMMUTABLE:
+                # Decode only after the yield
+                saved_state = self.decode(saved_state)
+            helper.load_instance_state(new_obj, saved_state, self)
 
-    def create(self, record: archive.DataRecord):
-        with self.create_from(record) as obj:
-            return obj
+    @abstractmethod
+    def load(self, record):
+        pass
 
 
 class LiveDepositor(Depositor):
@@ -140,11 +155,17 @@ class LiveDepositor(Depositor):
         except exceptions.NotFound:
             return self._historian._load_object(reference.obj_id, self)
 
+    def load(self, record):
+        with self._historian.transaction() as trans:
+            with self._create_from(record.type_id, record.state) as obj:
+                trans.insert_live_object(obj, record)
+                return obj
+
 
 class SnapshotDepositor(Depositor):
     """Depositor with strategy that all objects that get referenced are snapshots"""
 
-    def ref(self, obj) -> Optional[archive.Ref]:  # pylint: disable=no-self-use
+    def ref(self, obj) -> Optional[archive.Ref]:
         raise RuntimeError("Cannot get a reference to an object during snapshot transactions")
 
     def deref(self, reference: Optional[archive.Ref]):
@@ -156,3 +177,9 @@ class SnapshotDepositor(Depositor):
 
         # Always load a snapshot
         return self._historian._load_snapshot(reference, self)
+
+    def load(self, record):
+        with self._historian.transaction() as trans:
+            with self._create_from(record.type_id, record.state) as obj:
+                trans.insert_snapshot(obj, record.get_reference())
+                return obj

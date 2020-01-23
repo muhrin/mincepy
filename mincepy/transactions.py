@@ -171,6 +171,12 @@ class NestedTransaction(Transaction):
         except exceptions.NotFound:
             return self._parent.get_reference_for_live_object(obj)
 
+    def get_record_for_live_object(self, obj):
+        try:
+            return super().get_record_for_live_object(obj)
+        except exceptions.NotFound:
+            return self._parent.get_record_for_live_object(obj)
+
     def get_snapshot(self, ref):
         try:
             return super(NestedTransaction, self).get_snapshot(ref)

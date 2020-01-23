@@ -3,6 +3,7 @@ import contextlib
 import copy
 import typing
 from typing import MutableMapping, Any, Optional
+import weakref
 
 from . import archive
 from . import defaults
@@ -195,6 +196,18 @@ class Historian:  # (depositor.Referencer):
 
     # endregion
 
+    def is_trackable(self, obj):
+        """Determine if an object is trackable i.e. we can treat these as live objects and automatically
+        keep track of their history when saving.  Ultimately this is determined by whether the type is
+        weak referencable or not.
+
+        """
+        try:
+            weakref.ref(obj)
+            return True
+        except TypeError:
+            return False
+
     def get_current_record(self, obj) -> archive.DataRecord:
         """Get a record for an object known to the historian"""
         trans = self._current_transaction()
@@ -347,41 +360,26 @@ class Historian:  # (depositor.Referencer):
                 obj = self._live_objects.get_object(obj_id)
             except exceptions.NotFound:
                 # Ok, just use the one from the archive
-                with depositor.create_from(archive_record) as obj:
-                    trans.insert_live_object(obj, archive_record)
-                    return obj
+                return depositor.load(archive_record)
             else:
                 if archive_record.version == self._live_objects.get_record(obj).version:
                     # We're still up to date
                     return obj
 
                 # The one in the archive is newer, so use that
-                with depositor.create_from(archive_record) as obj:
-                    trans.insert_live_object(obj, archive_record)
-                    return obj
-
-    def _load_snapshot(self, reference: archive.Ref, depositor):
-        """Load a snapshot of the object using a reference."""
-        # Try getting the object from the transaction
-        with self.transaction() as trans:
-            # Load from storage
-            record = self._archive.load(reference)
-            if record.is_deleted_record():
-                return None
-
-            with depositor.create_from(record) as obj:
-                trans.insert_snapshot(obj, record.get_reference())
-                return obj
+                return depositor.load(archive_record)
 
     def _save_object(self, obj, depositor) -> archive.DataRecord:
         with self.transaction() as trans:
             # Check if an object is already being saved in the transaction
             try:
-                return trans.get_record_for_live_object(obj)
+                record = trans.get_record_for_live_object(obj)
+                return record
             except exceptions.NotFound:
                 pass
 
             # Ok, have to save it
+            helper = self._ensure_compatible(obj)
             current_hash = self.hash(obj)
 
             try:
@@ -394,7 +392,6 @@ class Historian:  # (depositor.Referencer):
                 except exceptions.NotFound:
                     created_in = None
 
-                helper = self._ensure_compatible(type(obj))
                 builder = archive.DataRecord.get_builder(type_id=helper.TYPE_ID,
                                                          obj_id=self._archive.create_archive_id(),
                                                          created_in=created_in,
@@ -404,8 +401,7 @@ class Historian:  # (depositor.Referencer):
             else:
                 # Check if our record is up to date
                 with self.transaction() as transaction:
-                    with depositor.create_from(record) as loaded_obj:
-                        pass
+                    loaded_obj = depositor.load(record)
 
                     if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
                         # Objects identical
@@ -417,13 +413,30 @@ class Historian:  # (depositor.Referencer):
 
                 return record
 
+    def _load_snapshot(self, reference: archive.Ref, depositor):
+        """Load a snapshot of the object using a reference."""
+        with self.transaction() as trans:
+            # Try getting the object from the transaction
+            try:
+                trans.get_snapshot(reference)
+            except exceptions.NotFound:
+                pass
+
+            # Fine...load from storage
+            record = self._archive.load(reference)
+            if record.is_deleted_record():
+                return None
+
+            return depositor.load(record)
+
     def _current_transaction(self) -> Optional[Transaction]:
         """Get the current transaction if there is one, otherwise returns None"""
         if not self._transactions:
             return None
         return self._transactions[-1]
 
-    def _ensure_compatible(self, obj_type: typing.Type):
+    def _ensure_compatible(self, obj):
+        obj_type = type(obj)
         if obj_type not in self._type_registry:
             if issubclass(obj_type, types.SavableComparable):
                 # Make a wrapper
