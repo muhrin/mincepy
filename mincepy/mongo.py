@@ -1,17 +1,19 @@
 import typing
-from typing import Optional, Iterator
+from typing import Optional
 import uuid
 
 from bidict import bidict
 import bson
+import gridfs
 import pymongo
 import pymongo.database
 import pymongo.errors
 
 from . import archive
+from .archive import BaseArchive, DataRecord
+from . import builtins
 from . import exceptions
 from . import helpers
-from .archive import BaseArchive, DataRecord
 
 __all__ = ('MongoArchive',)
 
@@ -22,6 +24,8 @@ COPIED_FROM = archive.COPIED_FROM
 VERSION = 'ver'
 STATE = 'state'
 SNAPSHOT_HASH = 'hash'
+
+FILE = '!!file'
 
 
 class ObjectIdHelper(helpers.TypeHelper):
@@ -65,9 +69,16 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     def get_id_type_helper(cls):
         return ObjectIdHelper()
 
+    @classmethod
+    def get_extra_primitives(cls) -> tuple:
+        """Can optionally return a list of types that are treated as primitives i.e. considered to be
+        storable and retrievable directly without encoding."""
+        return (builtins.BaseFile,)
+
     def __init__(self, database: pymongo.database.Database):
         self._data_collection = database[self.DATA_COLLECTION]
         self._meta_collection = database[self.META_COLLECTION]
+        self._file_store = gridfs.GridFS(database)
         self._create_indices()
 
     def _create_indices(self):
@@ -211,6 +222,8 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
         # Invert our mapping of keys back to the data record property names and update over any defaults
         record_dict.update({recordkey: entry[dbkey] for recordkey, dbkey in self.KEY_MAP.items() if dbkey in entry})
+        decoded_state = self._decode_state(record_dict[archive.STATE])
+        record_dict[archive.STATE] = decoded_state
 
         return DataRecord(**record_dict)
 
@@ -219,8 +232,38 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         defaults = DataRecord.defaults()
         entry = {}
         for key, item in record._asdict().items():
-            # Exclude entries that have the default value
-            if not (key in defaults and defaults[key] == item):
-                entry[self.KEY_MAP[key]] = item
+            if key == archive.STATE:
+                entry[self.KEY_MAP[key]] = self._encode_state(item)
+            else:
+                # Exclude entries that have the default value
+                if not (key in defaults and defaults[key] == item):
+                    entry[self.KEY_MAP[key]] = item
 
         return entry
+
+    def _encode_state(self, entry):
+        if isinstance(entry, builtins.BaseFile):
+            with entry.open() as file:
+                file_id = self._file_store.put(file, filename=entry.filename, encoding=entry.encoding)
+            return {FILE: file_id}
+
+        return entry
+
+    def _decode_state(self, entry):
+        if isinstance(entry, dict):
+            if FILE in entry:
+                return GridFsFile(entry[FILE], self._file_store)
+
+        return entry
+
+
+class GridFsFile(builtins.BaseFile):
+
+    def __init__(self, file_id, file_store):
+        self._file_id = file_id
+        self._file_store = file_store
+        grid_file = file_store.get(file_id)
+        super(GridFsFile, self).__init__(grid_file.filename, grid_file.encoding)
+
+    def open(self):
+        return self._file_store.get(self._file_id)

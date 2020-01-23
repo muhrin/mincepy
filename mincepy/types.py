@@ -8,16 +8,8 @@ import uuid
 
 __all__ = ('Equator', 'SavableComparable', 'Archivable')
 
-BASE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID)
-
-
-def eq_attributes(one, other, attributes) -> bool:
-    return all(one.__getattribute__(attr) == other.__getattribute__(attr) for attr in attributes)
-
-
-def yield_hashable_attributes(obj, attributes, hasher):
-    for attr in attributes:
-        yield from hasher.yield_hashables(obj.__getattribute__(attr))
+# The primitives that all archive types must support
+PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID)
 
 
 class Savable(metaclass=ABCMeta):
@@ -48,20 +40,13 @@ class Comparable(metaclass=ABCMeta):
         """Produce a hash representing the value"""
 
 
+class Primitive(Comparable, metaclass=ABCMeta):
+    """Primitives are types that are comparable but not encodable through save_instance_state.
+    They must be accepted directly by the archive"""
+
+
 class SavableComparable(Savable, Comparable, metaclass=ABCMeta):
     """A class that is both savable and comparable"""
-
-
-class Spec:
-
-    def __init__(self):
-        self._attrs = []
-
-    def attrs(self, *names):
-        self._attrs.extend(names)
-
-    def get_attrs(self):
-        return self._attrs
 
 
 class Archivable(SavableComparable):

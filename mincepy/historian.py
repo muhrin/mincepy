@@ -27,18 +27,6 @@ ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
 
 class Historian:  # (depositor.Referencer):
 
-    @classmethod
-    def is_trackable(cls, obj):
-        """Determine if an object is trackable i.e. we can treat these as live objects and automatically
-        keep track of their history when saving.  Ultimately this is determined by whether the type is
-        weak referencable or not.
-        """
-        try:
-            weakref.ref(obj)
-            return True
-        except TypeError:
-            return False
-
     def __init__(self, archive: archive.Archive, equators=()):
         self._archive = archive
         self._equator = types.Equator(defaults.get_default_equators() + equators)
@@ -140,13 +128,13 @@ class Historian:  # (depositor.Referencer):
         self._live_objects.delete(obj)
 
     def history(self,
-                obj_id,
+                obj_or_obj_id,
                 idx_or_slice='*',
                 as_objects=True) -> [typing.Sequence[ObjectEntry], typing.Sequence[archive.DataRecord]]:
         """
         Get a sequence of object ids and instances from the history of the given object.
 
-        :param obj_id: The id of the object to get the history for
+        :param obj_or_obj_id: The instance or id of the object to get the history for
         :param idx_or_slice: The particular index or a slice of which historical versions to get
         :param as_objects: if True return the object instances, otherwise returns the DataRecords
 
@@ -165,6 +153,7 @@ class Historian:  # (depositor.Referencer):
         True
         >>> history[1].obj is car
         """
+        obj_id = self._ensure_obj_id(obj_or_obj_id)
         snapshot_refs = self._archive.get_snapshot_refs(obj_id)
         indices = utils.to_slice(idx_or_slice)
         to_get = snapshot_refs[indices]
@@ -188,22 +177,6 @@ class Historian:  # (depositor.Referencer):
         if isinstance(obj_id, archive.Ref):
             obj_id = obj_id.obj_id
         self._archive.set_meta(obj_id, meta)
-
-    # region Registry
-
-    def get_obj_type_id(self, obj_type):
-        return self._type_registry[obj_type].TYPE_ID
-
-    def get_helper(self, type_id) -> helpers.TypeHelper:
-        return self.get_helper_from_obj_type(self._type_ids[type_id])
-
-    def get_helper_from_obj_type(self, obj_type) -> helpers.TypeHelper:
-        try:
-            return self._type_registry[obj_type]
-        except KeyError:
-            raise ValueError("Type '{}' has not been registered".format(obj_type))
-
-    # endregion
 
     def get_current_record(self, obj) -> archive.DataRecord:
         """Get a record for an object known to the historian"""
@@ -245,6 +218,28 @@ class Historian:  # (depositor.Referencer):
     def eq(self, one, other):  # pylint: disable=invalid-name
         return self._equator.eq(one, other)
 
+    # region Types
+
+    @classmethod
+    def is_trackable(cls, obj):
+        """Determine if an object is trackable i.e. we can treat these as live objects and automatically
+        keep track of their history when saving.  Ultimately this is determined by whether the type is
+        weak referencable or not.
+        """
+        try:
+            weakref.ref(obj)
+            return True
+        except TypeError:
+            return False
+
+    def is_primitive(self, obj):
+        """Check if the object is one of the primitives and should be saved by value in the archive"""
+        primitives = types.PRIMITIVE_TYPES + (self._archive.get_id_type(),) + self._archive.get_extra_primitives()
+        return isinstance(obj, primitives)
+
+    def is_obj_id(self, obj_id):
+        return isinstance(obj_id, self._archive.get_id_type())
+
     def register_type(self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableComparable]]):
         if isinstance(obj_class_or_helper, helpers.TypeHelper):
             helper = obj_class_or_helper
@@ -256,6 +251,20 @@ class Historian:  # (depositor.Referencer):
         self._type_registry[helper.TYPE] = helper
         self._type_ids[helper.TYPE_ID] = helper.TYPE
         self._equator.add_equator(helper)
+
+    def get_obj_type_id(self, obj_type):
+        return self._type_registry[obj_type].TYPE_ID
+
+    def get_helper(self, type_id) -> helpers.TypeHelper:
+        return self.get_helper_from_obj_type(self._type_ids[type_id])
+
+    def get_helper_from_obj_type(self, obj_type) -> helpers.TypeHelper:
+        try:
+            return self._type_registry[obj_type]
+        except KeyError:
+            raise ValueError("Type '{}' has not been registered".format(obj_type))
+
+    # endregion
 
     def find(self, obj_type=None, criteria=None, version=-1, limit=0, as_objects=True):
         """Find entries in the archive"""
@@ -282,7 +291,11 @@ class Historian:  # (depositor.Referencer):
             trans.insert_live_object_reference(ref, obj)
 
             # Now ask the object to save itself and create the record
-            saved_state = depositor.save_instance_state(obj)
+            if isinstance(obj, types.Primitive):
+                saved_state = obj
+            else:
+                saved_state = depositor.save_instance_state(obj)
+
             builder.update(dict(type_id=builder.type_id, state=saved_state))
             record = builder.build()
 
@@ -335,10 +348,6 @@ class Historian:  # (depositor.Referencer):
             return None
         return self._transactions[-1]
 
-    def get_primitive_types(self) -> tuple:
-        """Get a tuple of the primitive types"""
-        return types.BASE_TYPES + (self._archive.get_id_type(),)
-
     def _get_latest_snapshot_reference(self, obj_id) -> archive.Ref:
         """Given an object id this will return a refernce to the latest snapshot"""
         try:
@@ -376,11 +385,14 @@ class Historian:  # (depositor.Referencer):
                 return depositor.load(archive_record)
 
     def _ensure_obj_id(self, obj_id):
-        if not isinstance(obj_id, self._archive.get_id_type()):
-            # Try creating it for the user by calling the constructor with the argument passed.
-            # This helps for common obj id types which can be constructed from a string
-            return self._archive.get_id_type()(obj_id)
-            # raise TypeError("Object id must be of type '{}'".format(self._archive.get_id_type()))
+        if not self.is_obj_id(obj_id):
+            # Maybe we've been passed an object
+            try:
+                return self.get_current_record(obj_id).obj_id
+            except exceptions.NotFound:
+                # Try creating it for the user by calling the constructor with the argument passed.
+                # This helps for common obj id types which can be constructed from a string
+                return self._archive.get_id_type()(obj_id)
 
         return obj_id
 
@@ -447,7 +459,7 @@ class Historian:  # (depositor.Referencer):
     def _ensure_compatible(self, obj):
         obj_type = type(obj)
         if obj_type not in self._type_registry:
-            if issubclass(obj_type, types.SavableComparable):
+            if issubclass(obj_type, (types.Savable, types.Comparable)):
                 # Make a wrapper
                 self.register_type(helpers.WrapperHelper(obj_type))
             else:

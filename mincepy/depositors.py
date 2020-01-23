@@ -31,10 +31,7 @@ class Depositor(metaclass=ABCMeta):
 
     def encode(self, obj):
         """Encode a type for archiving"""
-        obj_type = type(obj)
-        primitives = self._historian.get_primitive_types()
-
-        if obj_type in primitives:
+        if self._historian.is_primitive(obj):
             # Deal with the special containers by encoding their values if need be
             if isinstance(obj, list):
                 return [self.encode(entry) for entry in obj]
@@ -54,9 +51,8 @@ class Depositor(metaclass=ABCMeta):
     def decode(self, encoded):
         """Decode, in place, the saved state recreating any saved objects within."""
         enc_type = type(encoded)
-        primitives = self._historian.get_primitive_types()
-        if enc_type not in primitives:
-            raise TypeError("Encoded type must be one of '{}', got '{}'".format(primitives, enc_type))
+        if not self._historian.is_primitive(encoded):
+            raise TypeError("Encoded type is not one of the primitives, got '{}'".format(enc_type))
 
         if enc_type is dict:
             # It could be a reference dictionary
@@ -70,6 +66,7 @@ class Depositor(metaclass=ABCMeta):
                     return {key: self.decode(value) for key, value in encoded.items()}
             else:
                 return self.deref(ref)
+
         if enc_type is list:
             return [self.decode(entry) for entry in encoded]
 
@@ -106,6 +103,11 @@ class Depositor(metaclass=ABCMeta):
         context manager.  Then loading is finished in load_instance_state.  Naturally,
         the state of the object should not be relied upon until the context exits.
         """
+        if isinstance(saved_state, types.Primitive):
+            # No decoding to be done
+            yield saved_state
+            return
+
         helper = self._historian.get_helper(type_id)
         if helper.IMMUTABLE:
             # Decode straight away

@@ -1,3 +1,5 @@
+import io
+import shutil
 import uuid
 
 import pytest
@@ -378,3 +380,80 @@ def test_transaction_rollback(historian: mincepy.Historian):
 
     ferrari_id = historian.save(ferrari)
     assert historian.load(ferrari_id) is ferrari
+
+
+def test_transaction_snapshots(historian: mincepy.Historian):
+    ferrari = Car('ferrari')
+    ferrari_id = historian.save_snapshot(ferrari)
+
+    with historian.transaction():
+        ferrari_snapshot_1 = historian.load_snapshot(ferrari_id)
+        with historian.transaction():
+            ferrari_snapshot_2 = historian.load_snapshot(ferrari_id)
+            # Reference wise they should be unequal
+            assert ferrari_snapshot_1 is not ferrari_snapshot_2
+            assert ferrari is not ferrari_snapshot_1
+            assert ferrari is not ferrari_snapshot_2
+
+            # Value wise they should be equal
+            assert ferrari == ferrari_snapshot_1
+            assert ferrari == ferrari_snapshot_2
+
+        # Now check within the same transaction the result is the same
+        ferrari_snapshot_2 = historian.load_snapshot(ferrari_id)
+        # Reference wise they should be unequal
+        assert ferrari_snapshot_1 is not ferrari_snapshot_2
+        assert ferrari is not ferrari_snapshot_1
+        assert ferrari is not ferrari_snapshot_2
+
+        # Value wise they should be equal
+        assert ferrari == ferrari_snapshot_1
+        assert ferrari == ferrari_snapshot_2
+
+
+def test_file(tmp_path, historian: mincepy.Historian):
+    import os
+    INITIAL_DATA = os.urandom(1024)
+    binary_path = tmp_path / 'binary_test'
+    with open(binary_path, 'wb') as file:
+        file.write(INITIAL_DATA)
+
+    mince_file = mincepy.builtins.DiskFile(binary_path)
+    file_id = historian.save(mince_file)
+    del mince_file
+
+    loaded = historian.load(file_id)
+    with loaded.open() as file:
+        buffer = io.BytesIO()
+        shutil.copyfileobj(file, buffer)
+        assert buffer.getvalue() == INITIAL_DATA
+
+
+def test_file_changing(tmp_path, historian: mincepy.Historian):
+    encoding = 'utf-8'
+    INITIAL_DATA = "Initial string".encode(encoding)
+    binary_path = tmp_path / 'binary_test'
+    with open(binary_path, 'wb') as file:
+        file.write(INITIAL_DATA)
+
+    mince_file = mincepy.builtins.DiskFile(binary_path, encoding=encoding)
+    file_id = historian.save(mince_file)
+
+    # Now let's append to the file
+    NEW_DATA = "Second string".encode(encoding)
+    with open(binary_path, 'ab') as file:
+        file.write(NEW_DATA)
+
+    historian.save(mince_file)
+    history = historian.history(mince_file)
+    assert len(history) == 2
+
+    with history[0].obj.open() as file:
+        buffer = io.BytesIO()
+        shutil.copyfileobj(file, buffer)
+        assert INITIAL_DATA == buffer.getvalue()
+
+    with history[1].obj.open() as file:
+        buffer = io.BytesIO()
+        shutil.copyfileobj(file, buffer)
+        assert INITIAL_DATA + NEW_DATA == buffer.getvalue()
