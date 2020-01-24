@@ -7,9 +7,10 @@ from . import types
 __all__ = ('Process',)
 
 
-class Process(types.SavableComparable):
+class Process(types.Archivable):
     TYPE_ID = uuid.UUID('bcf03171-a1f1-49c7-b890-b7f9d9f9e5a2')
     STACK = []
+    ATTRS = ('_name',)
 
     @classmethod
     def current_process(cls):
@@ -39,14 +40,5 @@ class Process(types.SavableComparable):
         yield
         if self.STACK[-1] != self:
             raise RuntimeError("Someone has corrupted the process stack!\n"
-                               "Expected to find '{}' on top but bound:{}".format(self, self.STACK))
+                               "Expected to find '{}' on top but found:{}".format(self, self.STACK))
         self.STACK.pop()
-
-    def yield_hashables(self, hasher):
-        yield from types.yield_hashable_attributes(self, self.DEFINING_ATTRIBUTES, hasher)
-
-    def save_instance_state(self, depositor: depositors.Depositor):  # pylint: disable=unused-argument
-        return {'name': self.name}
-
-    def load_instance_state(self, saved_state, depositor: depositors.Depositor):  # pylint: disable=unused-argument
-        Process.__init__(self, saved_state['name'])
