@@ -67,13 +67,11 @@ class Depositor(metaclass=ABCMeta):
                 try:
                     return self.from_dict(encoded)
                 except ValueError:
-                    for key, value in encoded.items():
-                        encoded[key] = self.decode(value)
+                    return {key: self.decode(value) for key, value in encoded.items()}
             else:
                 return self.deref(ref)
         if enc_type is list:
-            for idx, entry in enumerate(encoded):
-                encoded[idx] = self.decode(entry)
+            return [self.decode(entry) for entry in encoded]
 
         # No decoding to be done
         return encoded
