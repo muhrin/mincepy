@@ -113,9 +113,6 @@ class Historian:  # (depositor.Referencer):
 
     def load(self, obj_id):
         """Load an object."""
-        if not isinstance(obj_id, self._archive.get_id_type()):
-            raise TypeError("Object id must be of type '{}'".format(self._archive.get_id_type()))
-
         return self.load_object(obj_id)
 
     def copy(self, obj):
@@ -349,6 +346,8 @@ class Historian:  # (depositor.Referencer):
             raise exceptions.NotFound("Object with id '{}' not found.".format(obj_id))
 
     def _load_object(self, obj_id, depositor: depositors.Depositor):
+        obj_id = self._ensure_obj_id(obj_id)
+
         with self.transaction() as trans:
             # Try getting the object from the our dict of up to date ones
             try:
@@ -374,6 +373,15 @@ class Historian:  # (depositor.Referencer):
 
                 # The one in the archive is newer, so use that
                 return depositor.load(archive_record)
+
+    def _ensure_obj_id(self, obj_id):
+        if not isinstance(obj_id, self._archive.get_id_type()):
+            # Try creating it for the user by calling the constructor with the argument passed.
+            # This helps for common obj id types which can be constructed from a string
+            return self._archive.get_id_type()(obj_id)
+            # raise TypeError("Object id must be of type '{}'".format(self._archive.get_id_type()))
+
+        return obj_id
 
     def _save_object(self, obj, depositor) -> archive.DataRecord:
         with self.transaction() as trans:
