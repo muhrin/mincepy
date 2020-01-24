@@ -27,6 +27,18 @@ ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
 
 class Historian:  # (depositor.Referencer):
 
+    @classmethod
+    def is_trackable(cls, obj):
+        """Determine if an object is trackable i.e. we can treat these as live objects and automatically
+        keep track of their history when saving.  Ultimately this is determined by whether the type is
+        weak referencable or not.
+        """
+        try:
+            weakref.ref(obj)
+            return True
+        except TypeError:
+            return False
+
     def __init__(self, archive: archive.Archive, equators=()):
         self._archive = archive
         self._equator = types.Equator(defaults.get_default_equators() + equators)
@@ -196,21 +208,9 @@ class Historian:  # (depositor.Referencer):
 
     # endregion
 
-    def is_trackable(self, obj):
-        """Determine if an object is trackable i.e. we can treat these as live objects and automatically
-        keep track of their history when saving.  Ultimately this is determined by whether the type is
-        weak referencable or not.
-
-        """
-        try:
-            weakref.ref(obj)
-            return True
-        except TypeError:
-            return False
-
     def get_current_record(self, obj) -> archive.DataRecord:
         """Get a record for an object known to the historian"""
-        trans = self._current_transaction()
+        trans = self.current_transaction()
         # Try the transaction first
         if trans:
             try:
@@ -222,7 +222,7 @@ class Historian:  # (depositor.Referencer):
 
     def get_obj(self, obj_id):
         """Get an object known to the historian"""
-        trans = self._current_transaction()
+        trans = self.current_transaction()
         if trans:
             try:
                 trans.get_live_object(obj_id)
@@ -233,7 +233,7 @@ class Historian:  # (depositor.Referencer):
 
     def get_ref(self, obj):
         """Get the current reference for a live object"""
-        trans = self._current_transaction()
+        trans = self.current_transaction()
         if trans:
             try:
                 return trans.get_reference_for_live_object(obj)
@@ -331,6 +331,12 @@ class Historian:  # (depositor.Referencer):
                 assert self._transactions[0] is trans
                 self._transactions = None
 
+    def current_transaction(self) -> Optional[Transaction]:
+        """Get the current transaction if there is one, otherwise returns None"""
+        if not self._transactions:
+            return None
+        return self._transactions[-1]
+
     def get_primitive_types(self) -> tuple:
         """Get a tuple of the primitive types"""
         return types.BASE_TYPES + (self._archive.get_id_type(),)
@@ -401,7 +407,7 @@ class Historian:  # (depositor.Referencer):
             else:
                 # Check if our record is up to date
                 with self.transaction() as transaction:
-                    loaded_obj = depositor.load(record)
+                    loaded_obj = depositors.SnapshotDepositor(self).load(record)
 
                     if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
                         # Objects identical
@@ -428,12 +434,6 @@ class Historian:  # (depositor.Referencer):
                 return None
 
             return depositor.load(record)
-
-    def _current_transaction(self) -> Optional[Transaction]:
-        """Get the current transaction if there is one, otherwise returns None"""
-        if not self._transactions:
-            return None
-        return self._transactions[-1]
 
     def _ensure_compatible(self, obj):
         obj_type = type(obj)

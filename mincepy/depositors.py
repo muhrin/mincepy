@@ -136,7 +136,10 @@ class LiveDepositor(Depositor):
             return None
 
         try:
-            return self._historian.get_ref(obj)
+            # Try getting it from the transaction as there may be one from an in-progress save.
+            # We can't use historian.get_ref here because we _only_ want one that's currently being saved
+            # or we should try saving it as below to ensure it's up to date
+            return self._historian.current_transaction().get_reference_for_live_object(obj)
         except exceptions.NotFound:
             # Then we have to save it and get the resulting reference
             return self._historian._save_object(obj, self).get_reference()
