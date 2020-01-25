@@ -47,3 +47,17 @@ def test_transaction_records(historian: mincepy.Historian):
 
         loaded = historian.load(ferrari_id)
         assert loaded is ferrari
+
+
+def test_find(historian: mincepy.Historian):
+    honda_id = historian.save(Car('honda'))
+    zonda_id = historian.save(Car('zonda'))
+    porsche_id = historian.save(Car('porsche'))
+
+    cars = list(historian.find(Car))
+    assert len(cars) == 3
+
+    makes = [car.make for car in cars]
+    assert 'honda' in makes
+    assert 'zonda' in makes
+    assert 'porsche' in makes

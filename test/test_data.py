@@ -131,7 +131,7 @@ def test_track_method(historian: mincepy.Historian):
     car_factory = CarFactory('zonda')
     car = car_factory.build()
 
-    build_call = historian.find(mincepy.FunctionCall, limit=1)[0]
+    build_call = next(historian.find(mincepy.FunctionCall, limit=1))
     assert build_call.args[0] is car_factory
     assert build_call.result() is car
 

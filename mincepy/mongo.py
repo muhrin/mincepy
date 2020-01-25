@@ -1,5 +1,5 @@
 import typing
-from typing import Optional
+from typing import Optional, Iterator
 import uuid
 
 from bidict import bidict
@@ -201,7 +201,9 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
             pipeline.append({'$limit': limit})
 
         results = self._data_collection.aggregate(pipeline)
-        return [self._to_record(result) for result in results]
+        for result in results:
+            yield self._to_record(result)
+        # return [self._to_record(result) for result in results]
 
     def _to_record(self, entry) -> archive.DataRecord:
         """Convert a MongoDB data collection entry to a DataRecord"""

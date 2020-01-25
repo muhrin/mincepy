@@ -262,9 +262,10 @@ class Historian:  # (depositor.Referencer):
         type_id = self.get_obj_type_id(obj_type) if obj_type is not None else None
         results = self._archive.find(type_id=type_id, state=criteria, version=version, limit=limit)
         if as_objects:
-            return [self.load(result.obj_id) for result in results]
+            for result in results:
+                yield self.load(result.obj_id)
 
-        return results
+        yield from results
 
     def created_in(self, obj_or_identifier):
         """Return the id of the object that created the passed object"""
