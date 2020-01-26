@@ -66,11 +66,23 @@ class WeakObjectIdDict(collections.MutableMapping):
 T = TypeVar('T')  # Declare type variable pylint: disable=invalid-name
 
 
+class DefaultFromCall:
+    """Can be used as a default that is generated from a callable when needed"""
+
+    def __init__(self, default_fn):
+        assert callable(default_fn), "Must supply callable"
+        self._callable = default_fn
+
+    def __call__(self, *args, **kwargs):
+        return self._callable(*args, **kwargs)
+
+
 class NamedTupleBuilder(Generic[T]):
     """A builder that allows namedtuples to be build step by step"""
 
-    def __init__(self, tuple_type: typing.Type[T], defaults={}):
+    def __init__(self, tuple_type: typing.Type[T], defaults=None):
         # Have to do it this way because we overwrite __setattr__
+        defaults = defaults or {}
         object.__setattr__(self, '_tuple_type', tuple_type)
         diff = set(defaults.keys()) - set(tuple_type._fields)
         assert not diff, "Can't supply defaults that are not in the namedtuple: '{}'".format(diff)
@@ -107,7 +119,10 @@ class NamedTupleBuilder(Generic[T]):
             setattr(self, key, value)
 
     def build(self) -> T:
-        return self._tuple_type(**self._values)
+        build_from = {
+            key: value if not isinstance(value, DefaultFromCall) else value() for key, value in self._values.items()
+        }
+        return self._tuple_type(**build_from)
 
 
 def to_slice(specifier) -> slice:

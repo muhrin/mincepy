@@ -1,5 +1,6 @@
 import io
 import shutil
+import time
 import uuid
 
 import pytest
@@ -457,3 +458,23 @@ def test_file_changing(tmp_path, historian: mincepy.Historian):
         buffer = io.BytesIO()
         shutil.copyfileobj(file, buffer)
         assert INITIAL_DATA + NEW_DATA == buffer.getvalue()
+
+
+def test_record_times(historian: mincepy.Historian):
+    car = Car('honda', 'red')
+    historian.save(car)
+    time.sleep(0.001)
+
+    car.colour = 'white'
+    historian.save(car)
+    time.sleep(0.01)
+
+    car.colour = 'yellow'
+    historian.save(car)
+
+    history = historian.history(car, as_objects=False)
+    assert len(history) == 3
+    for idx, record in zip(range(1, 2), history[1:]):
+        assert record.creation_time == history[0].creation_time
+        assert record.snapshot_time > history[0].creation_time
+        assert record.snapshot_time > history[idx - 1].snapshot_time

@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from collections import namedtuple
 import copy
+import datetime
 import typing
 import uuid
 
@@ -11,11 +12,13 @@ __all__ = ('Archive', 'DataRecord', 'Ref')
 
 OBJ_ID = 'obj_id'
 TYPE_ID = 'type_id'
-CREATED_IN = 'created_in'
+CREATED_BY = 'created_by'
 COPIED_FROM = 'copied_from'
+CREATION_TIME = 'creation_time'
 VERSION = 'version'
 STATE = 'state'
 SNAPSHOT_HASH = 'snapshot_hash'
+SNAPSHOT_TIME = 'snapshot_time'
 
 DELETED = '!!deleted'
 
@@ -82,18 +85,25 @@ class DataRecord(
                 # Object properties
                 OBJ_ID,  # The ID of the object (spanning all snapshots)
                 TYPE_ID,  # The type ID of this object
-                CREATED_IN,  # The ID of the process the data was created in
+                CREATION_TIME,  # The time this object was created
+                CREATED_BY,  # The ID of the process the data was created in
                 COPIED_FROM,  # The reference to the snapshot that this object was copied from
                 # Snapshot properties
                 VERSION,  # The ID of this particular snapshot of the object
                 STATE,  # The saved state of the object
                 SNAPSHOT_HASH,  # The hash of the state
+                SNAPSHOT_TIME,  # The time this snapshot was created
             ))):
     """An immutable record that describes a snapshot of an object"""
 
     @classmethod
     def defaults(cls):
-        return {CREATED_IN: None, COPIED_FROM: None}
+        return {
+            CREATION_TIME: utils.DefaultFromCall(datetime.datetime.now),
+            CREATED_BY: None,
+            COPIED_FROM: None,
+            SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now)
+        }
 
     @classmethod
     def get_builder(cls, **kwargs) -> utils.NamedTupleBuilder:
@@ -122,15 +132,17 @@ class DataRecord(
             * type_id
             * state [deepcopy]
             * snapshot_hash
-        the version will be set to 0.
+        the version will be set to 0 and the creation time to now
         """
         defaults = self.defaults()
         defaults.update({
             TYPE_ID: self.type_id,
+            CREATION_TIME: utils.DefaultFromCall(datetime.datetime.now),
             STATE: copy.deepcopy(self.state),
             SNAPSHOT_HASH: self.snapshot_hash,
             VERSION: 0,
-            COPIED_FROM: self.get_reference().save_instance_state(None)
+            COPIED_FROM: self.get_reference().save_instance_state(None),
+            SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
         })
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
@@ -140,14 +152,16 @@ class DataRecord(
         Get a child builder from this DataRecord instance.  The following attributes will be copied over:
             * obj_id
             * type_id
-            * created_in
+            * creation_time
+            * created_by
         and version will be incremented by one.
         """
         defaults = self.defaults()
         defaults.update({
             OBJ_ID: self.obj_id,
             TYPE_ID: self.type_id,
-            CREATED_IN: self.created_in,
+            CREATION_TIME: self.creation_time,
+            CREATED_BY: self.created_by,
             VERSION: self.version + 1,
         })
         defaults.update(kwargs)
@@ -212,7 +226,7 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
     def find(self,
              obj_id=None,
              type_id=None,
-             created_in=None,
+             created_by=None,
              copied_from=None,
              version=-1,
              state=None,

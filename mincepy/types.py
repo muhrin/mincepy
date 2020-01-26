@@ -1,15 +1,16 @@
 from abc import ABCMeta, abstractmethod
+import datetime
+import uuid
 
 try:  # Python3
     from hashlib import blake2b
 except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
-import uuid
 
 __all__ = ('Equator', 'SavableComparable', 'Archivable')
 
 # The primitives that all archive types must support
-PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID)
+PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID, datetime.datetime)
 
 
 class Savable(metaclass=ABCMeta):

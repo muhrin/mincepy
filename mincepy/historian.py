@@ -279,9 +279,9 @@ class Historian:  # (depositor.Referencer):
     def created_in(self, obj_or_identifier):
         """Return the id of the object that created the passed object"""
         try:
-            return self.get_current_record(obj_or_identifier).created_in
+            return self.get_current_record(obj_or_identifier).created_by
         except exceptions.NotFound:
-            return self._archive.load(self._get_latest_snapshot_reference(obj_or_identifier)).created_in
+            return self._archive.load(self._get_latest_snapshot_reference(obj_or_identifier)).created_by
 
     def two_step_save(self, obj, builder, depositor):
         """Save a live object"""
@@ -415,13 +415,13 @@ class Historian:  # (depositor.Referencer):
             except exceptions.NotFound:
                 # Completely new
                 try:
-                    created_in = self.get_current_record(process.Process.current_process()).obj_id
+                    created_by = self.get_current_record(process.Process.current_process()).obj_id
                 except exceptions.NotFound:
-                    created_in = None
+                    created_by = None
 
                 builder = archive.DataRecord.get_builder(type_id=helper.TYPE_ID,
                                                          obj_id=self._archive.create_archive_id(),
-                                                         created_in=created_in,
+                                                         created_by=created_by,
                                                          version=0,
                                                          snapshot_hash=current_hash)
                 return self.two_step_save(obj, builder, depositor)

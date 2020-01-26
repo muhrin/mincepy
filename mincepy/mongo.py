@@ -19,11 +19,13 @@ __all__ = ('MongoArchive',)
 
 OBJ_ID = archive.OBJ_ID
 TYPE_ID = archive.TYPE_ID
-CREATED_IN = archive.CREATED_IN
+CREATION_TIME = 'ctime'
+CREATED_IN = archive.CREATED_BY
 COPIED_FROM = archive.COPIED_FROM
 VERSION = 'ver'
 STATE = 'state'
 SNAPSHOT_HASH = 'hash'
+SNAPSHOT_TIME = 'stime'
 
 FILE = '!!file'
 
@@ -56,11 +58,13 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     KEY_MAP = bidict({
         archive.OBJ_ID: OBJ_ID,
         archive.TYPE_ID: TYPE_ID,
-        archive.CREATED_IN: CREATED_IN,
+        archive.CREATION_TIME: CREATION_TIME,
+        archive.CREATED_BY: CREATED_IN,
         archive.COPIED_FROM: COPIED_FROM,
         archive.VERSION: VERSION,
         archive.STATE: STATE,
-        archive.SNAPSHOT_HASH: SNAPSHOT_HASH
+        archive.SNAPSHOT_HASH: SNAPSHOT_HASH,
+        archive.SNAPSHOT_TIME: SNAPSHOT_TIME
     })
 
     META = 'meta'
@@ -145,7 +149,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     def find(self,
              obj_id: Optional[bson.ObjectId] = None,
              type_id=None,
-             _created_in=None,
+             _created_by=None,
              _copied_from=None,
              version=-1,
              state=None,
