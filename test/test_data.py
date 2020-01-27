@@ -478,3 +478,38 @@ def test_record_times(historian: mincepy.Historian):
         assert record.creation_time == history[0].creation_time
         assert record.snapshot_time > history[0].creation_time
         assert record.snapshot_time > history[idx - 1].snapshot_time
+
+
+def test_replace_simple(historian: mincepy.Historian):
+
+    def paint_shop(car, colour):
+        """An imaginary function that modifies an object but returns a copy rather than an in
+        place modification"""
+        return Car(car.make, colour)
+
+    honda = Car('honda', 'yellow')
+    honda_id = historian.save(honda)
+
+    # Now paint the honda
+    new_honda = paint_shop(honda, 'green')
+    assert historian.get_obj_id(honda) == honda_id
+
+    # Now we know that this is a 'continuation' of the history of the original honda, so replace
+    historian.replace(honda, new_honda)
+    with pytest.raises(mincepy.NotFound):
+        historian.get_obj_id(honda)
+
+    assert historian.get_obj_id(new_honda) == honda_id
+    historian.save(new_honda)
+    del honda, new_honda
+
+    loaded = historian.load(honda_id)
+    assert loaded.make == 'honda'
+    assert loaded.colour == 'green'
+
+
+def test_replace_invalid(historian: mincepy.Historian):
+    honda = Car('honda', 'yellow')
+    historian.save(honda)
+    with pytest.raises(AssertionError):
+        historian.replace(honda, Garage())

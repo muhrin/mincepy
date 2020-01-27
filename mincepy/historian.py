@@ -57,36 +57,26 @@ class Historian:
             self._archive.set_meta(record.obj_id, with_meta)
         return record.obj_id
 
-    # def save_as(self, obj, obj_id, with_meta=None):
-    #     """Save an object with a given id.  Will write to the history of an object if the id already exists"""
-    #     with self._live_transaction() as trans:
-    #         # Do we have any records with that id?
-    #         current_obj = None
-    #         current_record = None
-    #         for stored, record in self._records.items():
-    #             if record.obj_id == obj_id:
-    #                 current_obj, current_record = stored, record
-    #                 break
-    #
-    #         if current_obj is not None:
-    #             self._records.pop(current_obj)
-    #         else:
-    #             # Check the archive
-    #             try:
-    #                 current_record = self._archive.history(obj_id, -1)
-    #             except exceptions.NotFound:
-    #                 pass
-    #
-    #         if current_record is not None:
-    #             self._records[obj] = current_record
-    #             self._objects[record.version] = obj
-    #         # Now save the thing
-    #         record = self.save_object(obj, LatestReferencer(self))
-    #
-    #     if with_meta is not None:
-    #         self._archive.set_meta(record.obj_id, with_meta)
-    #
-    #     return obj_id
+    def replace(self, old, new):
+        """Replace a live object with a new version.
+
+        This is especially useful if you have made a copy of an object and modified it but you want to
+        continue the history of the object as the original rather than a brand new object.  Then just
+        replace the old object with the new one by calling this function.
+        """
+        assert not self.current_transaction(), "Can't replace during a transaction for the time being"
+        assert isinstance(new, type(old)), "Can't replace type '{} with type '{}!".format(type(old), type(new))
+
+        # Get the current record and replace the object with the new one
+        record = self._live_objects.get_record(old)
+        self._live_objects.delete(old)
+        self._live_objects.insert(new, record)
+
+        # Make sure creators is correct as well
+        try:
+            self._creators[new] = self._creators.pop(old)
+        except KeyError:
+            pass
 
     def save_snapshot(self, obj, with_meta=None) -> archive.Ref:
         """
@@ -191,6 +181,10 @@ class Historian:
                 pass
 
         return self._live_objects.get_record(obj)
+
+    def get_obj_id(self, obj):
+        """Get the object ID for a live object"""
+        return self.get_current_record(obj).obj_id
 
     def get_obj(self, obj_id):
         """Get an object known to the historian"""
@@ -408,6 +402,8 @@ class Historian:
                 try:
                     creator = self._creators[obj]
                 except KeyError:
+                    # Try getting the current process as the creator - this may not stricly
+                    # be true as this is just the point the object is being saved...
                     current = process.Process.current_process()
                     creator = current if current is not obj else None
 
@@ -430,8 +426,7 @@ class Historian:
                         # Objects identical
                         transaction.rollback()
                     else:
-                        builder = record.child_builder()
-                        builder.snapshot_hash = current_hash
+                        builder = record.child_builder(snapshot_hash=current_hash)
                         record = self.two_step_save(obj, builder, depositor)
 
                 return record

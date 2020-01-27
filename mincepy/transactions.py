@@ -79,6 +79,8 @@ class Transaction:
     def snapshots(self):
         return self._snapshots
 
+    # region LiveObjects
+
     def insert_live_object(self, obj, record):
         ref = record.get_reference()
         if ref not in self._live_object_references:
@@ -107,6 +109,18 @@ class Transaction:
             if obj is cached:
                 return ref
         raise exceptions.NotFound("Live object '{} not found".format(obj))
+
+    def delete(self, obj):
+        """Delete an object form the transaction"""
+        self._live_objects.delete(obj)
+        found_ref = None
+        for ref, referenced in self._live_object_references.items():
+            if referenced is obj:
+                found_ref = ref
+                break
+        del self._live_object_references[found_ref]
+
+    # endregion LiveObjects
 
     def insert_snapshot(self, obj, ref):
         self._snapshots[ref] = obj
