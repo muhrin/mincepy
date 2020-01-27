@@ -115,7 +115,7 @@ class DiskFile(BaseFile):
 
     def __init__(self, path, encoding=None):
         self._path = pathlib.Path(str(path))
-        super(DiskFile, self).__init__(self._path.stem, encoding)
+        super(DiskFile, self).__init__(self._path.name, encoding)
 
     def open(self):
         return open(str(self._path), mode='rb')
