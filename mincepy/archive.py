@@ -79,9 +79,9 @@ class Ref(typing.Generic[IdT], types.SavableObject):
 
 
 class DataRecord(
-    namedtuple(
-        'DataRecord',
-        (
+        namedtuple(
+            'DataRecord',
+            (
                 # Object properties
                 OBJ_ID,  # The ID of the object (spanning all snapshots)
                 TYPE_ID,  # The type ID of this object
@@ -93,7 +93,7 @@ class DataRecord(
                 STATE,  # The saved state of the object
                 SNAPSHOT_HASH,  # The hash of the state
                 SNAPSHOT_TIME,  # The time this snapshot was created
-        ))):
+            ))):
     """An immutable record that describes a snapshot of an object"""
 
     @classmethod

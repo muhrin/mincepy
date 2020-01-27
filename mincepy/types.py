@@ -46,7 +46,9 @@ class Object(Comparable, metaclass=ABCMeta):
     def __init__(self):
         from . import history
         # Tell the historian that we've been created
-        history.get_historian().created(self)
+        historian = history.get_historian()
+        if historian is not None:
+            historian.created(self)
 
 
 class Primitive(Object, metaclass=ABCMeta):
