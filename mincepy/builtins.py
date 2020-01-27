@@ -96,7 +96,7 @@ class BaseFile(types.Primitive, metaclass=ABCMeta):
 class DiskFile(BaseFile):
 
     def __init__(self, path, encoding=None):
-        self._path = pathlib.Path(path)
+        self._path = pathlib.Path(str(path))
         super(DiskFile, self).__init__(self._path.stem, encoding)
 
     def open(self):
