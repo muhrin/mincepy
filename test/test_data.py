@@ -1,5 +1,3 @@
-import io
-import shutil
 import time
 import uuid
 
@@ -410,72 +408,6 @@ def test_transaction_snapshots(historian: mincepy.Historian):
         # Value wise they should be equal
         assert ferrari == ferrari_snapshot_1
         assert ferrari == ferrari_snapshot_2
-
-
-def test_file(tmp_path, historian: mincepy.Historian):
-    import os
-    INITIAL_DATA = os.urandom(1024)
-    binary_path = tmp_path / 'binary_test'
-    with open(str(binary_path), 'wb') as file:
-        file.write(INITIAL_DATA)
-
-    mince_file = mincepy.builtins.DiskFile(binary_path)
-    file_id = historian.save(mince_file)
-    del mince_file
-
-    loaded = historian.load(file_id)
-    with loaded.open() as file:
-        buffer = io.BytesIO()
-        shutil.copyfileobj(file, buffer)
-        assert buffer.getvalue() == INITIAL_DATA
-
-
-def test_file_changing(tmp_path, historian: mincepy.Historian):
-    encoding = 'utf-8'
-    INITIAL_DATA = "Initial string".encode(encoding)
-    binary_path = tmp_path / 'binary_test'
-    with open(str(binary_path), 'wb') as file:
-        file.write(INITIAL_DATA)
-
-    mince_file = mincepy.builtins.DiskFile(binary_path, encoding=encoding)
-    file_id = historian.save(mince_file)
-
-    # Now let's append to the file
-    NEW_DATA = "Second string".encode(encoding)
-    with open(str(binary_path), 'ab') as file:
-        file.write(NEW_DATA)
-
-    historian.save(mince_file)
-    history = historian.history(mince_file)
-    assert len(history) == 2
-
-    with history[0].obj.open() as file:
-        buffer = io.BytesIO()
-        shutil.copyfileobj(file, buffer)
-        assert INITIAL_DATA == buffer.getvalue()
-
-    with history[1].obj.open() as file:
-        buffer = io.BytesIO()
-        shutil.copyfileobj(file, buffer)
-        assert INITIAL_DATA + NEW_DATA == buffer.getvalue()
-
-
-def test_file_no_found(tmp_path, historian: mincepy.Historian):
-    file_path = tmp_path / 'inexistent'
-    mince_file = mincepy.builtins.DiskFile(file_path)
-
-    with pytest.raises(FileNotFoundError):
-        with mince_file.open():
-            pass
-
-    file_id = historian.save(mince_file)
-    del mince_file
-
-    loaded = historian.load(file_id)
-
-    with pytest.raises(FileNotFoundError):
-        with loaded.open():
-            pass
 
 
 def test_record_times(historian: mincepy.Historian):

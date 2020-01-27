@@ -27,8 +27,6 @@ STATE = 'state'
 SNAPSHOT_HASH = 'hash'
 SNAPSHOT_TIME = 'stime'
 
-FILE = '!!file'
-
 
 class ObjectIdHelper(helpers.TypeHelper):
     TYPE = bson.ObjectId
@@ -146,6 +144,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         if not found:
             raise exceptions.NotFound("No record with snapshot id '{}' found".format(obj_id))
 
+    # pylint: disable=too-many-arguments
     def find(self,
              obj_id: Optional[bson.ObjectId] = None,
              type_id=None,
@@ -246,12 +245,15 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         return entry
 
     def _encode_state(self, entry):
+        if isinstance(entry, list):
+            return [self._encode_state(item) for item in entry]
+
+        if isinstance(entry, dict):
+            return {key: self._encode_state(item) for key, item in entry.items()}
+
         if isinstance(entry, builtins.BaseFile):
-            try:
-                gridfs_file = GridFsFile.create_from_file(entry, self._file_store)
-                return gridfs_file.to_entry()
-            except FileNotFoundError:
-                return {FILE: None}
+            gridfs_file = GridFsFile.create_from_file(entry, self._file_store)
+            return gridfs_file.to_entry()
 
         return entry
 
@@ -260,7 +262,10 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
             try:
                 return GridFsFile.from_entry(entry, self._file_store)
             except ValueError:
-                pass
+                return {key: self._decode_state(item) for key, item in entry.items()}
+
+        if isinstance(entry, list):
+            return [self._decode_state(item) for item in entry]
 
         return entry
 
@@ -272,8 +277,11 @@ class GridFsFile(builtins.BaseFile):
 
     @classmethod
     def create_from_file(cls, entry: builtins.BaseFile, file_store: gridfs.GridFS):
-        with entry.open() as file:
-            file_id = file_store.put(file, filename=entry.filename, encoding=entry.encoding)
+        try:
+            with entry.open() as file:
+                file_id = file_store.put(file, filename=entry.filename, encoding=entry.encoding)
+        except FileNotFoundError:
+            file_id = None
         return GridFsFile(file_id, entry.filename, entry.encoding, file_store)
 
     @classmethod
@@ -291,8 +299,7 @@ class GridFsFile(builtins.BaseFile):
         super().__init__(filename, encoding)
         self._file_id = file_id
         self._file_store = file_store
-        grid_file = file_store.get(file_id)
-        super(GridFsFile, self).__init__(grid_file.filename, grid_file.encoding)
+        super(GridFsFile, self).__init__(filename, encoding)
 
     def open(self):
         try:
