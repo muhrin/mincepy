@@ -247,27 +247,58 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     def _encode_state(self, entry):
         if isinstance(entry, builtins.BaseFile):
-            with entry.open() as file:
-                file_id = self._file_store.put(file, filename=entry.filename, encoding=entry.encoding)
-            return {FILE: file_id}
+            try:
+                gridfs_file = GridFsFile.create_from_file(entry, self._file_store)
+                return gridfs_file.to_entry()
+            except FileNotFoundError:
+                return {FILE: None}
 
         return entry
 
     def _decode_state(self, entry):
         if isinstance(entry, dict):
-            if FILE in entry:
-                return GridFsFile(entry[FILE], self._file_store)
+            try:
+                return GridFsFile.from_entry(entry, self._file_store)
+            except ValueError:
+                pass
 
         return entry
 
 
 class GridFsFile(builtins.BaseFile):
+    FILE_ID = 'file_id'
+    FILENAME = 'filename'
+    ENCODING = 'encoding'
 
-    def __init__(self, file_id, file_store):
+    @classmethod
+    def create_from_file(cls, entry: builtins.BaseFile, file_store: gridfs.GridFS):
+        with entry.open() as file:
+            file_id = file_store.put(file, filename=entry.filename, encoding=entry.encoding)
+        return GridFsFile(file_id, entry.filename, entry.encoding, file_store)
+
+    @classmethod
+    def from_entry(cls, entry, file_store: gridfs.GridFS):
+        exc = ValueError("Not a valid file entry")
+        if not isinstance(entry, dict):
+            raise exc
+
+        try:
+            return GridFsFile(entry[cls.FILE_ID], entry[cls.FILENAME], entry[cls.ENCODING], file_store)
+        except KeyError:
+            raise exc
+
+    def __init__(self, file_id, filename: str, encoding: str, file_store: gridfs.GridFS):
+        super().__init__(filename, encoding)
         self._file_id = file_id
         self._file_store = file_store
         grid_file = file_store.get(file_id)
         super(GridFsFile, self).__init__(grid_file.filename, grid_file.encoding)
 
     def open(self):
-        return self._file_store.get(self._file_id)
+        try:
+            return self._file_store.get(self._file_id)
+        except gridfs.errors.NoFile as exc:
+            raise FileNotFoundError(str(exc))
+
+    def to_entry(self) -> dict:
+        return {self.FILE_ID: self._file_id, self.FILENAME: self.filename, self.ENCODING: self.encoding}

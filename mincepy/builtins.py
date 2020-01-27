@@ -1,6 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import collections
 import pathlib
+from typing import BinaryIO, Optional
 import uuid
 
 from . import depositors
@@ -51,46 +52,63 @@ class BaseFile(types.Primitive, metaclass=ABCMeta):
     ATTRS = ('_filename', '_encoding')
     READ_SIZE = 256  # The number of bytes to read at a time
 
-    def __init__(self, filename=None, encoding=None):
+    def __init__(self, filename: str = None, encoding=None):
         super().__init__()
         self._filename = filename
         self._encoding = encoding
 
     @property
-    def filename(self):
+    def filename(self) -> Optional[str]:
         return self._filename
 
     @property
-    def encoding(self):
+    def encoding(self) -> Optional[str]:
         return self._encoding
 
     @abstractmethod
-    def open(self):
-        """Open returning a file like objct that supports close() and read()"""
+    def open(self) -> BinaryIO:
+        """Open returning a file like object that supports close() and read()"""
 
     def __eq__(self, other) -> bool:
-        """Compare the contents of two files"""
-        if not isinstance(other, BaseFile):
+        """Compare the contents of two files
+
+        If both files do not exist they are considered equal.
+        """
+        if not isinstance(other, BaseFile) or self.filename != other.filename:
             return False
 
-        with self.open() as my_file:
-            with other.open() as other_file:
-                while True:
-                    my_line = my_file.readline(self.READ_SIZE)
-                    other_line = other_file.readline(self.READ_SIZE)
-                    if my_line != other_line:
-                        return False
-                    if my_line == '' and other_line == '':
-                        return True
+        try:
+            with self.open() as my_file:
+                try:
+                    with other.open() as other_file:
+                        while True:
+                            my_line = my_file.readline(self.READ_SIZE)
+                            other_line = other_file.readline(self.READ_SIZE)
+                            if my_line != other_line:
+                                return False
+                            if my_line == '' and other_line == '':
+                                return True
+                except FileNotFoundError:
+                    return False
+        except FileNotFoundError:
+            # Our file doesn't exist, make sure the other doesn't either
+            try:
+                with other.open():
+                    return False
+            except FileNotFoundError:
+                return True
 
-    def yield_hashables(self, _hasher):
+    def yield_hashables(self, hasher):
         """Has the contents of the file"""
-        with self.open() as opened:
-            while True:
-                line = opened.read(self.READ_SIZE)
-                if line == b'':
-                    return
-                yield line
+        try:
+            with self.open() as opened:
+                while True:
+                    line = opened.read(self.READ_SIZE)
+                    if line == b'':
+                        return
+                    yield line
+        except FileNotFoundError:
+            yield from hasher.yield_hashables(None)
 
 
 class DiskFile(BaseFile):

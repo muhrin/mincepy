@@ -460,6 +460,24 @@ def test_file_changing(tmp_path, historian: mincepy.Historian):
         assert INITIAL_DATA + NEW_DATA == buffer.getvalue()
 
 
+def test_file_no_found(tmp_path, historian: mincepy.Historian):
+    file_path = tmp_path / 'inexistent'
+    mince_file = mincepy.builtins.DiskFile(file_path)
+
+    with pytest.raises(FileNotFoundError):
+        with mince_file.open():
+            pass
+
+    file_id = historian.save(mince_file)
+    del mince_file
+
+    loaded = historian.load(file_id)
+
+    with pytest.raises(FileNotFoundError):
+        with loaded.open():
+            pass
+
+
 def test_record_times(historian: mincepy.Historian):
     car = Car('honda', 'red')
     historian.save(car)
