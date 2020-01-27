@@ -18,6 +18,10 @@ class LiveObjects:
     def __str__(self):
         return "{} live".format(len(self._objects))
 
+    def __contains__(self, item):
+        """Determine if an object instance is in this live objects container"""
+        return item in self._records
+
     def insert(self, obj, record):
         self._records[obj] = record
         self._objects[record.obj_id] = obj

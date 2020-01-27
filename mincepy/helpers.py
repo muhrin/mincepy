@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-import contextlib
 from typing import Type
 
 from . import types
@@ -43,7 +42,7 @@ class WrapperHelper(TypeHelper):
 
     # pylint: disable=invalid-name
 
-    def __init__(self, obj_type: Type[types.SavableComparable]):
+    def __init__(self, obj_type: Type[types.SavableObject]):
         self.TYPE = obj_type
         self.TYPE_ID = obj_type.TYPE_ID
         super(WrapperHelper, self).__init__()

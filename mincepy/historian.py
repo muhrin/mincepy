@@ -10,22 +10,17 @@ from . import defaults
 from . import depositors
 from . import exceptions
 from . import helpers
-from . import inmemory
 from . import process
 from . import types
 from . import utils
 from .transactions import RollbackTransaction, Transaction, LiveObjects
 
-__all__ = ('Historian', 'set_historian', 'get_historian', 'INHERIT')
-
-INHERIT = 'INHERIT'
-
-CURRENT_HISTORIAN = None
+__all__ = 'Historian', 'ObjectEntry'
 
 ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
 
 
-class Historian:  # (depositor.Referencer):
+class Historian:
 
     def __init__(self, archive: archive.Archive, equators=()):
         self._archive = archive
@@ -37,6 +32,8 @@ class Historian:  # (depositor.Referencer):
         self._live_objects = LiveObjects()
 
         self._type_registry = {}  # type: MutableMapping[typing.Type, types.TypeHelper]
+        # Staged objects that have been created but not saved
+        self._creators = utils.WeakObjectIdDict()  # type: MutableMapping[typing.Any, Any]
         self._type_ids = {}
 
         self._transactions = None
@@ -44,6 +41,11 @@ class Historian:  # (depositor.Referencer):
         id_type_helper = archive.get_id_type_helper()
         if id_type_helper is not None:
             self.register_type(id_type_helper)
+
+    def created(self, obj):
+        creator = process.Process.current_process()
+        if creator is not None:
+            self._creators[obj] = creator
 
     def save(self, obj, with_meta=None):
         """Save the object in the history producing a unique id"""
@@ -139,7 +141,7 @@ class Historian:  # (depositor.Referencer):
         :param as_objects: if True return the object instances, otherwise returns the DataRecords
 
         Example:
-
+        >>> historian = get_historian()
         >>> car = Car('ferrari', 'white')
         >>> car_id = historian.save(car)
         >>> car.colour = 'red'
@@ -240,11 +242,11 @@ class Historian:  # (depositor.Referencer):
     def is_obj_id(self, obj_id):
         return isinstance(obj_id, self._archive.get_id_type())
 
-    def register_type(self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableComparable]]):
+    def register_type(self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableObject]]):
         if isinstance(obj_class_or_helper, helpers.TypeHelper):
             helper = obj_class_or_helper
         else:
-            if not issubclass(obj_class_or_helper, types.SavableComparable):
+            if not issubclass(obj_class_or_helper, types.SavableObject):
                 raise TypeError("Type '{}' is nether a TypeHelper nor a SavableComparable".format(obj_class_or_helper))
             helper = helpers.WrapperHelper(obj_class_or_helper)
 
@@ -285,6 +287,8 @@ class Historian:  # (depositor.Referencer):
 
     def two_step_save(self, obj, builder, depositor):
         """Save a live object"""
+        assert builder.snapshot_hash is not None, "The snapshot hash must be set on the builder before saving"
+
         with self.transaction() as trans:
             # Insert the object into the transaction so others can refer to it
             ref = archive.Ref(builder.obj_id, builder.version)
@@ -384,18 +388,6 @@ class Historian:  # (depositor.Referencer):
                 # The one in the archive is newer, so use that
                 return depositor.load(archive_record)
 
-    def _ensure_obj_id(self, obj_id):
-        if not self.is_obj_id(obj_id):
-            # Maybe we've been passed an object
-            try:
-                return self.get_current_record(obj_id).obj_id
-            except exceptions.NotFound:
-                # Try creating it for the user by calling the constructor with the argument passed.
-                # This helps for common obj id types which can be constructed from a string
-                return self._archive.get_id_type()(obj_id)
-
-        return obj_id
-
     def _save_object(self, obj, depositor) -> archive.DataRecord:
         with self.transaction() as trans:
             # Check if an object is already being saved in the transaction
@@ -406,24 +398,28 @@ class Historian:  # (depositor.Referencer):
                 pass
 
             # Ok, have to save it
-            helper = self._ensure_compatible(obj)
             current_hash = self.hash(obj)
 
             try:
                 # Let's see if we have a record at all
                 record = self._live_objects.get_record(obj)
             except exceptions.NotFound:
-                # Completely new
+                # Ok, brand new object
                 try:
-                    created_by = self.get_current_record(process.Process.current_process()).obj_id
-                except exceptions.NotFound:
-                    created_by = None
+                    creator = self._creators[obj]
+                except KeyError:
+                    current = process.Process.current_process()
+                    creator = current if current is not obj else None
 
-                builder = archive.DataRecord.get_builder(type_id=helper.TYPE_ID,
-                                                         obj_id=self._archive.create_archive_id(),
-                                                         created_by=created_by,
-                                                         version=0,
-                                                         snapshot_hash=current_hash)
+                created_by = None
+                if creator is not None:
+                    # Have to get an object id for the creator, either from existing record or newly saved one
+                    try:
+                        created_by = self.get_current_record(creator).obj_id
+                    except exceptions.NotFound:
+                        created_by = self._save_object(creator, depositor).obj_id
+
+                builder = self._create_builder(obj, dict(created_by=created_by, snapshot_hash=current_hash))
                 return self.two_step_save(obj, builder, depositor)
             else:
                 # Check if our record is up to date
@@ -439,6 +435,15 @@ class Historian:  # (depositor.Referencer):
                         record = self.two_step_save(obj, builder, depositor)
 
                 return record
+
+    def _create_builder(self, obj, additional=None):
+        additional = additional or {}
+        helper = self._ensure_compatible(obj)
+        builder = archive.DataRecord.new_builder(type_id=helper.TYPE_ID,
+                                                 obj_id=self._archive.create_archive_id(),
+                                                 version=0)
+        builder.update(additional)
+        return builder
 
     def _load_snapshot(self, reference: archive.Ref, depositor):
         """Load a snapshot of the object using a reference."""
@@ -456,6 +461,25 @@ class Historian:  # (depositor.Referencer):
 
             return depositor.load(record)
 
+    def _ensure_obj_id(self, obj_id):
+        """
+        This call will try and get an object id from the passed parameter.  There are three possibilities:
+            1) It is passed an object ID in which case it will be returned directly
+            2) It is passed an object instance, in which case it will try and get the id from memory
+            3) It is passed a type that can be used as a constructor argument to the object id type in which
+                case it will construct it and return the result
+        """
+        if not self.is_obj_id(obj_id):
+            # Maybe we've been passed an object
+            try:
+                return self.get_current_record(obj_id).obj_id
+            except exceptions.NotFound:
+                # Try creating it for the user by calling the constructor with the argument passed.
+                # This helps for common obj id types which can be constructed from a string
+                return self._archive.get_id_type()(obj_id)
+
+        return obj_id
+
     def _ensure_compatible(self, obj):
         obj_type = type(obj)
         if obj_type not in self._type_registry:
@@ -468,19 +492,3 @@ class Historian:  # (depositor.Referencer):
                     "provide a helper".format(obj_type))
 
         return self._type_registry[obj_type]
-
-
-def create_default_historian() -> Historian:
-    return Historian(inmemory.InMemory())
-
-
-def get_historian() -> Historian:
-    global CURRENT_HISTORIAN  # pylint: disable=global-statement
-    if CURRENT_HISTORIAN is None:
-        CURRENT_HISTORIAN = create_default_historian()
-    return CURRENT_HISTORIAN
-
-
-def set_historian(historian: Historian):
-    global CURRENT_HISTORIAN  # pylint: disable=global-statement
-    CURRENT_HISTORIAN = historian

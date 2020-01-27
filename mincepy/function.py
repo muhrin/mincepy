@@ -1,7 +1,7 @@
 import functools
 import uuid
 
-from . import historian
+from . import history
 from . import types
 
 __all__ = ('track', 'FunctionCall')
@@ -60,7 +60,7 @@ def track(func):
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        hist = historian.get_historian()
+        hist = history.get_historian()
         call = FunctionCall(func, *args, **kwargs)
         try:
             result = func(*args, **kwargs)

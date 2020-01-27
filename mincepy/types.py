@@ -7,7 +7,7 @@ try:  # Python3
 except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 
-__all__ = ('Equator', 'SavableComparable', 'Archivable')
+__all__ = ('Equator', 'SavableObject', 'Archivable')
 
 # The primitives that all archive types must support
 PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID, datetime.datetime)
@@ -41,16 +41,24 @@ class Comparable(metaclass=ABCMeta):
         """Produce a hash representing the value"""
 
 
-class Primitive(Comparable, metaclass=ABCMeta):
+class Object(Comparable, metaclass=ABCMeta):
+
+    def __init__(self):
+        from . import history
+        # Tell the historian that we've been created
+        history.get_historian().created(self)
+
+
+class Primitive(Object, metaclass=ABCMeta):
     """Primitives are types that are comparable but not encodable through save_instance_state.
     They must be accepted directly by the archive"""
 
 
-class SavableComparable(Savable, Comparable, metaclass=ABCMeta):
+class SavableObject(Object, Savable, metaclass=ABCMeta):
     """A class that is both savable and comparable"""
 
 
-class Archivable(SavableComparable):
+class Archivable(SavableObject):
     """A helper class that makes a class compatible with the historian by flagging certain
     attributes which will be saved/loaded/hashed and compared in __eq__.  This should be an
     exhaustive list of all the attributes that define this class.  If more complex functionality

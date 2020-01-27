@@ -27,7 +27,7 @@ IdT = typing.TypeVar('IdT')  # The archive ID type
 REF_KEY = '!!ref'
 
 
-class Ref(typing.Generic[IdT], types.SavableComparable):
+class Ref(typing.Generic[IdT], types.SavableObject):
     TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
 
     def __init__(self, obj_id, version):
@@ -79,9 +79,9 @@ class Ref(typing.Generic[IdT], types.SavableComparable):
 
 
 class DataRecord(
-        namedtuple(
-            'DataRecord',
-            (
+    namedtuple(
+        'DataRecord',
+        (
                 # Object properties
                 OBJ_ID,  # The ID of the object (spanning all snapshots)
                 TYPE_ID,  # The type ID of this object
@@ -93,22 +93,28 @@ class DataRecord(
                 STATE,  # The saved state of the object
                 SNAPSHOT_HASH,  # The hash of the state
                 SNAPSHOT_TIME,  # The time this snapshot was created
-            ))):
+        ))):
     """An immutable record that describes a snapshot of an object"""
 
     @classmethod
-    def defaults(cls):
+    def defaults(cls) -> dict:
+        """Returns a dictionary of default values, the caller owns the ditionary and is free to modify it"""
         return {
-            CREATION_TIME: utils.DefaultFromCall(datetime.datetime.now),
+            CREATION_TIME: None,
             CREATED_BY: None,
             COPIED_FROM: None,
-            SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now)
+            SNAPSHOT_TIME: None,
         }
 
     @classmethod
-    def get_builder(cls, **kwargs) -> utils.NamedTupleBuilder:
-        """Get a DataRecord builder optionally passing in some initial values"""
+    def new_builder(cls, **kwargs) -> utils.NamedTupleBuilder:
+        """Get a builder for a new data record, the version will be set to 0"""
         values = cls.defaults()
+        values.update({
+            CREATION_TIME: utils.DefaultFromCall(datetime.datetime.now),
+            VERSION: 0,
+            SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
+        })
         values.update(kwargs)
         return utils.NamedTupleBuilder(cls, values)
 
@@ -163,6 +169,7 @@ class DataRecord(
             CREATION_TIME: self.creation_time,
             CREATED_BY: self.created_by,
             VERSION: self.version + 1,
+            SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now)
         })
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
@@ -222,6 +229,7 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
     def get_snapshot_refs(self, obj_id: IdT) -> typing.Sequence[Ref[IdT]]:
         """Returns a list of time ordered snapshot references"""
 
+    # pylint: disable=too-many-arguments
     @abstractmethod
     def find(self,
              obj_id=None,
@@ -232,7 +240,7 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
              state=None,
              snapshot_hash=None,
              limit=0,
-             sort=None):  # pylint: disable=too-many-arguments
+             sort=None):
         """Find records matching the given criteria"""
 
 

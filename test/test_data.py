@@ -263,7 +263,7 @@ def test_history(historian: mincepy.Historian):
 
 def test_storing_internal_object(historian: mincepy.Historian):
 
-    class Person(mincepy.SavableComparable):
+    class Person(mincepy.SavableObject):
         TYPE_ID = uuid.UUID('f6f83595-6375-4bc4-89f2-d8f31a1286b0')
 
         def __init__(self, car):
@@ -416,7 +416,7 @@ def test_file(tmp_path, historian: mincepy.Historian):
     import os
     INITIAL_DATA = os.urandom(1024)
     binary_path = tmp_path / 'binary_test'
-    with open(binary_path, 'wb') as file:
+    with open(str(binary_path), 'wb') as file:
         file.write(INITIAL_DATA)
 
     mince_file = mincepy.builtins.DiskFile(binary_path)
@@ -434,7 +434,7 @@ def test_file_changing(tmp_path, historian: mincepy.Historian):
     encoding = 'utf-8'
     INITIAL_DATA = "Initial string".encode(encoding)
     binary_path = tmp_path / 'binary_test'
-    with open(binary_path, 'wb') as file:
+    with open(str(binary_path), 'wb') as file:
         file.write(INITIAL_DATA)
 
     mince_file = mincepy.builtins.DiskFile(binary_path, encoding=encoding)
@@ -442,7 +442,7 @@ def test_file_changing(tmp_path, historian: mincepy.Historian):
 
     # Now let's append to the file
     NEW_DATA = "Second string".encode(encoding)
-    with open(binary_path, 'ab') as file:
+    with open(str(binary_path), 'ab') as file:
         file.write(NEW_DATA)
 
     historian.save(mince_file)
