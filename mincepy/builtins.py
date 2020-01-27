@@ -100,4 +100,4 @@ class DiskFile(BaseFile):
         super(DiskFile, self).__init__(self._path.stem, encoding)
 
     def open(self):
-        return open(self._path, mode='rb')
+        return open(str(self._path), mode='rb')

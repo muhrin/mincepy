@@ -12,6 +12,7 @@ from . import exceptions
 from . import helpers
 from . import process
 from . import types
+from . import type_registry
 from . import utils
 from .transactions import RollbackTransaction, Transaction, LiveObjects
 
@@ -31,7 +32,9 @@ class Historian:
 
         self._live_objects = LiveObjects()
 
-        self._type_registry = {}  # type: MutableMapping[typing.Type, types.TypeHelper]
+        # self._type_registry = {}  # type: MutableMapping[typing.Type, helpers.TypeHelper]
+        self._type_registry = type_registry.TypeRegistry()
+
         # Staged objects that have been created but not saved
         self._creators = utils.WeakObjectIdDict()  # type: MutableMapping[typing.Any, Any]
         self._type_ids = {}
@@ -237,28 +240,17 @@ class Historian:
         return isinstance(obj_id, self._archive.get_id_type())
 
     def register_type(self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableObject]]):
-        if isinstance(obj_class_or_helper, helpers.TypeHelper):
-            helper = obj_class_or_helper
-        else:
-            if not issubclass(obj_class_or_helper, types.SavableObject):
-                raise TypeError("Type '{}' is nether a TypeHelper nor a SavableComparable".format(obj_class_or_helper))
-            helper = helpers.WrapperHelper(obj_class_or_helper)
-
-        self._type_registry[helper.TYPE] = helper
-        self._type_ids[helper.TYPE_ID] = helper.TYPE
+        helper = self._type_registry.register_type(obj_class_or_helper)
         self._equator.add_equator(helper)
 
     def get_obj_type_id(self, obj_type):
-        return self._type_registry[obj_type].TYPE_ID
+        return self._type_registry.get_type_id(obj_type)
 
     def get_helper(self, type_id) -> helpers.TypeHelper:
-        return self.get_helper_from_obj_type(self._type_ids[type_id])
+        return self._type_registry.get_helper_from_type_id(type_id)
 
     def get_helper_from_obj_type(self, obj_type) -> helpers.TypeHelper:
-        try:
-            return self._type_registry[obj_type]
-        except KeyError:
-            raise ValueError("Type '{}' has not been registered".format(obj_type))
+        return self._type_registry.get_helper_from_obj_type(obj_type)
 
     # endregion
 
@@ -478,12 +470,6 @@ class Historian:
     def _ensure_compatible(self, obj):
         obj_type = type(obj)
         if obj_type not in self._type_registry:
-            if issubclass(obj_type, (types.Savable, types.Comparable)):
-                # Make a wrapper
-                self.register_type(helpers.WrapperHelper(obj_type))
-            else:
-                raise TypeError(
-                    "Object type '{}' is incompatible with the historian, either subclass from SavableComparable or "
-                    "provide a helper".format(obj_type))
+            self._type_registry.register_type(obj_type)
 
-        return self._type_registry[obj_type]
+        return self._type_registry.get_helper_from_obj_type(obj_type)

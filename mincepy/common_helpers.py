@@ -7,7 +7,7 @@ __all__ = ('PathHelper',)
 
 
 class PathHelper(helpers.TypeHelper):
-    TYPE = pathlib.PosixPath
+    TYPE = pathlib.Path
     TYPE_ID = uuid.UUID('78e5c6b8-f194-41ae-aead-b231953318e1')
     IMMUTABLE = True
 
@@ -17,13 +17,13 @@ class PathHelper(helpers.TypeHelper):
     def eq(self, one, other) -> bool:
         return one == other
 
-    def save_instance_state(self, obj: pathlib.Path, depositor):
+    def save_instance_state(self, obj: pathlib.Path, _depositor):
         return str(obj)
 
     def new(self, encoded_saved_state):
         return pathlib.Path(encoded_saved_state)
 
-    def load_instance_state(self, obj: pathlib.Path, saved_state, depositor):
+    def load_instance_state(self, obj: pathlib.Path, saved_state, _depositor):
         pass  # Done it all in new
 
 
@@ -38,7 +38,7 @@ class TupleHelper(helpers.TypeHelper):
     def eq(self, one, other) -> bool:
         return one == other
 
-    def save_instance_state(self, obj: tuple, depositor):
+    def save_instance_state(self, obj: tuple, _depositor):
         return list(obj)
 
     def new(self, encoded_saved_state):
