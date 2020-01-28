@@ -45,6 +45,9 @@ class Historian:
         if id_type_helper is not None:
             self.register_type(id_type_helper)
 
+    def get_archive(self):
+        return self._archive
+
     def created(self, obj):
         creator = process.Process.current_process()
         if creator is not None:

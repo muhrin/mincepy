@@ -22,7 +22,10 @@ class Depositor(metaclass=ABCMeta):
         self._historian = historian
 
     def get_archive(self) -> archive.Archive:
-        return self._historian._archive
+        return self._historian.get_archive()
+
+    def get_historian(self):
+        return self._historian
 
     @abstractmethod
     def ref(self, obj) -> archive.Ref:
