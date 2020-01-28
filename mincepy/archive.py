@@ -202,6 +202,10 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         """Create a new archive id"""
 
     @abstractmethod
+    def create_file(self, filename: str = None, encoding: str = None):
+        """Create a new file object specific for this archive type"""
+
+    @abstractmethod
     def save(self, record: DataRecord):
         """Save a data record to the archive"""
 

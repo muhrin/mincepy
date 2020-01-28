@@ -21,6 +21,9 @@ class Depositor(metaclass=ABCMeta):
     def __init__(self, historian):
         self._historian = historian
 
+    def get_archive(self) -> archive.Archive:
+        return self._historian._archive
+
     @abstractmethod
     def ref(self, obj) -> archive.Ref:
         """Get a persistent reference for the given object"""

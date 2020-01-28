@@ -1,13 +1,12 @@
 from abc import ABCMeta, abstractmethod
 import collections
-import pathlib
 from typing import BinaryIO, Optional
 import uuid
 
 from . import depositors
 from . import types
 
-__all__ = ('List', 'Str', 'Dict', 'BaseFile')
+__all__ = 'List', 'Str', 'Dict', 'BaseFile'
 
 
 class _UserType(types.Archivable):
@@ -47,8 +46,7 @@ class Str(collections.UserString, _UserType):
         self.data = state
 
 
-class BaseFile(types.Primitive, metaclass=ABCMeta):
-    TYPE_ID = uuid.UUID('d58a6da8-62a0-40a6-846a-ec6f26f69d16')
+class BaseFile(types.Archivable, metaclass=ABCMeta):
     ATTRS = ('_filename', '_encoding')
     READ_SIZE = 256  # The number of bytes to read at a time
 
@@ -66,7 +64,7 @@ class BaseFile(types.Primitive, metaclass=ABCMeta):
         return self._encoding
 
     @abstractmethod
-    def open(self) -> BinaryIO:
+    def open(self, mode='r') -> BinaryIO:
         """Open returning a file like object that supports close() and read()"""
 
     def __eq__(self, other) -> bool:
@@ -101,7 +99,7 @@ class BaseFile(types.Primitive, metaclass=ABCMeta):
     def yield_hashables(self, hasher):
         """Has the contents of the file"""
         try:
-            with self.open() as opened:
+            with self.open('rb') as opened:
                 while True:
                     line = opened.read(self.READ_SIZE)
                     if line == b'':
@@ -111,11 +109,12 @@ class BaseFile(types.Primitive, metaclass=ABCMeta):
             yield from hasher.yield_hashables(None)
 
 
-class DiskFile(BaseFile):
-
-    def __init__(self, path, encoding=None):
-        self._path = pathlib.Path(str(path))
-        super(DiskFile, self).__init__(self._path.name, encoding)
-
-    def open(self):
-        return open(str(self._path), mode='rb')
+#
+# class DiskFile(BaseFile):
+#
+#     def __init__(self, path, encoding=None):
+#         self._path = pathlib.Path(str(path))
+#         super(DiskFile, self).__init__(self._path.name, encoding)
+#
+#     def open(self):
+#         return open(str(self._path), mode='rb')

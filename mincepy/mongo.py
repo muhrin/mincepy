@@ -1,3 +1,5 @@
+from pathlib import Path
+import tempfile
 import typing
 from typing import Optional
 import uuid
@@ -12,10 +14,11 @@ import pymongo.errors
 from . import archive
 from .archive import BaseArchive, DataRecord
 from . import builtins
+from . import depositors
 from . import exceptions
 from . import helpers
 
-__all__ = ('MongoArchive',)
+__all__ = 'MongoArchive',
 
 OBJ_ID = archive.OBJ_ID
 TYPE_ID = archive.TYPE_ID
@@ -71,16 +74,16 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     def get_id_type_helper(cls):
         return ObjectIdHelper()
 
-    @classmethod
-    def get_extra_primitives(cls) -> tuple:
-        """Can optionally return a list of types that are treated as primitives i.e. considered to be
-        storable and retrievable directly without encoding."""
-        return (builtins.BaseFile,)
+    # @classmethod
+    # def get_extra_primitives(cls) -> tuple:
+    #     """Can optionally return a list of types that are treated as primitives i.e. considered to be
+    #     storable and retrievable directly without encoding."""
+    #     return (builtins.BaseFile,)
 
     def __init__(self, database: pymongo.database.Database):
         self._data_collection = database[self.DATA_COLLECTION]
         self._meta_collection = database[self.META_COLLECTION]
-        self._file_store = gridfs.GridFS(database)
+        self._file_bucket = gridfs.GridFSBucket(database)
         self._create_indices()
 
     def _create_indices(self):
@@ -91,6 +94,12 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
+
+    def create_file(self, filename, encoding) -> builtins.BaseFile:
+        return GridFsFile(filename, encoding)
+
+    def get_gridfs_bucket(self) -> gridfs.GridFSBucket:
+        return self._file_bucket
 
     def save(self, record: DataRecord):
         self.save_many([record])
@@ -251,18 +260,11 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         if isinstance(entry, dict):
             return {key: self._encode_state(item) for key, item in entry.items()}
 
-        if isinstance(entry, builtins.BaseFile):
-            gridfs_file = GridFsFile.create_from_file(entry, self._file_store)
-            return gridfs_file.to_entry()
-
         return entry
 
     def _decode_state(self, entry):
         if isinstance(entry, dict):
-            try:
-                return GridFsFile.from_entry(entry, self._file_store)
-            except ValueError:
-                return {key: self._decode_state(item) for key, item in entry.items()}
+            return {key: self._decode_state(item) for key, item in entry.items()}
 
         if isinstance(entry, list):
             return [self._decode_state(item) for item in entry]
@@ -271,41 +273,37 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
 
 class GridFsFile(builtins.BaseFile):
-    FILE_ID = 'file_id'
-    FILENAME = 'filename'
-    ENCODING = 'encoding'
+    TYPE_ID = uuid.UUID('3bf3c24e-f6c8-4f70-956f-bdecd7aed091')
+    ATTRS = '_persistent_id', '_file_id'
 
-    @classmethod
-    def create_from_file(cls, entry: builtins.BaseFile, file_store: gridfs.GridFS):
-        try:
-            with entry.open() as file:
-                file_id = file_store.put(file, filename=entry.filename, encoding=entry.encoding)
-        except FileNotFoundError:
-            file_id = None
-        return GridFsFile(file_id, entry.filename, entry.encoding, file_store)
-
-    @classmethod
-    def from_entry(cls, entry, file_store: gridfs.GridFS):
-        exc = ValueError("Not a valid file entry")
-        if not isinstance(entry, dict):
-            raise exc
-
-        try:
-            return GridFsFile(entry[cls.FILE_ID], entry[cls.FILENAME], entry[cls.ENCODING], file_store)
-        except KeyError:
-            raise exc
-
-    def __init__(self, file_id, filename: str, encoding: str, file_store: gridfs.GridFS):
+    def __init__(self, filename: str = None, encoding: str = None):
         super().__init__(filename, encoding)
-        self._file_id = file_id
-        self._file_store = file_store
-        super(GridFsFile, self).__init__(filename, encoding)
+        self._file_id = None
+        self._persistent_id = bson.ObjectId()
+        self._tmp_path = self._create_buffer_file()
 
-    def open(self):
-        try:
-            return self._file_store.get(self._file_id)
-        except gridfs.errors.NoFile as exc:
-            raise FileNotFoundError(str(exc))
+    def open(self, mode='r'):
+        return open(self._tmp_path, mode)
 
-    def to_entry(self) -> dict:
-        return {self.FILE_ID: self._file_id, self.FILENAME: self.filename, self.ENCODING: self.encoding}
+    def save_instance_state(self, depositor: depositors.Depositor):
+        file_store = depositor.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
+        filename = self.filename or ""
+        with open(self._tmp_path, 'rb') as fstream:
+            self._file_id = file_store.upload_from_stream(filename, fstream)
+
+        return super().save_instance_state(depositor)
+
+    def load_instance_state(self, saved_state, depositor):
+        super().load_instance_state(saved_state, depositor)
+
+        file_store = depositor.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
+        self._tmp_path = self._create_buffer_file()
+        if self._file_id is not None:
+            with open(self._tmp_path, 'wb') as fstream:
+                file_store.download_to_stream(self._file_id, fstream)
+
+    def _create_buffer_file(self):
+        tmp_file = tempfile.NamedTemporaryFile(delete=False)
+        tmp_path = tmp_file.name
+        tmp_file.close()
+        return tmp_path

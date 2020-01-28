@@ -7,36 +7,36 @@ import pytest
 import mincepy
 
 
-def test_file_basics(tmp_path, historian: mincepy.Historian):
-    INITIAL_DATA = os.urandom(1024)
-    binary_path = tmp_path / 'binary_test'
-    with open(str(binary_path), 'wb') as file:
-        file.write(INITIAL_DATA)
+def test_file_basics(historian: mincepy.Historian):
+    encoding = 'utf-8'
+    INITIAL_DATA = 'hello there'
+    file = historian.create_file(encoding)
+    with file.open('w') as stream:
+        stream.write(INITIAL_DATA)
 
-    mince_file = mincepy.builtins.DiskFile(binary_path)
-    file_id = historian.save(mince_file)
-    del mince_file
+    file_id = historian.save(file)
+    del file
 
     loaded = historian.load(file_id)
-    with loaded.open() as file:
-        buffer = io.BytesIO()
+    with loaded.open('r') as file:
+        buffer = io.StringIO()
         shutil.copyfileobj(file, buffer)
         assert buffer.getvalue() == INITIAL_DATA
 
 
 def test_file_changing(tmp_path, historian: mincepy.Historian):
     encoding = 'utf-8'
-    INITIAL_DATA = "Initial string".encode(encoding)
-    binary_path = tmp_path / 'binary_test'
-    with open(str(binary_path), 'wb') as file:
+    INITIAL_DATA = "Initial string"
+    mince_file = historian.create_file(encoding=encoding)
+
+    with mince_file.open('w') as file:
         file.write(INITIAL_DATA)
 
-    mince_file = mincepy.builtins.DiskFile(binary_path, encoding=encoding)
     historian.save(mince_file)
 
     # Now let's append to the file
-    NEW_DATA = "Second string".encode(encoding)
-    with open(str(binary_path), 'ab') as file:
+    NEW_DATA = "Second string"
+    with mince_file.open('a') as file:
         file.write(NEW_DATA)
 
     historian.save(mince_file)
@@ -44,68 +44,49 @@ def test_file_changing(tmp_path, historian: mincepy.Historian):
     assert len(history) == 2
 
     with history[0].obj.open() as file:
-        buffer = io.BytesIO()
+        buffer = io.StringIO()
         shutil.copyfileobj(file, buffer)
         assert INITIAL_DATA == buffer.getvalue()
 
     with history[1].obj.open() as file:
-        buffer = io.BytesIO()
+        buffer = io.StringIO()
         shutil.copyfileobj(file, buffer)
         assert INITIAL_DATA + NEW_DATA == buffer.getvalue()
 
 
-def test_file_no_found(tmp_path, historian: mincepy.Historian):
-    file_path = tmp_path / 'inexistent'
-    mince_file = mincepy.builtins.DiskFile(file_path)
-
-    with pytest.raises(FileNotFoundError):
-        with mince_file.open():
-            pass
-
-    file_id = historian.save(mince_file)
-    del mince_file
-
-    loaded = historian.load(file_id)
-
-    with pytest.raises(FileNotFoundError):
-        with loaded.open():
-            pass
-
-
 def test_nested_files_in_list(historian: mincepy.Historian):
-    inexistent = mincepy.builtins.DiskFile('none')
+    file = historian.create_file()
     my_list = mincepy.builtins.List()
-    my_list.append(inexistent)
+    my_list.append(file)
 
     list_id = historian.save(my_list)
     del my_list
 
     loaded = historian.load(list_id)
     assert len(loaded) == 1
-    assert loaded[0].filename == 'none'
+    assert loaded[0].filename == None
 
 
 def test_nested_files_in_dict(historian: mincepy.Historian):
-    inexistent = mincepy.builtins.DiskFile('none')
+    file = historian.create_file()
     my_dict = mincepy.builtins.Dict()
-    my_dict['file'] = inexistent
+    my_dict['file'] = file
 
     list_id = historian.save(my_dict)
     del my_dict
 
     loaded = historian.load(list_id)
     assert len(loaded) == 1
-    assert loaded['file'].filename == 'none'
+    assert loaded['file'].filename == None
 
 
 def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):
     encoding = 'utf-8'
     INITIAL_DATA = "First string".encode(encoding)
-    file_path = tmp_path / 'binary_test'
-    with open(str(file_path), 'wb') as file:
+    my_file = historian.create_file()
+    with my_file.open('wb') as file:
         file.write(INITIAL_DATA)
 
-    my_file = mincepy.builtins.DiskFile(file_path)
     my_list = mincepy.builtins.List()
     my_list.append(my_file)
 
@@ -113,7 +94,7 @@ def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):
 
     # Now let's append to the file
     NEW_DATA = "Second string".encode(encoding)
-    with open(str(file_path), 'ab') as file:
+    with my_file.open('ab') as file:
         file.write(NEW_DATA)
 
     # Save the list again
@@ -121,7 +102,7 @@ def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):
     del my_list
 
     loaded = historian.load(list_id)
-    with loaded[0].open() as contents:
+    with loaded[0].open('rb') as contents:
         buffer = io.BytesIO()
         shutil.copyfileobj(contents, buffer)
         assert buffer.getvalue() == INITIAL_DATA + NEW_DATA

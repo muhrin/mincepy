@@ -50,6 +50,9 @@ class Historian:
         if creator is not None:
             self._creators[obj] = creator
 
+    def create_file(self, filename: str = None, encoding: str = None):
+        return self._archive.create_file(filename, encoding)
+
     def save(self, obj, with_meta=None):
         """Save the object in the history producing a unique id"""
         if obj in self._snapshots_objects:
