@@ -6,6 +6,7 @@ from typing import MutableMapping, Any, Optional
 import weakref
 
 from . import archive
+from . import builtins
 from . import defaults
 from . import depositors
 from . import exceptions
@@ -32,7 +33,6 @@ class Historian:
 
         self._live_objects = LiveObjects()
 
-        # self._type_registry = {}  # type: MutableMapping[typing.Type, helpers.TypeHelper]
         self._type_registry = type_registry.TypeRegistry()
 
         # Staged objects that have been created but not saved
@@ -162,6 +162,9 @@ class Historian:
 
     def save_object(self, obj) -> archive.DataRecord:
         return self._save_object(obj, depositors.LiveDepositor(self))
+
+    def deposit_file(self, file: builtins.BaseFile) -> builtins.BaseFile:
+        return self._save_object(file, depositors.LiveDepositor(self)).state
 
     def get_meta(self, obj_id):
         if isinstance(obj_id, archive.Ref):

@@ -7,7 +7,7 @@ import pytest
 import mincepy
 
 
-def test_file(tmp_path, historian: mincepy.Historian):
+def test_file_basics(tmp_path, historian: mincepy.Historian):
     INITIAL_DATA = os.urandom(1024)
     binary_path = tmp_path / 'binary_test'
     with open(str(binary_path), 'wb') as file:
@@ -96,3 +96,32 @@ def test_nested_files_in_dict(historian: mincepy.Historian):
     loaded = historian.load(list_id)
     assert len(loaded) == 1
     assert loaded['file'].filename == 'none'
+
+
+def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):
+    encoding = 'utf-8'
+    INITIAL_DATA = "First string".encode(encoding)
+    file_path = tmp_path / 'binary_test'
+    with open(str(file_path), 'wb') as file:
+        file.write(INITIAL_DATA)
+
+    my_file = mincepy.builtins.DiskFile(file_path)
+    my_list = mincepy.builtins.List()
+    my_list.append(my_file)
+
+    list_id = historian.save(my_list)
+
+    # Now let's append to the file
+    NEW_DATA = "Second string".encode(encoding)
+    with open(str(file_path), 'ab') as file:
+        file.write(NEW_DATA)
+
+    # Save the list again
+    historian.save(my_list)
+    del my_list
+
+    loaded = historian.load(list_id)
+    with loaded[0].open() as contents:
+        buffer = io.BytesIO()
+        shutil.copyfileobj(contents, buffer)
+        assert buffer.getvalue() == INITIAL_DATA + NEW_DATA
