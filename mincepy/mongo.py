@@ -1,7 +1,6 @@
-from pathlib import Path
 import tempfile
 import typing
-from typing import Optional
+from typing import Optional, Sequence
 import uuid
 
 from bidict import bidict
@@ -71,14 +70,8 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     META = 'meta'
 
     @classmethod
-    def get_id_type_helper(cls):
-        return ObjectIdHelper()
-
-    # @classmethod
-    # def get_extra_primitives(cls) -> tuple:
-    #     """Can optionally return a list of types that are treated as primitives i.e. considered to be
-    #     storable and retrievable directly without encoding."""
-    #     return (builtins.BaseFile,)
+    def get_types(cls) -> Sequence:
+        return ObjectIdHelper(), GridFsFile
 
     def __init__(self, database: pymongo.database.Database):
         self._data_collection = database[self.DATA_COLLECTION]
@@ -218,7 +211,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                 }
             })
             # Finally sepect those from our collection that have a 'max_version' array entry
-            pipeline.append({"$match": {"max_version": {"$ne": []}}},)
+            pipeline.append({"$match": {"max_version": {"$ne": []}}}, )
 
         if limit:
             pipeline.append({'$limit': limit})
@@ -276,31 +269,42 @@ class GridFsFile(builtins.BaseFile):
     TYPE_ID = uuid.UUID('3bf3c24e-f6c8-4f70-956f-bdecd7aed091')
     ATTRS = '_persistent_id', '_file_id'
 
-    def __init__(self, filename: str = None, encoding: str = None):
+    def __init__(self, file_bucket, filename: str = None, encoding: str = None):
         super().__init__(filename, encoding)
+        self._file_store = file_bucket
         self._file_id = None
         self._persistent_id = bson.ObjectId()
-        self._tmp_path = self._create_buffer_file()
+        self._buffer_file = self._create_buffer_file()
 
     def open(self, mode='r'):
-        return open(self._tmp_path, mode)
+        self._ensure_buffer()
+        return open(self._buffer_file, mode)
 
     def save_instance_state(self, depositor: depositors.Depositor):
         file_store = depositor.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
         filename = self.filename or ""
-        with open(self._tmp_path, 'rb') as fstream:
+        with open(self._buffer_file, 'rb') as fstream:
             self._file_id = file_store.upload_from_stream(filename, fstream)
 
         return super().save_instance_state(depositor)
 
     def load_instance_state(self, saved_state, depositor):
         super().load_instance_state(saved_state, depositor)
+        self._file_store = depositor.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
+        # Don't copy the file over now, do it lazily when the file is first opened
+        self._buffer_file = None
 
-        file_store = depositor.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
-        self._tmp_path = self._create_buffer_file()
-        if self._file_id is not None:
-            with open(self._tmp_path, 'wb') as fstream:
-                file_store.download_to_stream(self._file_id, fstream)
+    def _ensure_buffer(self):
+        if self._buffer_file is None:
+            if self._file_id is not None:
+                self._update_buffer()
+            else:
+                self._create_buffer_file()
+
+    def _update_buffer(self):
+        self._buffer_file = self._create_buffer_file()
+        with open(self._buffer_file, 'wb') as fstream:
+            self._file_store.download_to_stream(self._file_id, fstream)
 
     def _create_buffer_file(self):
         tmp_file = tempfile.NamedTemporaryFile(delete=False)

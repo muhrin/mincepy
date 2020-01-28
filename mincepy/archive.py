@@ -3,6 +3,7 @@ from collections import namedtuple
 import copy
 import datetime
 import typing
+from typing import Sequence
 import uuid
 
 from . import types
@@ -79,9 +80,9 @@ class Ref(typing.Generic[IdT], types.SavableObject):
 
 
 class DataRecord(
-        namedtuple(
-            'DataRecord',
-            (
+    namedtuple(
+        'DataRecord',
+        (
                 # Object properties
                 OBJ_ID,  # The ID of the object (spanning all snapshots)
                 TYPE_ID,  # The type ID of this object
@@ -93,7 +94,7 @@ class DataRecord(
                 STATE,  # The saved state of the object
                 SNAPSHOT_HASH,  # The hash of the state
                 SNAPSHOT_TIME,  # The time this snapshot was created
-            ))):
+        ))):
     """An immutable record that describes a snapshot of an object"""
 
     @classmethod
@@ -183,8 +184,10 @@ def make_deleted_record(last_record: DataRecord) -> DataRecord:
 class Archive(typing.Generic[IdT], metaclass=ABCMeta):
 
     @classmethod
-    def get_id_type_helper(cls):
-        return None
+    def get_types(cls) -> Sequence:
+        """This method allows the archive to return either types or type helper that the historian
+        should support.  A common example is the type helper for the object id type"""
+        return tuple()
 
     @classmethod
     def get_extra_primitives(cls) -> tuple:

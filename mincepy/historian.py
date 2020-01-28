@@ -41,9 +41,8 @@ class Historian:
 
         self._transactions = None
 
-        id_type_helper = archive.get_id_type_helper()
-        if id_type_helper is not None:
-            self.register_type(id_type_helper)
+        for archive_type in archive.get_types():
+            self.register_type(archive_type)
 
     def get_archive(self):
         return self._archive
