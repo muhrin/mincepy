@@ -64,7 +64,7 @@ class BaseFile(types.Archivable, metaclass=ABCMeta):
         return self._encoding
 
     @abstractmethod
-    def open(self, mode='r') -> BinaryIO:
+    def open(self, mode='r', **kwargs) -> BinaryIO:
         """Open returning a file like object that supports close() and read()"""
 
     def __eq__(self, other) -> bool:

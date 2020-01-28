@@ -88,8 +88,8 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
 
-    def create_file(self, filename, encoding) -> builtins.BaseFile:
-        return GridFsFile(filename, encoding)
+    def create_file(self, filename: str = None, encoding: str = None):
+        return GridFsFile(self._file_bucket, filename, encoding)
 
     def get_gridfs_bucket(self) -> gridfs.GridFSBucket:
         return self._file_bucket
@@ -211,7 +211,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                 }
             })
             # Finally sepect those from our collection that have a 'max_version' array entry
-            pipeline.append({"$match": {"max_version": {"$ne": []}}}, )
+            pipeline.append({"$match": {"max_version": {"$ne": []}}},)
 
         if limit:
             pipeline.append({'$limit': limit})
@@ -269,22 +269,23 @@ class GridFsFile(builtins.BaseFile):
     TYPE_ID = uuid.UUID('3bf3c24e-f6c8-4f70-956f-bdecd7aed091')
     ATTRS = '_persistent_id', '_file_id'
 
-    def __init__(self, file_bucket, filename: str = None, encoding: str = None):
+    def __init__(self, file_bucket: gridfs.GridFSBucket, filename: str = None, encoding: str = None):
         super().__init__(filename, encoding)
         self._file_store = file_bucket
         self._file_id = None
         self._persistent_id = bson.ObjectId()
         self._buffer_file = self._create_buffer_file()
 
-    def open(self, mode='r'):
+    def open(self, mode='r', **kwargs):
         self._ensure_buffer()
-        return open(self._buffer_file, mode)
+        if 'b' not in mode:
+            kwargs.setdefault('encoding', self.encoding)
+        return open(self._buffer_file, mode, **kwargs)
 
     def save_instance_state(self, depositor: depositors.Depositor):
-        file_store = depositor.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
         filename = self.filename or ""
         with open(self._buffer_file, 'rb') as fstream:
-            self._file_id = file_store.upload_from_stream(filename, fstream)
+            self._file_id = self._file_store.upload_from_stream(filename, fstream)
 
         return super().save_instance_state(depositor)
 
