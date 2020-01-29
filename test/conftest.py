@@ -3,6 +3,8 @@ import pytest
 
 import mincepy
 
+from . import common
+
 
 @pytest.fixture
 def mongodb_archive():
@@ -16,6 +18,7 @@ def mongodb_archive():
 @pytest.fixture
 def historian(mongodb_archive):
     hist = mincepy.Historian(mongodb_archive)
+    hist.register_types(common.HISTORIAN_TYPES)
     mincepy.set_historian(hist)
     yield hist
     mincepy.set_historian(None)

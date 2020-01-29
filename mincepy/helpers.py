@@ -3,7 +3,7 @@ from typing import Type
 
 from . import types
 
-__all__ = ('TypeHelper', 'WrapperHelper')
+__all__ = 'TypeHelper', 'WrapperHelper', 'BaseHelper'
 
 
 class TypeHelper(metaclass=ABCMeta):
@@ -35,6 +35,18 @@ class TypeHelper(metaclass=ABCMeta):
     @abstractmethod
     def load_instance_state(self, obj, saved_state, depositor):
         """Take the given blank object and load the instance state into it"""
+
+
+class BaseHelper(TypeHelper, metaclass=ABCMeta):
+    """A base helper that defaults to yielding hashables directly on the object
+    and testing for equality using == given two objects.  This behaviour is fairly
+    standard and therefor more type helpers will want to subclass from this class."""
+
+    def yield_hashables(self, obj, hasher):
+        yield from hasher.yield_hashables(obj)
+
+    def eq(self, one, other) -> bool:
+        return one == other
 
 
 class WrapperHelper(TypeHelper):

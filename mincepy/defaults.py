@@ -1,5 +1,4 @@
 from . import comparators
-from . import types
 
 
 def get_default_equators():

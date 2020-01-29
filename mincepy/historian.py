@@ -2,7 +2,7 @@ from collections import namedtuple
 import contextlib
 import copy
 import typing
-from typing import MutableMapping, Any, Optional
+from typing import MutableMapping, Any, Optional, Iterable
 import weakref
 
 from . import archive
@@ -41,8 +41,7 @@ class Historian:
 
         self._transactions = None
 
-        for archive_type in archive.get_types():
-            self.register_type(archive_type)
+        self.register_types(archive.get_types())
 
     def get_archive(self):
         return self._archive
@@ -250,6 +249,10 @@ class Historian:
     def register_type(self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableObject]]):
         helper = self._type_registry.register_type(obj_class_or_helper)
         self._equator.add_equator(helper)
+
+    def register_types(self, obj_claases_or_helpers: Iterable):
+        for item in obj_claases_or_helpers:
+            self.register_type(item)
 
     def get_obj_type_id(self, obj_type):
         return self._type_registry.get_type_id(obj_type)
