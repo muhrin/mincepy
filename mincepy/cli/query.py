@@ -18,6 +18,8 @@ def query(obj_type, filter, limit):
     results = historian.find(obj_type, criteria=filter, limit=limit, as_objects=False,
                              version=-1)  # type: typing.Sequence[mincepy.DataRecord]
 
+    historian.register_types(mincepy.testing.HISTORIAN_TYPES)
+
     # Gather by object types
     gathered = {}
     for result in results:
@@ -25,7 +27,7 @@ def query(obj_type, filter, limit):
 
     for type_id, records in gathered.items():
         print("type: {}".format(type_id))
-        print_records(records)
+        print_records(records, historian)
 
 
 SCALAR_VALUE = '<value>'
@@ -33,12 +35,19 @@ UNSET = ''
 REF = 'ref'
 
 
-def print_records(records: typing.Sequence[mincepy.DataRecord]):
+def print_records(records: typing.Sequence[mincepy.DataRecord], historian):
     columns = OrderedDict()
-    columns[REF] = [
-        record.get_reference() if not record.is_deleted_record() else "{} [deleted]".format(record.get_reference())
-        for record in records
-    ]
+    refs = []
+    for record in records:
+        try:
+            helper = historian.get_helper(record.type_id)
+            type_str = get_type_name(helper.TYPE) + "#{}".format(record.version)
+        except KeyError:
+            type_str = str(record.get_reference())
+        if record.is_deleted_record():
+            type_str += " [deleted]"
+        refs.append(type_str)
+    columns[REF] = refs
 
     for record in records:
         if not record.is_deleted_record():
@@ -94,6 +103,13 @@ def get_value(title, state):
         return state
 
     return UNSET
+
+
+def get_type_name(obj_type):
+    try:
+        return "{}.{}".format(obj_type.__module__, obj_type.__name__)
+    except AttributeError:
+        return str(obj_type)
 
 
 if __name__ == '__main__':

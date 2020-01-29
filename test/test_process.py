@@ -1,6 +1,6 @@
 import mincepy
 
-from .common import Car
+from mincepy.testing import Car
 
 
 def test_basic_save_process(historian: mincepy.Historian):

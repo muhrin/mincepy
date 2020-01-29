@@ -1,6 +1,6 @@
 import mincepy
 
-from .common import Car
+from mincepy.testing import Car
 
 
 def test_transaction_snapshots(historian: mincepy.Historian):

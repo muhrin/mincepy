@@ -4,7 +4,7 @@ import uuid
 import pytest
 
 import mincepy
-from .common import Car, Garage
+from mincepy.testing import Car, Garage
 
 
 def test_basic_save_load(historian: mincepy.Historian):

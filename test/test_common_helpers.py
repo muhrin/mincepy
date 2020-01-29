@@ -4,7 +4,7 @@ import uuid
 
 import mincepy
 
-from .common import Car, Person
+from mincepy.testing import Car, Person
 
 
 def test_path_helper(historian: mincepy.Historian):
