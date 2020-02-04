@@ -163,7 +163,11 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         if type_id is not None:
             mfilter['type_id'] = type_id
         if state is not None:
-            mfilter[STATE] = state
+            # If we are given a dict then expand as nested search criteria, e.g. {'state.colour': 'red'}
+            if isinstance(state, dict):
+                mfilter.update({"{}.{}".format(STATE, key): item for key, item in state.items()})
+            else:
+                mfilter[STATE] = state
         if snapshot_hash is not None:
             mfilter[self.KEY_MAP[archive.SNAPSHOT_HASH]] = snapshot_hash
         if version is not None and version != -1:

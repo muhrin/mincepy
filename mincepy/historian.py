@@ -54,7 +54,23 @@ class Historian:
     def create_file(self, filename: str = None, encoding: str = None):
         return self._archive.create_file(filename, encoding)
 
-    def save(self, obj, with_meta=None):
+    def save(self, *objs, with_meta=None):
+        """Save or more objects in the history producing corresponding object identifiers"""
+        if with_meta is not None:
+            assert len(objs) == len(with_meta)
+        else:
+            with_meta = [None] * len(objs)
+
+        with self.transaction():
+            ids = []
+            for obj, meta in zip(objs, with_meta):
+                ids.append(self.save_one(obj, meta))
+            if len(ids) == 1:
+                return ids[0]
+
+            return ids
+
+    def save_one(self, obj, with_meta=None):
         """Save the object in the history producing a unique id"""
         if obj in self._snapshots_objects:
             raise exceptions.ModificationError("Cannot save a snapshot object, that would rewrite history!")
@@ -272,8 +288,8 @@ class Historian:
         if as_objects:
             for result in results:
                 yield self.load(result.obj_id)
-
-        yield from results
+        else:
+            yield from results
 
     def created_in(self, obj_or_identifier):
         """Return the id of the object that created the passed object"""
