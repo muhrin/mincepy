@@ -158,6 +158,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
              version=-1,
              state=None,
              snapshot_hash=None,
+             meta=None,
              limit=0,
              _sort=None):
         mfilter = {}
@@ -217,8 +218,23 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                     'as': "max_version"
                 }
             })
-            # Finally sepect those from our collection that have a 'max_version' array entry
-            pipeline.append({"$match": {"max_version": {"$ne": []}}},)
+            # Finally select those from our collection that have a 'max_version' array entry
+            pipeline.append({"$match": {"max_version": {"$ne": []}}}, )
+
+        if meta:
+            pipeline.append(
+                {'$lookup': {
+                    'from': self._meta_collection.name,
+                    'localField': OBJ_ID,
+                    'foreignField': '_id',
+                    'as': '_meta'
+                }})
+            # _meta should only contain at most one entry per document i.e. the metadata for
+            # that object.  So check that for the search criteria
+            pipeline.append(
+                {'$match': {
+                    '_meta.0.{}'.format(key): value for key, value in meta.items()}
+                })
 
         if limit:
             pipeline.append({'$limit': limit})
@@ -226,7 +242,6 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         results = self._data_collection.aggregate(pipeline)
         for result in results:
             yield self._to_record(result)
-        # return [self._to_record(result) for result in results]
 
     def _to_record(self, entry) -> archive.DataRecord:
         """Convert a MongoDB data collection entry to a DataRecord"""

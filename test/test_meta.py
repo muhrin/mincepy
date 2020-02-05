@@ -66,3 +66,13 @@ def test_metadata_update_inexistant(historian: mincepy.Historian):
     # If the data doesn't exist in the metadata already we expect an update to simply insert
     historian.update_meta(honda, {'reg': 'H123', 'vin': 1234})
     assert historian.get_meta(honda) == {'reg': 'H123', 'vin': 1234}
+
+
+def test_metadata_find(historian: mincepy.Historian):
+    honda = Car('honda', 'white')
+    honda2 = Car('honda', 'white')
+    historian.save(honda, with_meta={'reg': 'H123', 'vin': 1234})
+    historian.save(honda2)
+
+    results = list(historian.find(Car, meta={'reg': 'H123'}))
+    assert len(results) == 1

@@ -254,6 +254,7 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
              version=-1,
              state=None,
              snapshot_hash=None,
+             meta=None,
              limit=0,
              sort=None):
         """Find records matching the given criteria"""
