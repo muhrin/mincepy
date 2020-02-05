@@ -161,23 +161,6 @@ def test_get_latest(historian: mincepy.Historian):
     assert latest == historian.load_snapshot(honda_id)
 
 
-def test_metadata(historian: mincepy.Historian):
-    car = Car()
-    ferrari_id = historian.save_snapshot(car, with_meta={'reg': 'VD395'})
-    # Check that we get back what we just set
-    assert historian.get_meta(ferrari_id) == {'reg': 'VD395'}
-
-    car.make = 'fiat'
-    red_fiat_id = historian.save_snapshot(car)
-    # Check that the metadata was inherited
-    assert historian.get_meta(red_fiat_id) == {'reg': 'VD395'}
-
-    historian.set_meta(ferrari_id, {'reg': 'N317'})
-    # Check that this saves the metadata on the object level i.e. both are changed
-    assert historian.get_meta(ferrari_id) == {'reg': 'N317'}
-    assert historian.get_meta(red_fiat_id) == {'reg': 'N317'}
-
-
 # def test_save_as(historian: mincepy.Historian):
 #     """Check the save_as functionality in historian"""
 #     car = Car('ferrari')

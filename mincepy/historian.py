@@ -2,11 +2,10 @@ from collections import namedtuple
 import contextlib
 import copy
 import typing
-from typing import MutableMapping, Any, Optional, Iterable
+from typing import MutableMapping, Any, Optional, Iterable, Mapping
 import weakref
 
 from . import archive
-from . import builtins
 from . import defaults
 from . import depositors
 from . import exceptions
@@ -47,17 +46,24 @@ class Historian:
         return self._archive
 
     def created(self, obj):
+        """Called when an object is created.  The historian tracks the creator for saving when
+        the object is saved"""
         creator = process.Process.current_process()
         if creator is not None:
             self._creators[obj] = creator
 
     def create_file(self, filename: str = None, encoding: str = None):
+        """Create a new file.  The historian will supply file type compatible with the archive in use."""
         return self._archive.create_file(filename, encoding)
 
     def save(self, *objs, with_meta=None):
         """Save or more objects in the history producing corresponding object identifiers"""
         if with_meta is not None:
-            assert len(objs) == len(with_meta)
+            if len(objs) == 1:
+                with_meta = (with_meta,)
+            else:
+                assert len(objs) == len(with_meta), \
+                    "The metadata should be a sequence with the same number of entries as the number of objects"
         else:
             with_meta = [None] * len(objs)
 
@@ -183,18 +189,35 @@ class Historian:
     def save_object(self, obj) -> archive.DataRecord:
         return self._save_object(obj, depositors.LiveDepositor(self))
 
-    def deposit_file(self, file: builtins.BaseFile) -> builtins.BaseFile:
-        return self._save_object(file, depositors.LiveDepositor(self)).state
+    # region Metadata
 
-    def get_meta(self, obj_id):
-        if isinstance(obj_id, archive.Ref):
-            obj_id = obj_id.obj_id
+    def get_meta(self, obj_or_identifier) -> Mapping:
+        """Get the metadata for an object
+
+        :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
+        """
+        obj_id = self._ensure_obj_id(obj_or_identifier)
         return self._archive.get_meta(obj_id)
 
-    def set_meta(self, obj_id, meta):
-        if isinstance(obj_id, archive.Ref):
-            obj_id = obj_id.obj_id
+    def set_meta(self, obj_or_identifier, meta: Optional[Mapping]):
+        """Set the metadata for an object
+
+        :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
+        :param meta: the metadata dictionary
+        """
+        obj_id = self._ensure_obj_id(obj_or_identifier)
         self._archive.set_meta(obj_id, meta)
+
+    def update_meta(self, obj_or_identifier, meta: Mapping):
+        """Update the metadata for an object
+
+        :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
+        :param meta: the metadata dictionary
+        """
+        obj_id = self._ensure_obj_id(obj_or_identifier)
+        self._archive.update_meta(obj_id, meta)
+
+    # endregion
 
     def get_current_record(self, obj) -> archive.DataRecord:
         """Get a record for an object known to the historian"""
@@ -475,7 +498,7 @@ class Historian:
 
             return depositor.load(record)
 
-    def _ensure_obj_id(self, obj_id):
+    def _ensure_obj_id(self, obj_or_identifier):
         """
         This call will try and get an object id from the passed parameter.  There are three possibilities:
             1) It is passed an object ID in which case it will be returned directly
@@ -483,16 +506,16 @@ class Historian:
             3) It is passed a type that can be used as a constructor argument to the object id type in which
                 case it will construct it and return the result
         """
-        if not self.is_obj_id(obj_id):
-            # Maybe we've been passed an object
-            try:
-                return self.get_current_record(obj_id).obj_id
-            except exceptions.NotFound:
-                # Try creating it for the user by calling the constructor with the argument passed.
-                # This helps for common obj id types which can be constructed from a string
-                return self._archive.get_id_type()(obj_id)
+        if self.is_obj_id(obj_or_identifier):
+            return obj_or_identifier
 
-        return obj_id
+        # Maybe we've been passed an object
+        try:
+            return self.get_obj_id(obj_or_identifier)
+        except exceptions.NotFound:
+            # Try creating it for the user by calling the constructor with the argument passed.
+            # This helps for common obj id types which can be constructed from a string
+            return self._archive.get_id_type()(obj_or_identifier)
 
     def _ensure_compatible(self, obj):
         obj_type = type(obj)

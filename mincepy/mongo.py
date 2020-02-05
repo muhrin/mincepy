@@ -17,7 +17,7 @@ from . import depositors
 from . import exceptions
 from . import helpers
 
-__all__ = 'MongoArchive',
+__all__ = 'MongoArchive', 'GridFsFile'
 
 OBJ_ID = archive.OBJ_ID
 TYPE_ID = archive.TYPE_ID
@@ -145,6 +145,9 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         found = self._meta_collection.replace_one({'_id': obj_id}, meta, upsert=True)
         if not found:
             raise exceptions.NotFound("No record with snapshot id '{}' found".format(obj_id))
+
+    def update_meta(self, obj_id, meta):
+        self._meta_collection.update_one({'_id': obj_id}, {'$set': meta}, upsert=True)
 
     # pylint: disable=too-many-arguments
     def find(self,

@@ -216,13 +216,21 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
     def save_many(self, records: typing.Sequence[DataRecord]):
         """Save many data records to the archive"""
 
+    # region Metadata
+
     @abstractmethod
     def get_meta(self, obj_id: IdT):
         """Get the metadata for the given object snapshot."""
 
     @abstractmethod
     def set_meta(self, obj_id: IdT, meta):
-        """Set the metadata on on the object with the corresponding persistent id"""
+        """Set the metadata on on the object with the corresponding id"""
+
+    @abstractmethod
+    def update_meta(self, obj_id: IdT, meta):
+        """Update the metadata on the object with the corresponding id"""
+
+    # endregion
 
     @abstractmethod
     def load(self, reference: Ref[IdT]) -> DataRecord:
