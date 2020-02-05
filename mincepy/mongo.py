@@ -126,11 +126,8 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         results = self._data_collection.find({OBJ_ID: obj_id}, sort=[(VERSION, pymongo.ASCENDING)])
         if not results:
             return []
-        try:
-            return [archive.Ref(obj_id, result[VERSION]) for result in results]
-        except KeyError as err:
-            print(err)
-            raise
+
+        return [archive.Ref(obj_id, result[VERSION]) for result in results]
 
     def get_meta(self, obj_id):
         assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"

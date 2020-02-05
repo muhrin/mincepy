@@ -55,7 +55,7 @@ class Depositor(metaclass=ABCMeta):
         return self.to_dict(obj)
 
     def decode(self, encoded):
-        """Decode, in place, the saved state recreating any saved objects within."""
+        """Decode the saved state recreating any saved objects within."""
         enc_type = type(encoded)
         if not self._historian.is_primitive(encoded):
             raise TypeError("Encoded type is not one of the primitives, got '{}'".format(enc_type))
@@ -100,6 +100,12 @@ class Depositor(metaclass=ABCMeta):
         obj_type = type(obj)
         helper = self._historian.get_helper_from_obj_type(obj_type)
         return self.encode(helper.save_instance_state(obj, self))
+
+    def create_from(self, obj_type, saved_state):
+        """Given a type to create and the saved state, recreate the object"""
+        type_id = self._historian.get_obj_type_id(obj_type)
+        with self._create_from(type_id, saved_state) as obj:
+            return obj
 
     @contextmanager
     def _create_from(self, type_id, saved_state):

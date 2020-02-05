@@ -4,7 +4,7 @@ import uuid
 import pytest
 
 import mincepy
-from mincepy.testing import Car, Garage
+from mincepy.testing import Car, Garage, Person
 
 
 def test_basic_save_load(historian: mincepy.Historian):
@@ -99,7 +99,6 @@ def test_list_basics(historian: mincepy.Historian):
 
 
 def test_track(historian: mincepy.Historian):
-
     @mincepy.track
     def put_car_in_garage(car: Car, garage: Garage):
         garage.car = car
@@ -114,7 +113,6 @@ def test_track(historian: mincepy.Historian):
 
 
 def test_track_method(historian: mincepy.Historian):
-
     class CarFactory(mincepy.Archivable):
         TYPE_ID = uuid.UUID('166a9446-c04e-4fbe-a3da-6f36c2f8292d')
         ATTRS = ('_make',)
@@ -243,7 +241,6 @@ def test_history(historian: mincepy.Historian):
 
 
 def test_storing_internal_object(historian: mincepy.Historian):
-
     class Person(mincepy.SavableObject):
         TYPE_ID = uuid.UUID('f6f83595-6375-4bc4-89f2-d8f31a1286b0')
 
@@ -414,7 +411,6 @@ def test_record_times(historian: mincepy.Historian):
 
 
 def test_replace_simple(historian: mincepy.Historian):
-
     def paint_shop(car, colour):
         """An imaginary function that modifies an object but returns a copy rather than an in
         place modification"""
@@ -465,3 +461,30 @@ def test_find(historian: mincepy.Historian):
     assert len(greens) == 2
     assert honda in greens
     assert fiat in greens
+
+
+def test_store_by_value(historian: mincepy.Historian):
+    class Record(mincepy.SavableObject):
+        def __init__(self, person):
+            super().__init__()
+            self.person = person
+
+        def __eq__(self, other):
+            return self.person == other.person
+
+        def yield_hashables(self, hasher):
+            yield from hasher.yield_hashables(self.person)
+
+        def save_instance_state(self, depositor):
+            return {'person': depositor.save_instance_state(self.person)}
+
+        def load_instance_state(self, saved_state, depositor):
+            self.person = depositor.create_from(Person, saved_state['person'])
+
+    record = Record(Person('Mark', 23))
+    record_id = historian.save(record)
+    del record
+
+    loaded = historian.load(record_id)
+    assert loaded.person.name == 'Mark'
+    assert loaded.person.age == 23

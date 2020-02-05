@@ -66,6 +66,7 @@ class Archivable(SavableObject):
     exhaustive list of all the attributes that define this class.  If more complex functionality
     is needed then the standard SavableComparable interface methods should be overwritten."""
     ATTRS = tuple()
+    IGNORE_MISSING = True
 
     def __new__(cls, *_args, **_kwargs):
         new_instance = super(Archivable, cls).__new__(cls)
@@ -93,7 +94,11 @@ class Archivable(SavableObject):
 
     def load_instance_state(self, saved_state, depositor):
         for name in self.__get_attrs():
-            setattr(self, name, saved_state[name])
+            try:
+                setattr(self, name, saved_state[name])
+            except KeyError:
+                if not self.IGNORE_MISSING:
+                    raise
 
     def __get_attrs(self):
         return getattr(self, '__attrs')
