@@ -191,12 +191,16 @@ class Historian:
 
     # region Metadata
 
-    def get_meta(self, obj_or_identifier) -> Mapping:
+    def get_meta(self, obj_or_identifier) -> dict:
         """Get the metadata for an object
 
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         """
-        obj_id = self._ensure_obj_id(obj_or_identifier)
+        if isinstance(obj_or_identifier, self._archive.get_id_type()):
+            obj_id = obj_or_identifier
+        else:
+            obj_id = self.get_obj_id(obj_or_identifier)
+
         return self._archive.get_meta(obj_id)
 
     def set_meta(self, obj_or_identifier, meta: Optional[Mapping]):
@@ -205,7 +209,11 @@ class Historian:
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         :param meta: the metadata dictionary
         """
-        obj_id = self._ensure_obj_id(obj_or_identifier)
+        if isinstance(obj_or_identifier, self._archive.get_id_type()):
+            obj_id = obj_or_identifier
+        else:
+            obj_id = self.get_obj_id(obj_or_identifier)
+
         self._archive.set_meta(obj_id, meta)
 
     def update_meta(self, obj_or_identifier, meta: Mapping):
@@ -295,6 +303,9 @@ class Historian:
 
     def get_obj_type_id(self, obj_type):
         return self._type_registry.get_type_id(obj_type)
+
+    def get_obj_type(self, type_id):
+        return self.get_helper(type_id).TYPE
 
     def get_helper(self, type_id) -> helpers.TypeHelper:
         return self._type_registry.get_helper_from_type_id(type_id)

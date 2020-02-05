@@ -134,12 +134,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     def get_meta(self, obj_id):
         assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
-
-        result = self._meta_collection.find_one({'_id': obj_id}, projection={'_id': False})
-        if not result:
-            raise exceptions.NotFound("No record with object id '{}' found".format(obj_id))
-
-        return result
+        return self._meta_collection.find_one({'_id': obj_id}, projection={'_id': False})
 
     def set_meta(self, obj_id, meta):
         found = self._meta_collection.replace_one({'_id': obj_id}, meta, upsert=True)
@@ -219,22 +214,20 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                 }
             })
             # Finally select those from our collection that have a 'max_version' array entry
-            pipeline.append({"$match": {"max_version": {"$ne": []}}}, )
+            pipeline.append({"$match": {"max_version": {"$ne": []}}},)
 
         if meta:
-            pipeline.append(
-                {'$lookup': {
+            pipeline.append({
+                '$lookup': {
                     'from': self._meta_collection.name,
                     'localField': OBJ_ID,
                     'foreignField': '_id',
                     'as': '_meta'
-                }})
+                }
+            })
             # _meta should only contain at most one entry per document i.e. the metadata for
             # that object.  So check that for the search criteria
-            pipeline.append(
-                {'$match': {
-                    '_meta.0.{}'.format(key): value for key, value in meta.items()}
-                })
+            pipeline.append({'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
 
         if limit:
             pipeline.append({'$limit': limit})
