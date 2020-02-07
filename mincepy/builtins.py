@@ -5,7 +5,6 @@ import uuid
 
 from . import depositors
 from .types import SavableObject
-from . import refs
 
 __all__ = 'List', 'Str', 'Dict', 'BaseFile'
 

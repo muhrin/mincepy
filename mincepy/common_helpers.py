@@ -3,7 +3,6 @@ import pathlib
 import uuid
 
 from . import helpers
-from . import refs
 
 __all__ = 'PathHelper', 'TupleHelper', 'NamespaceHelper'
 

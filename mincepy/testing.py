@@ -39,4 +39,19 @@ class Person(mincepy.builtins.Archivable):
         return self.name == other.name and self.age == other.age
 
 
-HISTORIAN_TYPES = Car, Garage, Person
+class Cycle(mincepy.builtins.Archivable):
+    TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
+    ATTRS = ('ref',)
+
+    def __init__(self, ref=None):
+        super(Cycle, self).__init__()
+        self.ref = ref
+
+    def __eq__(self, other):
+        return self.ref is other.ref
+
+    def yield_hashables(self, hasher):
+        yield from hasher.yield_hashables(id(self.ref))
+
+
+HISTORIAN_TYPES = Car, Garage, Person, Cycle

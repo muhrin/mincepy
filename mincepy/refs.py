@@ -27,10 +27,15 @@ class ObjRef(types.SavableObject):
         self._ref = None
         self._loader = None
 
+    @property
+    def auto(self):
+        return self._auto
+
     def __call__(self):
         if self._obj is None:
             # Cache the object
             self._obj = self._loader.load(self._ref)
+            assert self._obj is not None, "Loader did not load object"
             self._ref = None
             self._loader = None
 

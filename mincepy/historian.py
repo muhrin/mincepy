@@ -118,22 +118,15 @@ class Historian:
         except KeyError:
             pass
 
-    def save_snapshot(self, obj, with_meta=None) -> archive.Ref:
-        """
-        Save a snapshot of the current state of the object.  Returns a reference that can
-        then be used with load_snapshot()
-        """
-        record = self.save_object(obj)
-        if with_meta is not None:
-            self._archive.set_meta(record.obj_id, with_meta)
-        return record.get_reference()
-
     def load_snapshot(self, reference: archive.Ref) -> Any:
         return depositors.SnapshotLoader(self).load(reference)
 
-    def load(self, obj_id):
-        """Load an object."""
-        return self.load_object(obj_id)
+    def load(self, obj_id_or_ref):
+        """Load an object or snapshot."""
+        if isinstance(obj_id_or_ref, archive.Ref):
+            return self.load_snapshot(obj_id_or_ref)
+
+        return self.load_object(obj_id_or_ref)
 
     def copy(self, obj):
         """Create a shallow copy of the object, save that copy and return it"""
@@ -259,11 +252,11 @@ class Historian:
         trans = self.current_transaction()
         if trans:
             try:
-                trans.get_live_object(obj_id)
+                return trans.get_live_object(obj_id)
             except ValueError:
                 pass
 
-        self._live_objects.get_object(obj_id)
+        return self._live_objects.get_object(obj_id)
 
     def get_ref(self, obj):
         """Get the current reference for a live object"""

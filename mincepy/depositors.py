@@ -44,7 +44,7 @@ class Saver(Base, metaclass=ABCMeta):
 
             return obj
 
-        if self._historian.is_trackable(obj):
+        if self._historian.is_trackable(obj) and not isinstance(obj, refs.ObjRef):
             # Make a reference
             reference = refs.ObjRef(obj, auto=True)
             return self.to_dict(reference)
@@ -75,7 +75,7 @@ class Loader(Base, metaclass=ABCMeta):
             # Maybe it's a value dictionary
             try:
                 decoded = self.from_dict(encoded)
-                if isinstance(decoded, refs.ObjRef):
+                if isinstance(decoded, refs.ObjRef) and decoded.auto:
                     decoded = decoded()  # Dereference
                 return decoded
             except ValueError:

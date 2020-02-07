@@ -5,7 +5,7 @@ from mincepy.testing import Car
 
 def test_transaction_snapshots(historian: mincepy.Historian):
     ferrari = Car('ferrari')
-    ferrari_id = historian.save_snapshot(ferrari)
+    ferrari_id = historian.save(ferrari, return_sref=True)
 
     with historian.transaction():
         ferrari_snapshot_1 = historian.load_snapshot(ferrari_id)
