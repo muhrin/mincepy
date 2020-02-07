@@ -176,6 +176,30 @@ class LiveDepositor(Saver, Loader):
                 trans.insert_live_object(obj, record)
                 return obj
 
+    def save_from_builder(self, obj, builder):
+        """Save a live object"""
+        assert builder.snapshot_hash is not None, "The snapshot hash must be set on the builder before saving"
+
+        with self.get_historian().transaction() as trans:
+            # Insert the object into the transaction so others can refer to it
+            ref = archive.Ref(builder.obj_id, builder.version)
+            trans.insert_live_object_reference(ref, obj)
+
+            # Now ask the object to save itself and create the record
+            if isinstance(obj, types.Primitive):
+                saved_state = obj
+            else:
+                saved_state = self.save_instance_state(obj)
+
+            builder.update(dict(type_id=builder.type_id, state=saved_state))
+            record = builder.build()
+
+            # Insert the record into the transaction
+            trans.insert_live_object(obj, record)
+            trans.stage(record)
+
+        return record
+
 
 class SnapshotLoader(Loader):
     """Responsible for loading snapshots.  This object should not be reused and only

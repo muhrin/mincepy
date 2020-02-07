@@ -349,29 +349,6 @@ class Historian:
         except exceptions.NotFound:
             return self._archive.load(self._get_latest_snapshot_reference(obj_or_identifier)).created_by
 
-    def two_step_save(self, obj, builder, depositor):
-        """Save a live object"""
-        assert builder.snapshot_hash is not None, "The snapshot hash must be set on the builder before saving"
-
-        with self.transaction() as trans:
-            # Insert the object into the transaction so others can refer to it
-            ref = archive.Ref(builder.obj_id, builder.version)
-            trans.insert_live_object_reference(ref, obj)
-
-            # Now ask the object to save itself and create the record
-            if isinstance(obj, types.Primitive):
-                saved_state = obj
-            else:
-                saved_state = depositor.save_instance_state(obj)
-
-            builder.update(dict(type_id=builder.type_id, state=saved_state))
-            record = builder.build()
-
-            # Insert the record into the transaction
-            trans.insert_live_object(obj, record)
-            trans.stage(record)
-        return record
-
     @contextlib.contextmanager
     def transaction(self):
         """Start a new transaction.  Will be nested if there is already one underway"""
@@ -423,7 +400,7 @@ class Historian:
         except IndexError:
             raise exceptions.NotFound("Object with id '{}' not found.".format(obj_id))
 
-    def _load_object(self, obj_id, depositor: depositors.Loader):
+    def _load_object(self, obj_id, depositor: depositors.LiveDepositor):
         obj_id = self._ensure_obj_id(obj_id)
 
         with self.transaction() as trans:
@@ -472,21 +449,18 @@ class Historian:
                 try:
                     creator = self._creators[obj]
                 except KeyError:
-                    # Try getting the current process as the creator - this may not stricly
+                    # Try getting the current process as the creator - this may not strictly
                     # be true as this is just the point the object is being saved...
                     current = process.Process.current_process()
                     creator = current if current is not obj else None
 
                 created_by = None
                 if creator is not None:
-                    # Have to get an object id for the creator, either from existing record or newly saved one
-                    try:
-                        created_by = self.get_current_record(creator).obj_id
-                    except exceptions.NotFound:
-                        created_by = self._save_object(creator, depositor).obj_id
+                    # Have to get an object id for the creator, save it now
+                    created_by = self._save_object(creator, depositor).obj_id
 
                 builder = self._create_builder(obj, dict(created_by=created_by, snapshot_hash=current_hash))
-                return self.two_step_save(obj, builder, depositor)
+                return depositor.save_from_builder(obj, builder)
             else:
                 # Check if our record is up to date
                 with self.transaction() as transaction:
@@ -497,7 +471,7 @@ class Historian:
                         transaction.rollback()
                     else:
                         builder = record.child_builder(snapshot_hash=current_hash)
-                        record = self.two_step_save(obj, builder, depositor)
+                        record = depositor.save_from_builder(obj, builder)
 
                 return record
 
