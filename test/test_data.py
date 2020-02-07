@@ -4,6 +4,7 @@ import uuid
 import pytest
 
 import mincepy
+import mincepy.builtins
 from mincepy.testing import Car, Garage, Person
 
 
@@ -115,7 +116,7 @@ def test_track(historian: mincepy.Historian):
 
 def test_track_method(historian: mincepy.Historian):
 
-    class CarFactory(mincepy.Archivable):
+    class CarFactory(mincepy.builtins.Archivable):
         TYPE_ID = uuid.UUID('166a9446-c04e-4fbe-a3da-6f36c2f8292d')
         ATTRS = ('_make',)
 
@@ -310,7 +311,7 @@ def test_load_unknown_object(mongodb_archive, historian: mincepy.Historian):
         historian.load(obj_id)
 
 
-class Cycle(mincepy.Archivable):
+class Cycle(mincepy.builtins.Archivable):
     TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
     ATTRS = ('ref',)
 

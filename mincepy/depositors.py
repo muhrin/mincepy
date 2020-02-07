@@ -4,9 +4,10 @@ from typing import Optional, MutableMapping, Any
 
 from . import archive
 from . import exceptions
+from . import refs
 from . import types
 
-__all__ = 'Saver', 'Loader'
+__all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor'
 
 # Keys used in to store the state state of an object when encoding/decoding
 TYPE_KEY = '!!type_id'
@@ -45,8 +46,8 @@ class Saver(Base, metaclass=ABCMeta):
 
         if self._historian.is_trackable(obj):
             # Make a reference
-            reference = self.ref(obj)
-            return reference.to_dict()
+            reference = refs.ObjRef(obj, auto=True)
+            return self.to_dict(reference)
 
         # Store by value
         return self.to_dict(obj)
@@ -64,10 +65,6 @@ class Saver(Base, metaclass=ABCMeta):
 
 class Loader(Base, metaclass=ABCMeta):
 
-    @abstractmethod
-    def deref(self, reference: archive.Ref):
-        """Retrieve an object given a persistent reference"""
-
     def decode(self, encoded):
         """Decode the saved state recreating any saved objects within."""
         enc_type = type(encoded)
@@ -75,17 +72,14 @@ class Loader(Base, metaclass=ABCMeta):
             raise TypeError("Encoded type is not one of the primitives, got '{}'".format(enc_type))
 
         if enc_type is dict:
-            # It could be a reference dictionary
+            # Maybe it's a value dictionary
             try:
-                ref = archive.Ref.from_dict(encoded)
-            except (ValueError, TypeError):
-                # Maybe it's a value dictionary
-                try:
-                    return self.from_dict(encoded)
-                except ValueError:
-                    return {key: self.decode(value) for key, value in encoded.items()}
-            else:
-                return self.deref(ref)
+                decoded = self.from_dict(encoded)
+                if isinstance(decoded, refs.ObjRef):
+                    decoded = decoded()  # Dereference
+                return decoded
+            except ValueError:
+                return {key: self.decode(value) for key, value in encoded.items()}
 
         if enc_type is list:
             return [self.decode(entry) for entry in encoded]
@@ -145,6 +139,9 @@ class Loader(Base, metaclass=ABCMeta):
 class LiveDepositor(Saver, Loader):
     """Depositor with strategy that all objects that get referenced should be saved"""
 
+    def __init__(self, historian):
+        super().__init__(historian)
+
     def ref(self, obj) -> Optional[archive.Ref]:
         if obj is None:
             return None
@@ -158,19 +155,13 @@ class LiveDepositor(Saver, Loader):
             # Then we have to save it and get the resulting reference
             return self._historian._save_object(obj, self).get_reference()
 
-    def deref(self, reference: Optional[archive.Ref]):
-        if reference is None:
-            return None
-
-        if not isinstance(reference, archive.Ref):
-            raise TypeError(reference)
-
+    def load(self, reference: archive.Ref):
         try:
             return self._historian.get_obj(reference.obj_id)
         except exceptions.NotFound:
             return self._historian._load_object(reference.obj_id, self)
 
-    def load(self, record):
+    def load_from_record(self, record):
         with self._historian.transaction() as trans:
             with self._create_from(record.type_id, record.state) as obj:
                 trans.insert_live_object(obj, record)
@@ -186,7 +177,7 @@ class LiveDepositor(Saver, Loader):
             trans.insert_live_object_reference(ref, obj)
 
             # Now ask the object to save itself and create the record
-            if isinstance(obj, types.Primitive):
+            if self._historian.is_primitive(obj):
                 saved_state = obj
             else:
                 saved_state = self.save_instance_state(obj)
@@ -209,12 +200,6 @@ class SnapshotLoader(Loader):
     def __init__(self, historian):
         super().__init__(historian)
         self._snapshots = {}  # type: MutableMapping[archive.Ref, Any]
-
-    def deref(self, ref: Optional[archive.Ref]):
-        if ref is None:
-            return None
-
-        return self.load(ref)
 
     def load(self, ref: archive.Ref):
         if not isinstance(ref, archive.Ref):

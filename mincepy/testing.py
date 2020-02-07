@@ -4,9 +4,10 @@ import uuid
 
 import bson
 import mincepy
+import mincepy.builtins
 
 
-class Car(mincepy.Archivable):
+class Car(mincepy.builtins.Archivable):
     TYPE_ID = bson.ObjectId('5e075d6244572f823ed93274')
     ATTRS = 'colour', 'make'
 
@@ -16,7 +17,7 @@ class Car(mincepy.Archivable):
         self.colour = colour
 
 
-class Garage(mincepy.Archivable):
+class Garage(mincepy.builtins.Archivable):
     TYPE_ID = bson.ObjectId('5e07b40a44572f823ed9327b')
     ATTRS = ('car',)
 
@@ -25,7 +26,7 @@ class Garage(mincepy.Archivable):
         self.car = car
 
 
-class Person(mincepy.Archivable):
+class Person(mincepy.builtins.Archivable):
     TYPE_ID = uuid.UUID('d60ca740-9fa6-4002-83f6-e4c91403e41b')
     ATTRS = 'name', 'age'
 

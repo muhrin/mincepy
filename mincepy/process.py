@@ -1,12 +1,12 @@
 import contextlib
 import uuid
 
-from . import types
+import mincepy.builtins
 
 __all__ = ('Process',)
 
 
-class Process(types.Archivable):
+class Process(mincepy.builtins.Archivable):
     TYPE_ID = uuid.UUID('bcf03171-a1f1-49c7-b890-b7f9d9f9e5a2')
     STACK = []
     ATTRS = ('_name', '_running')

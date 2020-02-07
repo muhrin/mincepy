@@ -8,6 +8,7 @@ import weakref
 from . import archive
 from . import defaults
 from . import depositors
+from . import refs
 from . import exceptions
 from . import helpers
 from . import process
@@ -41,6 +42,7 @@ class Historian:
         self._transactions = None
 
         self.register_types(archive.get_types())
+        self.register_type(refs.ObjRef)
 
     def get_archive(self):
         return self._archive
@@ -306,7 +308,7 @@ class Historian:
         helper = self._type_registry.register_type(obj_class_or_helper)
         self._equator.add_equator(helper)
 
-    def register_types(self, obj_claases_or_helpers: Iterable):
+    def register_types(self, obj_claases_or_helpers):
         for item in obj_claases_or_helpers:
             self.register_type(item)
 
@@ -420,14 +422,14 @@ class Historian:
                 obj = self._live_objects.get_object(obj_id)
             except exceptions.NotFound:
                 # Ok, just use the one from the archive
-                return depositor.load(archive_record)
+                return depositor.load_from_record(archive_record)
             else:
                 if archive_record.version == self._live_objects.get_record(obj).version:
                     # We're still up to date
                     return obj
 
                 # The one in the archive is newer, so use that
-                return depositor.load(archive_record)
+                return depositor.load_from_record(archive_record)
 
     def _save_object(self, obj, depositor) -> archive.DataRecord:
         with self.transaction() as trans:

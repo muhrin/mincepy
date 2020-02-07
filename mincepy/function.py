@@ -1,6 +1,7 @@
 import functools
 import uuid
 
+import mincepy.builtins
 from . import history
 from . import types
 
@@ -11,7 +12,7 @@ class InvalidStateError(Exception):
     pass
 
 
-class FunctionCall(types.Archivable):
+class FunctionCall(mincepy.builtins.Archivable):
     TYPE_ID = uuid.UUID('dcacc483-c650-432e-b835-122f78e7a758')
     ATTRS = ('_function', '_args', '_kwargs', '_result', '_exception', '_done')
 

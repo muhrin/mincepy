@@ -9,7 +9,7 @@ import uuid
 from . import types
 from . import utils
 
-__all__ = ('Archive', 'DataRecord', 'Ref')
+__all__ = 'Archive', 'DataRecord', 'Ref'
 
 OBJ_ID = 'obj_id'
 TYPE_ID = 'type_id'

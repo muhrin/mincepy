@@ -7,7 +7,7 @@ try:  # Python3
 except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 
-__all__ = ('Equator', 'SavableObject', 'Archivable')
+__all__ = ('Equator', 'SavableObject')
 
 # The primitives that all archive types must support
 PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID, datetime.datetime)
@@ -58,50 +58,6 @@ class Primitive(Object, metaclass=ABCMeta):
 
 class SavableObject(Object, Savable, metaclass=ABCMeta):
     """A class that is both savable and comparable"""
-
-
-class Archivable(SavableObject):
-    """A helper class that makes a class compatible with the historian by flagging certain
-    attributes which will be saved/loaded/hashed and compared in __eq__.  This should be an
-    exhaustive list of all the attributes that define this class.  If more complex functionality
-    is needed then the standard SavableComparable interface methods should be overwritten."""
-    ATTRS = tuple()
-    IGNORE_MISSING = True
-
-    def __new__(cls, *_args, **_kwargs):
-        new_instance = super(Archivable, cls).__new__(cls)
-        attrs = []
-        for entry in cls.__mro__:
-            try:
-                local = getattr(entry, 'ATTRS')
-                attrs.extend(local)
-            except AttributeError:
-                pass
-        setattr(new_instance, '__attrs', attrs)
-        return new_instance
-
-    def __eq__(self, other):
-        if not isinstance(other, type(self)):
-            return False
-
-        return all(getattr(self, name) == getattr(other, name) for name in self.__get_attrs())
-
-    def yield_hashables(self, hasher):
-        yield from hasher.yield_hashables([getattr(self, name) for name in self.__get_attrs()])
-
-    def save_instance_state(self, saver):
-        return {name: getattr(self, name) for name in self.__get_attrs()}
-
-    def load_instance_state(self, saved_state, loader):
-        for name in self.__get_attrs():
-            try:
-                setattr(self, name, saved_state[name])
-            except KeyError:
-                if not self.IGNORE_MISSING:
-                    raise
-
-    def __get_attrs(self):
-        return getattr(self, '__attrs')
 
 
 class Equator:
