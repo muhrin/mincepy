@@ -1,7 +1,5 @@
 from argparse import Namespace
 
-import pytest
-
 import mincepy
 from mincepy.testing import Car, Cycle
 
@@ -42,17 +40,37 @@ def test_obj_ref_snapshot(historian: mincepy.Historian):
 
 
 def test_obj_ref_complex(historian: mincepy.Historian):
-    car = Car()
+    honda = Car('honda')
     nested1 = Namespace()
     nested2 = Namespace()
     parent = Namespace()
 
     # Both the nested refer to the same car
-    nested1.car = car
-    nested2.car = car
+    nested1.car = mincepy.ObjRef(honda)
+    nested2.car = mincepy.ObjRef(honda)
 
     # Now put them in their containers
-    parent.ns1 = nested1
-    parent.ns2 = nested2
+    parent.ns1 = mincepy.ObjRef(nested1)
+    parent.ns2 = mincepy.ObjRef(nested2)
 
     parent_id = historian.save(parent)
+    del parent
+
+    loaded = historian.load(parent_id)
+    assert loaded.ns1() is nested1
+    assert loaded.ns2() is nested2
+    assert loaded.ns1().car() is loaded.ns2().car()
+
+    fiat = Car('fiat')
+    loaded.ns2().car = mincepy.ObjRef(fiat)
+    parent_snapshot_id = historian.save(loaded, return_sref=True)
+    del loaded
+
+    loaded2 = historian.load_snapshot(mincepy.Ref(parent_id, 0))
+    assert loaded2.ns1().car().make == 'honda'
+    assert loaded2.ns2().car().make == 'honda'
+    del loaded2
+
+    loaded3 = historian.load_snapshot(parent_snapshot_id)
+    assert loaded3.ns1().car().make == 'honda'
+    assert loaded3.ns2().car().make == 'fiat'
