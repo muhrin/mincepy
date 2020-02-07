@@ -294,16 +294,16 @@ class GridFsFile(builtins.BaseFile):
             kwargs.setdefault('encoding', self.encoding)
         return open(self._buffer_file, mode, **kwargs)
 
-    def save_instance_state(self, depositor: depositors.Depositor):
+    def save_instance_state(self, saver: depositors.Saver):
         filename = self.filename or ""
         with open(self._buffer_file, 'rb') as fstream:
             self._file_id = self._file_store.upload_from_stream(filename, fstream)
 
-        return super().save_instance_state(depositor)
+        return super().save_instance_state(saver)
 
-    def load_instance_state(self, saved_state, depositor):
-        super().load_instance_state(saved_state, depositor)
-        self._file_store = depositor.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
+    def load_instance_state(self, saved_state, loader: depositors.Loader):
+        super().load_instance_state(saved_state, loader)
+        self._file_store = loader.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
         # Don't copy the file over now, do it lazily when the file is first opened
         self._buffer_file = None
 

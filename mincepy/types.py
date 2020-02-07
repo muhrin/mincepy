@@ -89,10 +89,10 @@ class Archivable(SavableObject):
     def yield_hashables(self, hasher):
         yield from hasher.yield_hashables([getattr(self, name) for name in self.__get_attrs()])
 
-    def save_instance_state(self, depositor):
+    def save_instance_state(self, saver):
         return {name: getattr(self, name) for name in self.__get_attrs()}
 
-    def load_instance_state(self, saved_state, depositor):
+    def load_instance_state(self, saved_state, loader):
         for name in self.__get_attrs():
             try:
                 setattr(self, name, saved_state[name])

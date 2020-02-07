@@ -19,30 +19,30 @@ class _UserType(types.Archivable):
 class List(collections.UserList, _UserType):
     TYPE_ID = uuid.UUID('2b033f70-168f-4412-99ea-d1f131e3a25a')
 
-    def save_instance_state(self, _depositor: depositors.Depositor):
+    def save_instance_state(self, _depositor: depositors.Saver):
         return self.data
 
-    def load_instance_state(self, state, _depositor: depositors.Depositor):
+    def load_instance_state(self, state, _depositor: depositors.Loader):
         self.__init__(state)
 
 
 class Dict(collections.UserDict, _UserType):
     TYPE_ID = uuid.UUID('a7584078-95b6-4e00-bb8a-b077852ca510')
 
-    def save_instance_state(self, _depositor: depositors.Depositor):
+    def save_instance_state(self, _depositor: depositors.Saver):
         return self.data
 
-    def load_instance_state(self, state, _depositor: depositors.Depositor):
+    def load_instance_state(self, state, _depositor: depositors.Loader):
         self.__init__(state)
 
 
 class Str(collections.UserString, _UserType):
     TYPE_ID = uuid.UUID('350f3634-4a6f-4d35-b229-71238ce9727d')
 
-    def save_instance_state(self, _depositor: depositors.Depositor):
+    def save_instance_state(self, _depositor: depositors.Saver):
         return self.data
 
-    def load_instance_state(self, state, _depositor: depositors.Depositor):
+    def load_instance_state(self, state, _depositor: depositors.Loader):
         self.data = state
 
 

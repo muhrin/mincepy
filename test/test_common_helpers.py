@@ -18,10 +18,10 @@ def test_path_helper(historian: mincepy.Historian):
             super(File, self).__init__()
             self.file = file
 
-        def save_instance_state(self, depositor):
+        def save_instance_state(self, saver):
             return self.file
 
-        def load_instance_state(self, saved_state, depositor):
+        def load_instance_state(self, saved_state, loader):
             self.__init__(saved_state)
 
     file = File(pathlib.Path('some_path'))

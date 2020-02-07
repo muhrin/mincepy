@@ -22,17 +22,17 @@ def test_save_snapshot_change_load(historian: mincepy.Historian):
     car = Car()
 
     # Saving twice without changing should produce the same snapshot id
-    ferrari_id = historian.save_snapshot(car)
-    assert ferrari_id == historian.save_snapshot(car)
+    ferrari_ref = historian.save(car, return_sref=True)
+    assert ferrari_ref == historian.save(car, return_sref=True)
 
     car.make = 'fiat'
     car.color = 'white'
 
-    fiat_id = historian.save_snapshot(car)
+    fiat_ref = historian.save(car, return_sref=True)
 
-    assert fiat_id != ferrari_id
+    assert fiat_ref != ferrari_ref
 
-    ferrari = historian.load_snapshot(ferrari_id)
+    ferrari = historian.load_snapshot(ferrari_ref)
 
     assert ferrari.make == 'ferrari'
     assert ferrari.colour == 'red'
@@ -99,6 +99,7 @@ def test_list_basics(historian: mincepy.Historian):
 
 
 def test_track(historian: mincepy.Historian):
+
     @mincepy.track
     def put_car_in_garage(car: Car, garage: Garage):
         garage.car = car
@@ -113,6 +114,7 @@ def test_track(historian: mincepy.Historian):
 
 
 def test_track_method(historian: mincepy.Historian):
+
     class CarFactory(mincepy.Archivable):
         TYPE_ID = uuid.UUID('166a9446-c04e-4fbe-a3da-6f36c2f8292d')
         ATTRS = ('_make',)
@@ -241,6 +243,7 @@ def test_history(historian: mincepy.Historian):
 
 
 def test_storing_internal_object(historian: mincepy.Historian):
+
     class Person(mincepy.SavableObject):
         TYPE_ID = uuid.UUID('f6f83595-6375-4bc4-89f2-d8f31a1286b0')
 
@@ -325,9 +328,9 @@ class Cycle(mincepy.Archivable):
 def test_cyclic_ref_simple(historian: mincepy.Historian):
     a = Cycle()
     a.ref = a  # Cycle complete
-
     a_id = historian.save(a)
     del a
+
     loaded_a = historian.load(a_id)
     assert loaded_a.ref is loaded_a
 
@@ -411,6 +414,7 @@ def test_record_times(historian: mincepy.Historian):
 
 
 def test_replace_simple(historian: mincepy.Historian):
+
     def paint_shop(car, colour):
         """An imaginary function that modifies an object but returns a copy rather than an in
         place modification"""
@@ -464,7 +468,9 @@ def test_find(historian: mincepy.Historian):
 
 
 def test_store_by_value(historian: mincepy.Historian):
+
     class Record(mincepy.SavableObject):
+
         def __init__(self, person):
             super().__init__()
             self.person = person
@@ -488,3 +494,27 @@ def test_store_by_value(historian: mincepy.Historian):
     loaded = historian.load(record_id)
     assert loaded.person.name == 'Mark'
     assert loaded.person.age == 23
+
+
+def test_loading_snapshot(historian: mincepy.Historian):
+    honda = Car('honda', 'white')
+    white_honda_ref = historian.save(honda, return_sref=True)
+    honda.colour = 'red'
+    historian.save(honda, return_sref=True)
+    del honda
+
+    with historian.transaction():
+        white_honda = historian.load_snapshot(white_honda_ref)
+        assert white_honda.colour == 'white'
+        # Make sure that if we load it again we get a different object instance
+        assert white_honda is not historian.load_snapshot(white_honda_ref)
+
+
+def test_loading_snapshot_cycle(historian: mincepy.Historian):
+    a = Cycle()
+    a.ref = a  # Close the cycle
+    a_ref = historian.save(a, return_sref=True)
+    del a
+
+    loaded = historian.load_snapshot(a_ref)
+    assert loaded.ref is loaded

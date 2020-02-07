@@ -56,8 +56,13 @@ class Historian:
         """Create a new file.  The historian will supply file type compatible with the archive in use."""
         return self._archive.create_file(filename, encoding)
 
-    def save(self, *objs, with_meta=None):
-        """Save or more objects in the history producing corresponding object identifiers"""
+    def save(self, *objs, with_meta=None, return_sref=False):
+        """Save or more objects in the history producing corresponding object identifiers
+
+        :param objs: the object(s) to save
+        :param with_meta: the object(s) metadata (has to be a sequence if more than one)
+        :param return_sref: if True will return a snapshot reference, otherwise just the object id
+        """
         if with_meta is not None:
             if len(objs) == 1:
                 with_meta = (with_meta,)
@@ -70,13 +75,13 @@ class Historian:
         with self.transaction():
             ids = []
             for obj, meta in zip(objs, with_meta):
-                ids.append(self.save_one(obj, meta))
+                ids.append(self.save_one(obj, meta, return_sref))
             if len(ids) == 1:
                 return ids[0]
 
             return ids
 
-    def save_one(self, obj, with_meta=None):
+    def save_one(self, obj, with_meta=None, return_sref=False):
         """Save the object in the history producing a unique id"""
         if obj in self._snapshots_objects:
             raise exceptions.ModificationError("Cannot save a snapshot object, that would rewrite history!")
@@ -84,6 +89,10 @@ class Historian:
         record = self.save_object(obj)
         if with_meta is not None:
             self._archive.set_meta(record.obj_id, with_meta)
+
+        if return_sref:
+            return record.get_reference()
+
         return record.obj_id
 
     def replace(self, old, new):
@@ -118,7 +127,7 @@ class Historian:
         return record.get_reference()
 
     def load_snapshot(self, reference: archive.Ref) -> Any:
-        return self._load_snapshot(reference, depositors.SnapshotDepositor(self))
+        return depositors.SnapshotLoader(self).load(reference)
 
     def load(self, obj_id):
         """Load an object."""
@@ -414,7 +423,7 @@ class Historian:
         except IndexError:
             raise exceptions.NotFound("Object with id '{}' not found.".format(obj_id))
 
-    def _load_object(self, obj_id, depositor: depositors.Depositor):
+    def _load_object(self, obj_id, depositor: depositors.Loader):
         obj_id = self._ensure_obj_id(obj_id)
 
         with self.transaction() as trans:
@@ -481,7 +490,7 @@ class Historian:
             else:
                 # Check if our record is up to date
                 with self.transaction() as transaction:
-                    loaded_obj = depositors.SnapshotDepositor(self).load(record)
+                    loaded_obj = depositors.SnapshotLoader(self).load_from_record(record)
 
                     if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
                         # Objects identical
@@ -500,22 +509,6 @@ class Historian:
                                                  version=0)
         builder.update(additional)
         return builder
-
-    def _load_snapshot(self, reference: archive.Ref, depositor):
-        """Load a snapshot of the object using a reference."""
-        with self.transaction() as trans:
-            # Try getting the object from the transaction
-            try:
-                trans.get_snapshot(reference)
-            except exceptions.NotFound:
-                pass
-
-            # Fine...load from storage
-            record = self._archive.load(reference)
-            if record.is_deleted_record():
-                return None
-
-            return depositor.load(record)
 
     def _ensure_obj_id(self, obj_or_identifier):
         """

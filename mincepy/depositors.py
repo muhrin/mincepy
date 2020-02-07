@@ -1,22 +1,20 @@
 from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
-from typing import Optional
+from typing import Optional, MutableMapping, Any
 
 from . import archive
 from . import exceptions
 from . import types
 
-__all__ = ('Depositor',)
+__all__ = 'Saver', 'Loader'
 
 # Keys used in to store the state state of an object when encoding/decoding
 TYPE_KEY = '!!type_id'
 STATE_KEY = '!!state'
 
 
-class Depositor(metaclass=ABCMeta):
-    """
-    Class responsible for encoding and decoding objects to be deposited and retrieved from the archive
-    """
+class Base(metaclass=ABCMeta):
+    """Common base for loader and saver"""
 
     def __init__(self, historian):
         self._historian = historian
@@ -27,13 +25,12 @@ class Depositor(metaclass=ABCMeta):
     def get_historian(self):
         return self._historian
 
+
+class Saver(Base, metaclass=ABCMeta):
+
     @abstractmethod
     def ref(self, obj) -> archive.Ref:
         """Get a persistent reference for the given object"""
-
-    @abstractmethod
-    def deref(self, reference: archive.Ref):
-        """Retrieve an object given a persistent reference"""
 
     def encode(self, obj):
         """Encode a type for archiving"""
@@ -53,6 +50,23 @@ class Depositor(metaclass=ABCMeta):
 
         # Store by value
         return self.to_dict(obj)
+
+    def to_dict(self, savable: types.Savable) -> dict:
+        obj_type = type(savable)
+        return {TYPE_KEY: self._historian.get_obj_type_id(obj_type), STATE_KEY: self.save_instance_state(savable)}
+
+    def save_instance_state(self, obj):
+        """Save the state of an object and return the encoded state ready to be archived in a record"""
+        obj_type = type(obj)
+        helper = self._historian.get_helper_from_obj_type(obj_type)
+        return self.encode(helper.save_instance_state(obj, self))
+
+
+class Loader(Base, metaclass=ABCMeta):
+
+    @abstractmethod
+    def deref(self, reference: archive.Ref):
+        """Retrieve an object given a persistent reference"""
 
     def decode(self, encoded):
         """Decode the saved state recreating any saved objects within."""
@@ -79,10 +93,6 @@ class Depositor(metaclass=ABCMeta):
         # No decoding to be done
         return encoded
 
-    def to_dict(self, savable: types.Savable) -> dict:
-        obj_type = type(savable)
-        return {TYPE_KEY: self._historian.get_obj_type_id(obj_type), STATE_KEY: self.save_instance_state(savable)}
-
     def from_dict(self, state_dict: dict):
         if not isinstance(state_dict, dict):
             raise TypeError("State dict is of type '{}', should be dictionary!".format(type(state_dict)))
@@ -94,12 +104,6 @@ class Depositor(metaclass=ABCMeta):
             assert obj is not None, "Helper '{}' failed to create a class given state '{}'".format(
                 type(obj), saved_state)
             return obj
-
-    def save_instance_state(self, obj):
-        """Save the state of an object and return the encoded state ready to be archived in a record"""
-        obj_type = type(obj)
-        helper = self._historian.get_helper_from_obj_type(obj_type)
-        return self.encode(helper.save_instance_state(obj, self))
 
     def create_from(self, obj_type, saved_state):
         """Given a type to create and the saved state, recreate the object"""
@@ -137,12 +141,8 @@ class Depositor(metaclass=ABCMeta):
                 saved_state = self.decode(saved_state)
             helper.load_instance_state(new_obj, saved_state, self)
 
-    @abstractmethod
-    def load(self, record):
-        pass
 
-
-class LiveDepositor(Depositor):
+class LiveDepositor(Saver, Loader):
     """Depositor with strategy that all objects that get referenced should be saved"""
 
     def ref(self, obj) -> Optional[archive.Ref]:
@@ -177,24 +177,41 @@ class LiveDepositor(Depositor):
                 return obj
 
 
-class SnapshotDepositor(Depositor):
-    """Depositor with strategy that all objects that get referenced are snapshots"""
+class SnapshotLoader(Loader):
+    """Responsible for loading snapshots.  This object should not be reused and only
+    one external call to `load` should be made.  This is because it keeps an internal
+    cache."""
 
-    def ref(self, obj) -> Optional[archive.Ref]:
-        raise RuntimeError("Cannot get a reference to an object during snapshot transactions")
+    def __init__(self, historian):
+        super().__init__(historian)
+        self._snapshots = {}  # type: MutableMapping[archive.Ref, Any]
 
-    def deref(self, reference: Optional[archive.Ref]):
-        if reference is None:
+    def deref(self, ref: Optional[archive.Ref]):
+        if ref is None:
             return None
 
-        if not isinstance(reference, archive.Ref):
-            raise TypeError(reference)
+        return self.load(ref)
 
-        # Always load a snapshot
-        return self._historian._load_snapshot(reference, self)
+    def load(self, ref: archive.Ref):
+        if not isinstance(ref, archive.Ref):
+            raise TypeError(ref)
 
-    def load(self, record):
+        try:
+            return self._snapshots[ref]
+        except KeyError:
+            record = self.get_archive().load(ref)
+            if record.is_deleted_record():
+                snapshot = None
+            else:
+                snapshot = self.load_from_record(record)
+
+            # Cache it
+            self._snapshots[ref] = snapshot
+            return snapshot
+
+    def load_from_record(self, record: archive.DataRecord):
         with self._historian.transaction() as trans:
             with self._create_from(record.type_id, record.state) as obj:
+                self._snapshots[record.get_reference()] = obj
                 trans.insert_snapshot(obj, record.get_reference())
                 return obj
