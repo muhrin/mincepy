@@ -28,6 +28,7 @@ setup(name='mincepy',
       install_requires=['pymongo', 'bidict', 'pyblake2; python_version<"3.6"'],
       extras_require={
           'cli': ['click', 'tabulate'],
+          'gui': ['PySide2'],
           'dev': [
               'pip',
               'pytest>4',

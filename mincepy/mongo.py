@@ -153,6 +153,80 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
              meta=None,
              limit=0,
              _sort=None):
+        pipeline = self._get_pipeline(obj_id, type_id, _created_by, _copied_from, version, state, snapshot_hash, meta,
+                                      limit, _sort)
+
+        results = self._data_collection.aggregate(pipeline)
+
+        for result in results:
+            yield self._to_record(result)
+
+    def count(self,
+              obj_id: Optional[bson.ObjectId] = None,
+              type_id=None,
+              _created_by=None,
+              _copied_from=None,
+              version=-1,
+              state=None,
+              snapshot_hash=None,
+              meta=None,
+              limit=0,
+              _sort=None):
+        mfilter = {}
+        if obj_id is not None:
+            mfilter['obj_id'] = obj_id
+        if type_id is not None:
+            mfilter['type_id'] = type_id
+        if state is not None:
+            # If we are given a dict then expand as nested search criteria, e.g. {'state.colour': 'red'}
+            if isinstance(state, dict):
+                mfilter.update({"{}.{}".format(STATE, key): item for key, item in state.items()})
+            else:
+                mfilter[STATE] = state
+        if snapshot_hash is not None:
+            mfilter[self.KEY_MAP[archive.SNAPSHOT_HASH]] = snapshot_hash
+        if version == -1:
+            # For counting we don't care which version we get we just want there to be only 1
+            # counted per obj_id so select the first
+            mfilter[VERSION] = 0
+        else:
+            mfilter[VERSION] = version
+
+        pipeline = [{'$match': mfilter}]
+
+        if meta:
+            pipeline.append({
+                '$lookup': {
+                    'from': self._meta_collection.name,
+                    'localField': OBJ_ID,
+                    'foreignField': '_id',
+                    'as': '_meta'
+                }
+            })
+            # _meta should only contain at most one entry per document i.e. the metadata for
+            # that object.  So check that for the search criteria
+            pipeline.append({'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
+
+        if limit:
+            pipeline.append({'$limit': limit})
+
+        pipeline.append({'$count': "total"})
+        result = next(self._data_collection.aggregate(pipeline))
+
+        return result['total']
+
+    def _get_pipeline(self,
+                      obj_id: Optional[bson.ObjectId] = None,
+                      type_id=None,
+                      _created_by=None,
+                      _copied_from=None,
+                      version=-1,
+                      state=None,
+                      snapshot_hash=None,
+                      meta=None,
+                      limit=0,
+                      _sort=None):
+        """Get a pipeline that would perform the given search.  Can be used directly in an aggregate call"""
         mfilter = {}
         if obj_id is not None:
             mfilter['obj_id'] = obj_id
@@ -229,9 +303,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         if limit:
             pipeline.append({'$limit': limit})
 
-        results = self._data_collection.aggregate(pipeline)
-        for result in results:
-            yield self._to_record(result)
+        return pipeline
 
     def _to_record(self, entry) -> archive.DataRecord:
         """Convert a MongoDB data collection entry to a DataRecord"""

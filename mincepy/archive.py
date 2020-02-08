@@ -66,18 +66,6 @@ class Ref(typing.Generic[IdT], types.SavableObject):
     def load_instance_state(self, saved_state, _depositor):
         self.__init__(*saved_state)
 
-    def to_dict(self):
-        return {REF_KEY: self.save_instance_state(None)}
-
-    @classmethod
-    def from_dict(cls, refdict):
-        if not isinstance(refdict, dict):
-            raise TypeError("Refdict is of type '{}', should be dictionary!".format(type(refdict)))
-        if REF_KEY not in refdict:
-            raise ValueError("Passed non-refdict: '{}'".format(refdict))
-
-        return Ref(*refdict[REF_KEY])
-
 
 class DataRecord(
         namedtuple(
@@ -258,6 +246,19 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
              limit=0,
              sort=None):
         """Find records matching the given criteria"""
+
+    @abstractmethod
+    def count(self,
+              obj_id=None,
+              type_id=None,
+              created_by=None,
+              copied_from=None,
+              version=-1,
+              state=None,
+              snapshot_hash=None,
+              meta=None,
+              limit=0):
+        """Count the number of entries that match the given query"""
 
 
 class BaseArchive(Archive[IdT]):
