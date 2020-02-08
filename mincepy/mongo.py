@@ -152,9 +152,22 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
              snapshot_hash=None,
              meta=None,
              limit=0,
-             _sort=None):
-        pipeline = self._get_pipeline(obj_id, type_id, _created_by, _copied_from, version, state, snapshot_hash, meta,
-                                      limit, _sort)
+             _sort=None,
+             page=0):
+        pipeline = self._get_pipeline(obj_id=obj_id,
+                                      type_id=type_id,
+                                      _created_by=_created_by,
+                                      _copied_from=_copied_from,
+                                      version=version,
+                                      state=state,
+                                      snapshot_hash=snapshot_hash,
+                                      meta=meta,
+                                      _sort=_sort)
+
+        if limit:
+            if page:
+                pipeline.append({'$skip': limit * page})
+            pipeline.append({'$limit': limit})
 
         results = self._data_collection.aggregate(pipeline)
 
@@ -224,7 +237,6 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                       state=None,
                       snapshot_hash=None,
                       meta=None,
-                      limit=0,
                       _sort=None):
         """Get a pipeline that would perform the given search.  Can be used directly in an aggregate call"""
         mfilter = {}
@@ -299,9 +311,6 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
             # _meta should only contain at most one entry per document i.e. the metadata for
             # that object.  So check that for the search criteria
             pipeline.append({'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
-
-        if limit:
-            pipeline.append({'$limit': limit})
 
         return pipeline
 

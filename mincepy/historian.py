@@ -319,7 +319,7 @@ class Historian:
 
     # endregion
 
-    def find(self, obj_type=None, criteria=None, version=-1, meta=None, limit=0, as_objects=True):
+    def find(self, obj_type=None, criteria=None, version=-1, meta=None, limit=0, page=0, as_objects=True):
         """Find entries in the archive
 
         :param obj_type: the object type to look for
@@ -327,10 +327,16 @@ class Historian:
         :param version: the version of the object to retrieve, -1 means latests
         :param meta: the search criteria to apply on the metadata of the object
         :param limit: the maximum number of results to return, 0 means unlimited
+        :param page: the page to get results from
         :param as_objects: if True returns the live object instances, False returns the DataRecords
         """
         type_id = self.get_obj_type_id(obj_type) if obj_type is not None else None
-        results = self._archive.find(type_id=type_id, state=criteria, version=version, meta=meta, limit=limit)
+        results = self._archive.find(type_id=type_id,
+                                     state=criteria,
+                                     version=version,
+                                     meta=meta,
+                                     limit=limit,
+                                     page=page)
         if as_objects:
             for result in results:
                 yield self.load(result.obj_id)

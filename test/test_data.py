@@ -296,25 +296,6 @@ def test_replace_invalid(historian: mincepy.Historian):
         historian.replace(honda, Garage())
 
 
-def test_find(historian: mincepy.Historian):
-    honda = Car('honda', 'green')
-    porsche = Car('porsche', 'black')
-    red_honda = Car('honda', 'red')
-    fiat = Car('fiat', 'green')
-
-    historian.save(honda, porsche, red_honda, fiat)
-    hondas = list(historian.find(Car, criteria={'make': 'honda'}))
-    assert len(hondas) == 2
-    assert honda in hondas
-    assert red_honda in hondas
-
-    # Try without type
-    greens = list(historian.find(criteria={'colour': 'green'}))
-    assert len(greens) == 2
-    assert honda in greens
-    assert fiat in greens
-
-
 def test_store_by_value(historian: mincepy.Historian):
 
     class Record(mincepy.SavableObject):
