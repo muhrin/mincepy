@@ -20,7 +20,7 @@ def test_find_state(historian: mincepy.Historian):
     assert fiat in greens
 
 
-def test_find_pagination(historian: mincepy.Historian):
+def test_find_skip(historian: mincepy.Historian):
     cars = []
     for idx in range(10):
         cars.append(Car(idx))
@@ -28,9 +28,10 @@ def test_find_pagination(historian: mincepy.Historian):
     historian.save(*cars)
     # Try live
     makes = set(range(10))
-    for page in range(5):
-        results = list(historian.find(obj_type=Car, limit=2, page=page))
-        assert len(results) == 2, "Got no results on page {}".format(page)
+    # Skip two at a time limiting to two at a time, effectively paginating
+    for skip in range(5):
+        results = list(historian.find(obj_type=Car, limit=2, skip=skip * 2))
+        assert len(results) == 2, "Got no results on page {}".format(skip)
         makes.remove(results[0].make)
         makes.remove(results[1].make)
 

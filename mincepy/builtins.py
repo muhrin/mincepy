@@ -103,6 +103,9 @@ class RefList(collections.abc.MutableSequence, Archivable):
         if init_list is not None:
             self._data = [refs.ObjRef(item) for item in init_list]
 
+    def __str__(self):
+        return str(self._data)
+
     def __getitem__(self, item):
         return self._data[item]()
 
@@ -131,6 +134,9 @@ class RefDict(collections.MutableMapping, Archivable):
             self._data = {key: refs.ObjRef(value) for key, value in initial.items()}
         else:
             self._data = {}
+
+    def __str__(self):
+        return str(self._data)
 
     def __getitem__(self, item):
         return self._data[item]()

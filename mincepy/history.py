@@ -3,6 +3,7 @@ from typing import Optional
 from . import builtins
 from . import common_helpers
 from . import historian
+from . import refs
 
 __all__ = 'get_historian', 'set_historian'
 
@@ -20,3 +21,4 @@ def set_historian(new_historian: Optional[historian.Historian], register_common_
     if new_historian is not None and register_common_types:
         new_historian.register_types(common_helpers.HISTORIAN_TYPES)
         new_historian.register_types(builtins.HISTORIAN_TYPES)
+        new_historian.register_types(refs.HISTORIAN_TYPES)

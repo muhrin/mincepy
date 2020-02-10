@@ -245,7 +245,7 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
              meta=None,
              limit=0,
              sort=None,
-             page=0):
+             skip=0):
         """Find records matching the given criteria"""
 
     @abstractmethod

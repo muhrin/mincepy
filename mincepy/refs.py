@@ -31,6 +31,14 @@ class ObjRef(types.SavableObject):
     def auto(self):
         return self._auto
 
+    def __str__(self):
+        desc = "ref: "
+        if self._obj is not None:
+            desc += str(self._obj)
+        else:
+            desc += str(self._ref)
+        return desc
+
     def __call__(self):
         if self._obj is None:
             if self._ref is None:
@@ -63,3 +71,6 @@ class ObjRef(types.SavableObject):
         self._obj = None
         self._loader = loader
         self._auto = saved_state['auto']
+
+
+HISTORIAN_TYPES = (ObjRef,)

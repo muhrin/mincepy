@@ -153,7 +153,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
              meta=None,
              limit=0,
              _sort=None,
-             page=0):
+             skip=0):
         pipeline = self._get_pipeline(obj_id=obj_id,
                                       type_id=type_id,
                                       _created_by=_created_by,
@@ -164,9 +164,10 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                                       meta=meta,
                                       _sort=_sort)
 
+        if skip:
+            pipeline.append({'$skip': skip})
+
         if limit:
-            if page:
-                pipeline.append({'$skip': limit * page})
             pipeline.append({'$limit': limit})
 
         results = self._data_collection.aggregate(pipeline)
