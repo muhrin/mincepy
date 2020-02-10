@@ -33,6 +33,8 @@ class ObjRef(types.SavableObject):
 
     def __call__(self):
         if self._obj is None:
+            if self._ref is None:
+                raise RuntimeError("Cannot dereference a None reference")
             # Cache the object
             self._obj = self._loader.load(self._ref)
             assert self._obj is not None, "Loader did not load object"
@@ -48,7 +50,12 @@ class ObjRef(types.SavableObject):
         yield from hasher.yield_hashables(self._ref)
 
     def save_instance_state(self, saver):
-        ref = saver.ref(self._obj)
+        ref = self._ref
+        if ref is None:
+            # This should mean that we have loaded the object via the 'call' method previously
+            assert self._obj is not None
+            ref = saver.ref(self._obj)
+
         return {'ref': [ref.obj_id, ref.version], 'auto': self._auto}
 
     def load_instance_state(self, saved_state, loader):

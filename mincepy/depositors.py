@@ -44,11 +44,6 @@ class Saver(Base, metaclass=ABCMeta):
 
             return obj
 
-        if self._historian.is_trackable(obj) and not isinstance(obj, refs.ObjRef):
-            # Make a reference
-            reference = refs.ObjRef(obj, auto=True)
-            return self.to_dict(reference)
-
         # Store by value
         return self.to_dict(obj)
 
@@ -138,9 +133,6 @@ class Loader(Base, metaclass=ABCMeta):
 
 class LiveDepositor(Saver, Loader):
     """Depositor with strategy that all objects that get referenced should be saved"""
-
-    def __init__(self, historian):
-        super().__init__(historian)
 
     def ref(self, obj) -> Optional[archive.Ref]:
         if obj is None:

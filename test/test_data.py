@@ -181,8 +181,10 @@ def test_storing_internal_object(historian: mincepy.Historian):
 
     loaded_mike = historian.load(mike_id)
     assert loaded_mike.car.make == 'ferrari'
-    # Default is to save by reference so two cars should be the same
-    assert loaded_mike.car is ferrari
+
+    # Default is to save by value so two cars should not be the same
+    assert loaded_mike.car is not ferrari
+    assert loaded_mike.car == ferrari  # But values should match
 
 
 def test_copy(historian: mincepy.Historian):

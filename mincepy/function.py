@@ -1,9 +1,9 @@
 import functools
 import uuid
 
-import mincepy.builtins
+from . import builtins
 from . import history
-from . import types
+from . import refs
 
 __all__ = ('track', 'FunctionCall')
 
@@ -12,15 +12,15 @@ class InvalidStateError(Exception):
     pass
 
 
-class FunctionCall(mincepy.builtins.Archivable):
+class FunctionCall(builtins.Archivable):
     TYPE_ID = uuid.UUID('dcacc483-c650-432e-b835-122f78e7a758')
     ATTRS = ('_function', '_args', '_kwargs', '_result', '_exception', '_done')
 
     def __init__(self, func, *args, **kwargs):
         super(FunctionCall, self).__init__()
         self._function = func.__name__
-        self._args = list(args)
-        self._kwargs = kwargs
+        self._args = builtins.RefList(args)
+        self._kwargs = builtins.RefDict(kwargs)
         self._result = None
         self._exception = None
         self._done = False
@@ -41,11 +41,11 @@ class FunctionCall(mincepy.builtins.Archivable):
         if not self.done():
             raise InvalidStateError("Not done yet")
 
-        return self._result
+        return self._result()
 
     def set_result(self, result):
         assert not self._done
-        self._result = result
+        self._result = refs.ObjRef(result)
         self._done = True
 
     def set_exception(self, exc):

@@ -53,7 +53,7 @@ def test_namespace_helper(historian: mincepy.Historian):
     del dinner
 
     loaded = historian.load(dinner_id)
-    assert loaded.car is car
+    assert loaded.car == car
     assert loaded.host == Person('Martin', 34)
     assert loaded.food == 'pizza'
     assert loaded.cost == 10.94

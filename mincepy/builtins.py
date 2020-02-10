@@ -94,6 +94,7 @@ class Str(collections.UserString, _UserType):
 
 class RefList(collections.abc.MutableSequence, Archivable):
     """A list that stores all entries as references in the database"""
+    TYPE_ID = uuid.UUID('091efff5-136d-4ac2-bd59-28f50f151263')
     ATTRS = ('_data',)
 
     def __init__(self, init_list=None):
@@ -120,6 +121,7 @@ class RefList(collections.abc.MutableSequence, Archivable):
 
 class RefDict(collections.MutableMapping, Archivable):
     """A dictionary that stores all values as references in the database"""
+    TYPE_ID = uuid.UUID('c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0')
     ATTRS = ('_data',)
 
     def __init__(self, *args, **kwargs):
@@ -209,4 +211,4 @@ class BaseFile(Archivable, metaclass=ABCMeta):
             yield from hasher.yield_hashables(None)
 
 
-HISTORIAN_TYPES = Str, List, Dict
+HISTORIAN_TYPES = Str, List, Dict, RefList, RefDict

@@ -41,11 +41,19 @@ class Person(mincepy.builtins.Archivable):
 
 class Cycle(mincepy.builtins.Archivable):
     TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
-    ATTRS = ('ref',)
+    ATTRS = ('_ref',)
 
     def __init__(self, ref=None):
         super(Cycle, self).__init__()
-        self.ref = ref
+        self._ref = mincepy.ObjRef(ref)
+
+    @property
+    def ref(self):
+        return self._ref()
+
+    @ref.setter
+    def ref(self, value):
+        self._ref = mincepy.ObjRef(value)
 
     def __eq__(self, other):
         return self.ref is other.ref
