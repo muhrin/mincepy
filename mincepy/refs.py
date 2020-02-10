@@ -42,10 +42,7 @@ class ObjRef(types.SavableObject):
         return self._obj
 
     def __eq__(self, other):
-        if not isinstance(other, ObjRef):
-            return False
-
-        return self._obj == other._obj
+        return self is other
 
     def yield_hashables(self, hasher):
         yield from hasher.yield_hashables(self._ref)

@@ -4,12 +4,13 @@ from typing import BinaryIO, Optional
 import uuid
 
 from . import depositors
-from .types import SavableObject
+from . import refs
+from . import types
 
 __all__ = 'List', 'Str', 'Dict', 'BaseFile'
 
 
-class Archivable(SavableObject):
+class Archivable(types.SavableObject):
     """A helper class that makes a class compatible with the historian by flagging certain
     attributes which will be saved/loaded/hashed and compared in __eq__.  This should be an
     exhaustive list of all the attributes that define this class.  If more complex functionality
@@ -39,10 +40,10 @@ class Archivable(SavableObject):
     def yield_hashables(self, hasher):
         yield from hasher.yield_hashables([getattr(self, name) for name in self.__get_attrs()])
 
-    def save_instance_state(self, saver):
+    def save_instance_state(self, _saver):
         return {name: getattr(self, name) for name in self.__get_attrs()}
 
-    def load_instance_state(self, saved_state, loader):
+    def load_instance_state(self, saved_state, _loader):
         for name in self.__get_attrs():
             try:
                 setattr(self, name, saved_state[name])
@@ -64,31 +65,85 @@ class _UserType(Archivable):
 class List(collections.UserList, _UserType):
     TYPE_ID = uuid.UUID('2b033f70-168f-4412-99ea-d1f131e3a25a')
 
-    def save_instance_state(self, _depositor: depositors.Saver):
+    def save_instance_state(self, _saver: depositors.Saver):
         return self.data
 
-    def load_instance_state(self, state, _depositor: depositors.Loader):
+    def load_instance_state(self, state, _loader: depositors.Loader):
         self.__init__(state)
 
 
 class Dict(collections.UserDict, _UserType):
     TYPE_ID = uuid.UUID('a7584078-95b6-4e00-bb8a-b077852ca510')
 
-    def save_instance_state(self, _depositor: depositors.Saver):
+    def save_instance_state(self, _saver: depositors.Saver):
         return self.data
 
-    def load_instance_state(self, state, _depositor: depositors.Loader):
+    def load_instance_state(self, state, _loader: depositors.Loader):
         self.__init__(state)
 
 
 class Str(collections.UserString, _UserType):
     TYPE_ID = uuid.UUID('350f3634-4a6f-4d35-b229-71238ce9727d')
 
-    def save_instance_state(self, _depositor: depositors.Saver):
+    def save_instance_state(self, _saver: depositors.Saver):
         return self.data
 
-    def load_instance_state(self, state, _depositor: depositors.Loader):
+    def load_instance_state(self, state, _loader: depositors.Loader):
         self.data = state
+
+
+class RefList(collections.abc.MutableSequence, Archivable):
+    """A list that stores all entries as references in the database"""
+    ATTRS = ('_data',)
+
+    def __init__(self, init_list=None):
+        super().__init__()
+        self._data = []
+        if init_list is not None:
+            self._data = [refs.ObjRef(item) for item in init_list]
+
+    def __getitem__(self, item):
+        return self._data[item]()
+
+    def __setitem__(self, key, value):
+        self._data[key] = refs.ObjRef(value)
+
+    def __delitem__(self, key):
+        self._data.__delitem__(key)
+
+    def __len__(self):
+        return self._data.__len__()
+
+    def insert(self, index, value):
+        self._data.insert(index, refs.ObjRef(value))
+
+
+class RefDict(collections.MutableMapping, Archivable):
+    """A dictionary that stores all values as references in the database"""
+    ATTRS = ('_data',)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+        initial = dict(*args, **kwargs)
+        if initial:
+            self._data = {key: refs.ObjRef(value) for key, value in initial.items()}
+        else:
+            self._data = {}
+
+    def __getitem__(self, item):
+        return self._data[item]()
+
+    def __setitem__(self, key, value):
+        self._data[key] = refs.ObjRef(value)
+
+    def __delitem__(self, key):
+        self._data.__delitem__(key)
+
+    def __iter__(self):
+        return self._data.__iter__()
+
+    def __len__(self):
+        return self._data.__len__()
 
 
 class BaseFile(Archivable, metaclass=ABCMeta):
