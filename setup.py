@@ -40,5 +40,5 @@ setup(name='mincepy',
               'twine',
           ],
       },
-      packages=['mincepy'],
+      packages=['mincepy', 'mincepy.gui', 'mincepy.cli'],
       test_suite='test')
