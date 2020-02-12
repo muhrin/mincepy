@@ -100,10 +100,10 @@ class ConnectionWidget(QtWidgets.QWidget):
     # Signals
     connection_requested = Signal(str)
 
-    def __init__(self, parent):
+    def __init__(self, default_connect_uri='', parent=None):
         super().__init__(parent)
         self._connection_string = QtWidgets.QLineEdit(self)
-        self._connection_string.setText('mongodb://localhost/test_database')
+        self._connection_string.setText(default_connect_uri)
         self._connect_button = QtWidgets.QPushButton('Connect', self)
 
         layout = QtWidgets.QHBoxLayout()
@@ -120,7 +120,7 @@ class ConnectionWidget(QtWidgets.QWidget):
 
 class MincepyWidget(QtWidgets.QWidget):
 
-    def __init__(self, create_historian_callback=None):
+    def __init__(self, default_connect_uri='', create_historian_callback=None):
         super().__init__()
 
         def default_create_historian(uri) -> mincepy.Historian:
@@ -135,7 +135,7 @@ class MincepyWidget(QtWidgets.QWidget):
         self._data_records = models.DataRecordQueryModel(self._db_model, self)
 
         # Set up the connect panel of the GUI
-        connect_panel = ConnectionWidget(self)
+        connect_panel = ConnectionWidget(default_connect_uri, self)
         connect_panel.connection_requested.connect(self._connect)
 
         entries_table = models.EntriesTable(self._data_records, self)

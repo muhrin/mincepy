@@ -7,9 +7,9 @@ from . import views
 __all__ = ('run_application',)
 
 
-def run_application(create_historian_callback=None):
+def run_application(default_connect_uri="mongodb://localhost/test_database", create_historian_callback=None):
     app = QtWidgets.QApplication([])
-    widget = views.MincepyWidget(create_historian_callback)
+    widget = views.MincepyWidget(default_connect_uri, create_historian_callback)
     widget.resize(800, 600)
     widget.show()
 
