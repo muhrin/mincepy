@@ -20,7 +20,7 @@ class Process(mincepy.builtins.Archivable):
     def __init__(self, name: str):
         super(Process, self).__init__()
         self._name = name
-        self._running = False
+        self._running = 0
 
     def __eq__(self, other):
         if not isinstance(other, Process):
@@ -29,18 +29,22 @@ class Process(mincepy.builtins.Archivable):
         return self.name == other.name
 
     @property
+    def is_running(self):
+        return self._running != 0
+
+    @property
     def name(self) -> str:
         return self._name
 
     @contextlib.contextmanager
     def running(self):
         self.STACK.append(self)
-        self._running = True
+        self._running += 1
         try:
             yield
         finally:
             if self.STACK[-1] != self:
                 raise RuntimeError("Someone has corrupted the process stack!\n"
                                    "Expected to find '{}' on top but found:{}".format(self, self.STACK))
-            self._running = False
+            self._running -= 1
             self.STACK.pop()

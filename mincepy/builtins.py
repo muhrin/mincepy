@@ -106,6 +106,9 @@ class RefList(collections.abc.MutableSequence, Archivable):
     def __str__(self):
         return str(self._data)
 
+    def __repr__(self):
+        return repr(self._data)
+
     def __getitem__(self, item):
         return self._data[item]()
 
@@ -137,6 +140,9 @@ class RefDict(collections.MutableMapping, Archivable):
 
     def __str__(self):
         return str(self._data)
+
+    def __repr__(self):
+        return repr(self._data)
 
     def __getitem__(self, item):
         return self._data[item]()
