@@ -162,14 +162,24 @@ class LiveDepositor(Saver, Loader):
     def save_from_builder(self, obj, builder):
         """Save a live object"""
         assert builder.snapshot_hash is not None, "The snapshot hash must be set on the builder before saving"
+        historian = self.get_historian()
 
-        with self.get_historian().transaction() as trans:
+        with historian.transaction() as trans:
             # Insert the object into the transaction so others can refer to it
             ref = archive.Ref(builder.obj_id, builder.version)
             trans.insert_live_object_reference(ref, obj)
 
+            # Deal with a possible object creator
+            if builder.version == 0:
+                try:
+                    creator = historian.get_creator(obj)
+                except exceptions.NotFound:
+                    pass
+                else:
+                    builder.created_by = self.ref(creator).obj_id
+
             # Now ask the object to save itself and create the record
-            if self._historian.is_primitive(obj):
+            if historian.is_primitive(obj):
                 saved_state = obj
             else:
                 saved_state = self.save_instance_state(obj)

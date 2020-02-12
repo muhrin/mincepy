@@ -6,11 +6,10 @@ from mincepy.testing import Car
 
 
 def test_basic_save_process(historian: mincepy.Historian):
-    car = Car('nissan', 'white')
-
     proc = mincepy.Process('test_basic_save')
     pid = historian.save(proc)
     with proc.running():
+        car = Car('nissan', 'white')
         car_id = historian.save(car)
     assert historian.created_in(car) == pid
 
@@ -62,3 +61,24 @@ def test_process_nested_running(historian: mincepy.Historian):
 
     loaded = historian.load(proc_id)
     assert not loaded.is_running
+
+
+def test_saving_while_running(historian: mincepy.Historian):
+    proc = mincepy.Process('test_nested_exception')
+    with proc.running():
+        historian.save(proc)
+
+
+def test_saving_creator_that_owns_child(historian: mincepy.Historian):
+
+    class TestProc(mincepy.Process):
+        ATTRS = ('child',)
+
+        def __init__(self):
+            super().__init__('test_proc')
+            self.child = None
+
+    test_proc = TestProc()
+    with test_proc.running():
+        test_proc.child = mincepy.ObjRef(Car())
+        historian.save(test_proc)

@@ -17,8 +17,13 @@ VERSION = '[version]'
 VALUE = '[value]'
 UNSET = ''
 
-TOOLTIPS = {OBJ_TYPE: 'Object type', CTIME: 'Creation time', MTIME: 'Modification time', VERSION: 'Version',
-            VALUE: 'String value'}
+TOOLTIPS = {
+    OBJ_TYPE: 'Object type',
+    CTIME: 'Creation time',
+    MTIME: 'Modification time',
+    VERSION: 'Version',
+    VALUE: 'String value'
+}
 
 SnapshotRecord = namedtuple("SnapshotRecord", 'snapshot record')
 

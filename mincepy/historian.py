@@ -44,6 +44,8 @@ class Historian:
         self.register_types(archive.get_types())
         self.register_type(refs.ObjRef)
 
+        self._saving_set = set()
+
     def get_archive(self):
         return self._archive
 
@@ -348,12 +350,26 @@ class Historian:
         else:
             yield from results
 
+    def get_creator(self, obj_or_identifier):
+        """Get the object that created the passed object"""
+        if not self.is_obj_id(obj_or_identifier):
+            # Object instance, try our creators cache
+            try:
+                return self._creators[obj_or_identifier]
+            except KeyError:
+                pass
+
+        creator_id = self.created_in(obj_or_identifier)
+        return self.load_object(creator_id)
+
     def created_in(self, obj_or_identifier):
         """Return the id of the object that created the passed object"""
         try:
             return self.get_current_record(obj_or_identifier).created_by
         except exceptions.NotFound:
-            return self._archive.load(self._get_latest_snapshot_reference(obj_or_identifier)).created_by
+            if self.is_obj_id(obj_or_identifier):
+                return self._archive.load(self._get_latest_snapshot_reference(obj_or_identifier)).created_by
+            raise
 
     @contextlib.contextmanager
     def transaction(self):
@@ -444,42 +460,29 @@ class Historian:
             except exceptions.NotFound:
                 pass
 
-            # Ok, have to save it
-            current_hash = self.hash(obj)
+            with self._saving(obj):
+                # Ok, have to save it
+                current_hash = self.hash(obj)
 
-            try:
-                # Let's see if we have a record at all
-                record = self._live_objects.get_record(obj)
-            except exceptions.NotFound:
-                # Ok, brand new object
                 try:
-                    creator = self._creators[obj]
-                except KeyError:
-                    # Try getting the current process as the creator - this may not strictly
-                    # be true as this is just the point the object is being saved...
-                    current = process.Process.current_process()
-                    creator = current if current is not obj else None
+                    # Let's see if we have a record at all
+                    record = self._live_objects.get_record(obj)
+                except exceptions.NotFound:
+                    builder = self._create_builder(obj, dict(snapshot_hash=current_hash))
+                    return depositor.save_from_builder(obj, builder)
+                else:
+                    # Check if our record is up to date
+                    with self.transaction() as transaction:
+                        loaded_obj = depositors.SnapshotLoader(self).load_from_record(record)
 
-                created_by = None
-                if creator is not None:
-                    # Have to get an object id for the creator, save it now
-                    created_by = self._save_object(creator, depositor).obj_id
+                        if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
+                            # Objects identical
+                            transaction.rollback()
+                        else:
+                            builder = record.child_builder(snapshot_hash=current_hash)
+                            record = depositor.save_from_builder(obj, builder)
 
-                builder = self._create_builder(obj, dict(created_by=created_by, snapshot_hash=current_hash))
-                return depositor.save_from_builder(obj, builder)
-            else:
-                # Check if our record is up to date
-                with self.transaction() as transaction:
-                    loaded_obj = depositors.SnapshotLoader(self).load_from_record(record)
-
-                    if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
-                        # Objects identical
-                        transaction.rollback()
-                    else:
-                        builder = record.child_builder(snapshot_hash=current_hash)
-                        record = depositor.save_from_builder(obj, builder)
-
-                return record
+                    return record
 
     def _create_builder(self, obj, additional=None):
         additional = additional or {}
@@ -515,3 +518,15 @@ class Historian:
             self._type_registry.register_type(obj_type)
 
         return self._type_registry.get_helper_from_obj_type(obj_type)
+
+    @contextlib.contextmanager
+    def _saving(self, obj):
+        obj_id = id(obj)
+        if obj_id in self._saving_set:
+            raise RuntimeError("The object is already being saved, this cannot be called twice and suggests "
+                               "a circular reference is being made")
+        self._saving_set.add(obj_id)
+        try:
+            yield
+        finally:
+            self._saving_set.remove(obj_id)
