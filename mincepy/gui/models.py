@@ -12,11 +12,13 @@ __all__ = ('DbModel',)
 
 OBJ_TYPE = '[type]'
 CTIME = '[ctime]'
+MTIME = '[mtime]'
 VERSION = '[version]'
 VALUE = '[value]'
 UNSET = ''
 
-TOOLTIPS = {OBJ_TYPE: 'Object type', CTIME: 'Creation time', VERSION: 'Version', VALUE: 'String value'}
+TOOLTIPS = {OBJ_TYPE: 'Object type', CTIME: 'Creation time', MTIME: 'Modification time', VERSION: 'Version',
+            VALUE: 'String value'}
 
 SnapshotRecord = namedtuple("SnapshotRecord", 'snapshot record')
 
@@ -85,6 +87,9 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
         self._ensure_results_current()
         return self._results
 
+    def refresh(self):
+        self._invalidate_results()
+
     def rowCount(self, parent: QtCore.QModelIndex = QModelIndex()) -> int:
         self._ensure_results_current()
 
@@ -136,7 +141,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
 
 class EntriesTable(QtCore.QAbstractTableModel):
-    DEFAULT_COLUMNS = [OBJ_TYPE, CTIME, VERSION, VALUE]
+    DEFAULT_COLUMNS = [OBJ_TYPE, CTIME, MTIME, VERSION, VALUE]
 
     def __init__(self, query_model: DataRecordQueryModel, parent=None):
         super().__init__(parent)
@@ -158,6 +163,10 @@ class EntriesTable(QtCore.QAbstractTableModel):
         if self._show_objects != as_objects:
             self._show_objects = as_objects
             self._invalidate()
+
+    def refresh(self):
+        # As the query to refresh from the database
+        self._query_model.refresh()
 
     def rowCount(self, _parent: PySide2.QtCore.QModelIndex = ...) -> int:
         self._ensure_results_current()
@@ -195,8 +204,8 @@ class EntriesTable(QtCore.QAbstractTableModel):
                 font.setItalic(True)
                 return font
         if role == Qt.ToolTipRole:
-            if column_name == CTIME:
-                return "Created on"
+            if column_name in (CTIME, MTIME):
+                return TOOLTIPS[column_name]
 
         return None
 
@@ -265,6 +274,8 @@ class EntriesTable(QtCore.QAbstractTableModel):
 
         if attr == CTIME:
             return str(snapshot_record.record.creation_time)
+        if attr == MTIME:
+            return str(snapshot_record.record.snapshot_time)
         if attr == VERSION:
             return str(snapshot_record.record.version)
 

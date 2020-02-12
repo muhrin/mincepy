@@ -67,9 +67,13 @@ class FilterControlPanel(QtWidgets.QWidget):
         super().__init__(parent)
         self._entries_table = entries_table
 
+        refresh = QtWidgets.QPushButton("Refresh")
+        refresh.clicked.connect(self._entries_table.refresh)
+
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self._create_type_drop_down())
         layout.addWidget(self._create_display_as_class_checkbox())
+        layout.addWidget(refresh)
         self.setLayout(layout)
 
     def _create_display_as_class_checkbox(self):
