@@ -1,14 +1,14 @@
+import collections
 from collections import namedtuple
 import typing
 
 import PySide2
 from PySide2 import QtCore, QtGui
-from PySide2.QtCore import QModelIndex
-from PySide2.QtCore import QObject, Signal, Qt
+from PySide2.QtCore import QObject, Signal, Qt, QModelIndex
 
 import mincepy
 
-__all__ = ('DbModel',)
+__all__ = ('DbModel', 'SnapshotRecord')
 
 OBJ_TYPE = '[type]'
 CTIME = '[ctime]'
@@ -26,6 +26,14 @@ TOOLTIPS = {
 }
 
 SnapshotRecord = namedtuple("SnapshotRecord", 'snapshot record')
+
+
+def pretty_type_string(obj_type: typing.Type):
+    """Given an type will return a simple type string"""
+    type_str = str(obj_type)
+    if type_str.startswith('<class '):
+        return type_str[8:-2]
+    return type_str
 
 
 class DbModel(QObject):
@@ -95,7 +103,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
     def refresh(self):
         self._invalidate_results()
 
-    def rowCount(self, parent: QtCore.QModelIndex = QModelIndex()) -> int:
+    def rowCount(self, _parent: QtCore.QModelIndex = QModelIndex()) -> int:
         self._ensure_results_current()
 
         if self._results is None:
@@ -103,7 +111,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
         return len(self._results)
 
-    def columnCount(self, parent: QtCore.QModelIndex = QModelIndex()) -> int:
+    def columnCount(self, _parent: QtCore.QModelIndex = QModelIndex()) -> int:
         return len(self.column_names)
 
     def headerData(self, section: int, orientation: PySide2.QtCore.Qt.Orientation, role: int = ...) -> typing.Any:
@@ -160,6 +168,15 @@ class EntriesTable(QtCore.QAbstractTableModel):
     @property
     def query_model(self):
         return self._query_model
+
+    def get_snapshot_record(self, row):
+        if self._snapshots is None:
+            return None
+
+        if row < 0 or row >= len(self._snapshots):
+            return None
+
+        return self._snapshots[row]
 
     def get_show_as_objects(self):
         return self._show_objects
@@ -273,7 +290,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
         if attr == OBJ_TYPE:
             historian = self._query_model.db_model.historian
             try:
-                return str(historian.get_obj_type(snapshot_record.record.type_id))
+                return pretty_type_string(historian.get_obj_type(snapshot_record.record.type_id))
             except TypeError:
                 return str(snapshot_record.record.type_id)
 

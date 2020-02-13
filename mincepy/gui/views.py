@@ -3,6 +3,7 @@ from PySide2.QtCore import Signal
 
 import mincepy
 from . import models
+from . import tree_models
 
 __all__ = 'TypeDropDown', 'ConnectionWidget', 'MincepyWidget'
 
@@ -142,16 +143,14 @@ class MincepyWidget(QtWidgets.QWidget):
         connect_panel = ConnectionWidget(default_connect_uri, self)
         connect_panel.connection_requested.connect(self._connect)
 
-        entries_table = models.EntriesTable(self._data_records, self)
-        entries_view = QtWidgets.QTableView()
-        entries_view.setModel(entries_table)
+        self._entries_table = models.EntriesTable(self._data_records, self)
 
-        control_panel = FilterControlPanel(entries_table, self)
+        control_panel = FilterControlPanel(self._entries_table, self)
 
         self.layout = QtWidgets.QVBoxLayout()
         self.layout.addWidget(connect_panel)
         self.layout.addWidget(control_panel)
-        self.layout.addWidget(entries_view)
+        self.layout.addWidget(self._create_display_panel(self._entries_table))
         self.setLayout(self.layout)
 
     @property
@@ -162,6 +161,29 @@ class MincepyWidget(QtWidgets.QWidget):
         try:
             historian = self._create_historian_callback(uri)
             self._db_model.historian = historian
-        except ValueError as exc:
+        except Exception as exc:
             err_msg = "Error creating historian with uri '{}':\n{}".format(uri, exc)
             QtWidgets.QErrorMessage(self).showMessage(err_msg)
+
+    def _create_display_panel(self, entries_table: models.EntriesTable):
+        panel = QtWidgets.QWidget(self)
+        layout = QtWidgets.QVBoxLayout()
+
+        entries_view = QtWidgets.QTableView(panel)
+        entries_view.setModel(entries_table)
+
+        record_tree = tree_models.RecordTree(panel)
+        record_tree_view = QtWidgets.QTreeView(panel)
+        record_tree_view.setModel(record_tree)
+
+        def row_changed(current, _previous):
+            record = self._entries_table.get_snapshot_record(current.row())
+            record_tree.set_data_snapshot(record)
+
+        entries_view.selectionModel().currentRowChanged.connect(row_changed)
+
+        layout.addWidget(entries_view)
+        layout.addWidget(record_tree_view)
+        panel.setLayout(layout)
+
+        return panel
