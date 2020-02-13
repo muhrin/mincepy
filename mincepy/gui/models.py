@@ -152,9 +152,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
 
 class EntriesTable(QtCore.QAbstractTableModel):
-    # DEFAULT_COLUMNS = [OBJ_TYPE, CTIME, MTIME, VERSION, VALUE]
-    # DEFAULT_COLUMNS = list(DATA_RECORD_MAPPING.keys())
-    ARCHIVE_COLUMNS = (archive.OBJ_ID, archive.CREATION_TIME, archive.SNAPSHOT_TIME, archive.VERSION, archive.STATE)
+    ARCHIVE_COLUMNS = (archive.TYPE_ID, archive.CREATION_TIME, archive.SNAPSHOT_TIME, archive.VERSION, archive.STATE)
     DEFAULT_COLUMNS = [DATA_RECORD_MAPPING.inverse[label] for label in ARCHIVE_COLUMNS]
 
     def __init__(self, query_model: DataRecordQueryModel, parent=None):
@@ -293,12 +291,12 @@ class EntriesTable(QtCore.QAbstractTableModel):
         historian = self._query_model.db_model.historian
 
         try:
-            data_record_entry = DATA_RECORD_MAPPING[attr]
+            data_record_key = DATA_RECORD_MAPPING[attr]
         except KeyError:
             pass
         else:
-            record_value = snapshot_record.record._asdict()[data_record_entry]
-            if attr == archive.OBJ_ID:
+            record_value = snapshot_record.record._asdict()[data_record_key]
+            if data_record_key == archive.TYPE_ID:
                 try:
                     return pretty_type_string(historian.get_obj_type(record_value))
                 except TypeError:

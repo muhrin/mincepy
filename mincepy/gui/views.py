@@ -166,8 +166,7 @@ class MincepyWidget(QtWidgets.QWidget):
             QtWidgets.QErrorMessage(self).showMessage(err_msg)
 
     def _create_display_panel(self, entries_table: models.EntriesTable):
-        panel = QtWidgets.QWidget(self)
-        layout = QtWidgets.QVBoxLayout()
+        panel = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         entries_view = QtWidgets.QTableView(panel)
         entries_view.setModel(entries_table)
@@ -182,8 +181,7 @@ class MincepyWidget(QtWidgets.QWidget):
 
         entries_view.selectionModel().currentRowChanged.connect(row_changed)
 
-        layout.addWidget(entries_view)
-        layout.addWidget(record_tree_view)
-        panel.setLayout(layout)
+        panel.addWidget(entries_view)
+        panel.addWidget(record_tree_view)
 
         return panel
