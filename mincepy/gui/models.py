@@ -1,28 +1,26 @@
-import collections
 from collections import namedtuple
 import typing
 
+from bidict import bidict
 import PySide2
 from PySide2 import QtCore, QtGui
 from PySide2.QtCore import QObject, Signal, Qt, QModelIndex
 
 import mincepy
+from mincepy import archive
 
 __all__ = ('DbModel', 'SnapshotRecord')
 
-OBJ_TYPE = '[type]'
-CTIME = '[ctime]'
-MTIME = '[mtime]'
-VERSION = '[version]'
+DATA_RECORD_MAPPING = bidict({"[{}]".format(entry): entry for entry in mincepy.DataRecord._fields})
+
 VALUE = '[value]'
 UNSET = ''
 
 TOOLTIPS = {
-    OBJ_TYPE: 'Object type',
-    CTIME: 'Creation time',
-    MTIME: 'Modification time',
-    VERSION: 'Version',
-    VALUE: 'String value'
+    DATA_RECORD_MAPPING.inverse[archive.TYPE_ID]: 'Object type',
+    DATA_RECORD_MAPPING.inverse[archive.CREATION_TIME]: 'Creation time',
+    DATA_RECORD_MAPPING.inverse[archive.SNAPSHOT_TIME]: 'Last modification time',
+    DATA_RECORD_MAPPING.inverse[archive.VERSION]: 'Version',
 }
 
 SnapshotRecord = namedtuple("SnapshotRecord", 'snapshot record')
@@ -154,7 +152,10 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
 
 class EntriesTable(QtCore.QAbstractTableModel):
-    DEFAULT_COLUMNS = [OBJ_TYPE, CTIME, MTIME, VERSION, VALUE]
+    # DEFAULT_COLUMNS = [OBJ_TYPE, CTIME, MTIME, VERSION, VALUE]
+    # DEFAULT_COLUMNS = list(DATA_RECORD_MAPPING.keys())
+    ARCHIVE_COLUMNS = (archive.OBJ_ID, archive.CREATION_TIME, archive.SNAPSHOT_TIME, archive.VERSION, archive.STATE)
+    DEFAULT_COLUMNS = [DATA_RECORD_MAPPING.inverse[label] for label in ARCHIVE_COLUMNS]
 
     def __init__(self, query_model: DataRecordQueryModel, parent=None):
         super().__init__(parent)
@@ -221,13 +222,15 @@ class EntriesTable(QtCore.QAbstractTableModel):
             value = self._get_value_string(self._snapshots[index.row()], self._columns[index.column()])
             return value
         if role == Qt.FontRole:
-            if column_name.startswith('['):
+            if column_name in DATA_RECORD_MAPPING:
                 font = QtGui.QFont()
                 font.setItalic(True)
                 return font
         if role == Qt.ToolTipRole:
-            if column_name in (CTIME, MTIME):
+            try:
                 return TOOLTIPS[column_name]
+            except KeyError:
+                pass
 
         return None
 
@@ -287,19 +290,20 @@ class EntriesTable(QtCore.QAbstractTableModel):
             return ()
 
     def _get_value_string(self, snapshot_record: SnapshotRecord, attr) -> str:
-        if attr == OBJ_TYPE:
-            historian = self._query_model.db_model.historian
-            try:
-                return pretty_type_string(historian.get_obj_type(snapshot_record.record.type_id))
-            except TypeError:
-                return str(snapshot_record.record.type_id)
+        historian = self._query_model.db_model.historian
 
-        if attr == CTIME:
-            return str(snapshot_record.record.creation_time)
-        if attr == MTIME:
-            return str(snapshot_record.record.snapshot_time)
-        if attr == VERSION:
-            return str(snapshot_record.record.version)
+        try:
+            data_record_entry = DATA_RECORD_MAPPING[attr]
+        except KeyError:
+            pass
+        else:
+            record_value = snapshot_record.record._asdict()[data_record_entry]
+            if attr == archive.OBJ_ID:
+                try:
+                    return pretty_type_string(historian.get_obj_type(record_value))
+                except TypeError:
+                    pass
+            return str(record_value)
 
         state = snapshot_record.snapshot
 

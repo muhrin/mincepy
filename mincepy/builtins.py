@@ -182,7 +182,7 @@ class BaseFile(Archivable, metaclass=ABCMeta):
         """Open returning a file like object that supports close() and read()"""
 
     def __str__(self):
-        contents = [self._filename]
+        contents = [str(self._filename)]
         if self._encoding is not None:
             contents.append("({})".format(self._encoding))
         return " ".join(contents)
