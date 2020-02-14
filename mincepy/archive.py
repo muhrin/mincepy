@@ -20,12 +20,11 @@ VERSION = 'version'
 STATE = 'state'
 SNAPSHOT_HASH = 'snapshot_hash'
 SNAPSHOT_TIME = 'snapshot_time'
+EXTRAS = 'extras'
 
 DELETED = '!!deleted'
 
 IdT = typing.TypeVar('IdT')  # The archive ID type
-
-REF_KEY = '!!ref'
 
 
 class Ref(typing.Generic[IdT], types.SavableObject):
@@ -82,6 +81,7 @@ class DataRecord(
                 STATE,  # The saved state of the object
                 SNAPSHOT_HASH,  # The hash of the state
                 SNAPSHOT_TIME,  # The time this snapshot was created
+                EXTRAS,  # Additional data stored with the snapshot
             ))):
     """An immutable record that describes a snapshot of an object"""
 
@@ -93,6 +93,7 @@ class DataRecord(
             CREATED_BY: None,
             COPIED_FROM: None,
             SNAPSHOT_TIME: None,
+            EXTRAS: None,
         }
 
     @classmethod

@@ -59,45 +59,6 @@ def test_create_delete_load(historian: mincepy.Historian):
     assert loaded_car.colour == 'red'
 
 
-def test_track(historian: mincepy.Historian):
-
-    @mincepy.track
-    def put_car_in_garage(car: Car, garage: Garage):
-        garage.car = car
-        return garage
-
-    mincepy.set_historian(historian)
-
-    ferrari = Car('ferrari', 'red')
-    garage = Garage()
-    put_car_in_garage(ferrari, garage)
-    assert garage.car is ferrari
-
-
-def test_track_method(historian: mincepy.Historian):
-
-    class CarFactory(mincepy.builtins.Archivable):
-        TYPE_ID = uuid.UUID('166a9446-c04e-4fbe-a3da-6f36c2f8292d')
-        ATTRS = ('_make',)
-
-        def __init__(self, make):
-            super(CarFactory, self).__init__()
-            self._make = make
-
-        @mincepy.track
-        def build(self):
-            return Car(self._make)
-
-    mincepy.set_historian(historian)
-
-    car_factory = CarFactory('zonda')
-    car = car_factory.build()
-
-    build_call = next(historian.find(mincepy.FunctionCall, limit=1))
-    assert build_call.args[0] is car_factory
-    assert build_call.result() is car
-
-
 # def test_save_as(historian: mincepy.Historian):
 #     """Check the save_as functionality in historian"""
 #     car = Car('ferrari')

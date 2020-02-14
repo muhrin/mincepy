@@ -1,15 +1,26 @@
 import contextlib
+import functools
 import uuid
 
 import mincepy.builtins
 
-__all__ = ('Process',)
+__all__ = 'Process', 'track'
+
+
+def track(func):
+
+    @functools.wraps(func)
+    def wrapper(self, *args, **kwargs):
+        with self.running():
+            return func(self, *args, **kwargs)
+
+    return wrapper
 
 
 class Process(mincepy.builtins.Archivable):
     TYPE_ID = uuid.UUID('bcf03171-a1f1-49c7-b890-b7f9d9f9e5a2')
     STACK = []
-    ATTRS = ('_name', '_running')
+    ATTRS = '_name', '_running'
 
     @classmethod
     def current_process(cls):

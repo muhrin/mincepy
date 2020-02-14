@@ -2,7 +2,7 @@ import pytest
 
 import mincepy
 
-from mincepy.testing import Car
+from mincepy.testing import *
 
 
 def test_basic_save_process(historian: mincepy.Historian):
@@ -82,3 +82,21 @@ def test_saving_creator_that_owns_child(historian: mincepy.Historian):
     with test_proc.running():
         test_proc.child = mincepy.ObjRef(Car())
         historian.save(test_proc)
+
+
+def test_process_track(historian: mincepy.Historian):
+
+    class TestProc(mincepy.Process):
+
+        @mincepy.track
+        def execute(self):
+            return mincepy.builtins.RefList([Car()])
+
+    proc = TestProc('test process')
+    car_list = proc.execute()
+    historian.save(car_list)
+    proc_id = historian.get_obj_id(proc)
+
+    assert proc_id is not None
+    assert historian.get_current_record(car_list).created_by == proc_id
+    assert historian.get_current_record(car_list[0]).created_by == proc_id
