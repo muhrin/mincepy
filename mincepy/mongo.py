@@ -150,7 +150,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
              snapshot_hash=None,
              meta=None,
              limit=0,
-             _sort=None,
+             sort=None,
              skip=0):
         pipeline = self._get_pipeline(obj_id=obj_id,
                                       type_id=type_id,
@@ -159,14 +159,21 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                                       version=version,
                                       state=state,
                                       snapshot_hash=snapshot_hash,
-                                      meta=meta,
-                                      _sort=_sort)
+                                      meta=meta)
 
         if skip:
             pipeline.append({'$skip': skip})
 
         if limit:
             pipeline.append({'$limit': limit})
+
+        if sort:
+            if not isinstance(sort, dict):
+                sort_dict = {sort: 1}
+            else:
+                sort_dict = sort
+            sort_dict = self._remap(sort_dict)
+            pipeline.append({'$sort': sort_dict})
 
         results = self._data_collection.aggregate(pipeline)
 
@@ -182,8 +189,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
               state=None,
               snapshot_hash=None,
               meta=None,
-              limit=0,
-              _sort=None):
+              limit=0):
         mfilter = {}
         if obj_id is not None:
             mfilter['obj_id'] = obj_id
@@ -235,8 +241,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                       version=-1,
                       state=None,
                       snapshot_hash=None,
-                      meta=None,
-                      _sort=None):
+                      meta=None):
         """Get a pipeline that would perform the given search.  Can be used directly in an aggregate call"""
         mfilter = {}
         if obj_id is not None:
@@ -355,6 +360,15 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
             return [self._decode_state(item) for item in entry]
 
         return entry
+
+    def _remap(self, record_dict: dict) -> dict:
+        """Given a dictionary return a new dictionary with the key names that we use"""
+        remapped = {}
+        for key, value in record_dict.items():
+            split_key = key.split('.')
+            split_key[0] = self.KEY_MAP[split_key[0]]
+            remapped['.'.join(split_key)] = value
+        return remapped
 
 
 class GridFsFile(builtins.BaseFile):

@@ -169,6 +169,7 @@ class MincepyWidget(QtWidgets.QWidget):
         panel = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         entries_view = QtWidgets.QTableView(panel)
+        entries_view.setSortingEnabled(True)
         entries_view.setModel(entries_table)
 
         record_tree = tree_models.RecordTree(panel)

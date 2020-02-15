@@ -321,13 +321,22 @@ class Historian:
 
     # endregion
 
-    def find(self, obj_type=None, criteria=None, version=-1, meta=None, limit=0, skip=0, as_objects=True):
+    def find(self,
+             obj_type=None,
+             criteria: dict = None,
+             version: int = -1,
+             meta: dict = None,
+             sort=None,
+             limit=0,
+             skip=0,
+             as_objects=True):
         """Find entries in the archive
 
         :param obj_type: the object type to look for
         :param criteria: the criteria on the state of the object to apply
         :param version: the version of the object to retrieve, -1 means latests
         :param meta: the search criteria to apply on the metadata of the object
+        :param sort: the sort criteria
         :param limit: the maximum number of results to return, 0 means unlimited
         :param skip: the page to get results from
         :param as_objects: if True returns the live object instances, False returns the DataRecords
@@ -342,6 +351,7 @@ class Historian:
                                      state=criteria,
                                      version=version,
                                      meta=meta,
+                                     sort=sort,
                                      limit=limit,
                                      skip=skip)
         if as_objects:

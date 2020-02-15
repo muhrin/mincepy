@@ -9,11 +9,11 @@ import uuid
 from . import types
 from . import utils
 
-__all__ = 'Archive', 'DataRecord', 'Ref'
+__all__ = 'Archive', 'DataRecord', 'Ref', 'OBJ_ID', 'TYPE_ID', 'CREATION_TIME', 'VERSION', \
+          'STATE', 'SNAPSHOT_HASH', 'SNAPSHOT_TIME', 'EXTRAS', 'ASCENDING', 'DESCENDING'
 
 OBJ_ID = 'obj_id'
 TYPE_ID = 'type_id'
-COPIED_FROM = 'copied_from'
 CREATION_TIME = 'creation_time'
 VERSION = 'version'
 STATE = 'state'
@@ -179,6 +179,11 @@ class DataRecord(
 def make_deleted_record(last_record: DataRecord) -> DataRecord:
     """Get a record that represents the deletion of this object"""
     return last_record.child_builder(state=DELETED, snapshot_hash=None).build()
+
+
+# Sort options
+ASCENDING = 1
+DESCENDING = -1
 
 
 class Archive(typing.Generic[IdT], metaclass=ABCMeta):

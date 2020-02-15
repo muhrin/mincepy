@@ -36,3 +36,15 @@ def test_find_skip(historian: mincepy.Historian):
         makes.remove(results[1].make)
 
     assert not makes
+
+
+def test_simple_sort(historian: mincepy.Historian):
+    cars = mincepy.builtins.RefList()
+    for idx in range(10):
+        cars.append(Car(idx))
+
+    historian.save(cars)
+    results = list(historian.find(Car, sort=mincepy.CREATION_TIME, as_objects=False))
+    for idx, result in enumerate(results[1:]):
+        # No need to subtract 1 from idx as we're already one behind because of the slicing
+        assert result.creation_time >= results[idx].creation_time

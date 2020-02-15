@@ -55,12 +55,14 @@ class DbModel(QObject):
 class DataRecordQueryModel(QtCore.QAbstractTableModel):
     # Signals
     type_restriction_changed = Signal(object)
+    sort_changed = Signal(dict)
 
     def __init__(self, db_model: DbModel, parent=None):
         super().__init__(parent)
         self._db_model = db_model
         self._query = {}
         self._results = None
+        self._sort = None
         self._type_restriction = None
 
         # Exclude obj_id which is a column header
@@ -85,14 +87,26 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
         self._invalidate_results()
 
     def set_type_restriction(self, type_id):
-        update = self._type_restriction != type_id
+        if type_id == self._type_restriction:
+            return
+
         self._type_restriction = type_id
-        if update:
-            self._invalidate_results()
-            self.type_restriction_changed.emit(self._type_restriction)
+        self._invalidate_results()
+        self.type_restriction_changed.emit(self._type_restriction)
 
     def get_type_restriction(self):
         return self._type_restriction
+
+    def set_sort(self, sort):
+        if sort == self._sort:
+            return
+
+        self._sort = sort
+        self._invalidate_results()
+        self.sort_changed.emit(self._sort)
+
+    def get_sort(self):
+        return self._sort
 
     def get_records(self):
         self._ensure_results_current()
@@ -142,6 +156,8 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
             query = self._query.copy()
             if self._type_restriction is not None:
                 query['obj_type'] = self._type_restriction
+            if self._sort is not None:
+                query['sort'] = self._sort
             self._results = list(self._db_model.historian.find(**query, as_objects=False))
 
     def _invalidate_results(self):
@@ -231,6 +247,19 @@ class EntriesTable(QtCore.QAbstractTableModel):
                 pass
 
         return None
+
+    def sort(self, column: int, order: PySide2.QtCore.Qt.SortOrder = ...):
+        column_name = self._columns[column]
+        try:
+            sort_criterion = DATA_RECORD_MAPPING[column_name]
+        except KeyError:
+            if self._show_objects:
+                # We can't deal with sorting objects at the moment
+                return
+            sort_criterion = "state.{}".format(column_name)
+
+        sort_dict = {sort_criterion: mincepy.ASCENDING if order == Qt.AscendingOrder else mincepy.DESCENDING}
+        self._query_model.set_sort(sort_dict)
 
     def _invalidate(self):
         self.beginResetModel()
