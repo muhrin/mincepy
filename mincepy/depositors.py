@@ -176,7 +176,7 @@ class LiveDepositor(Saver, Loader):
                 except exceptions.NotFound:
                     pass
                 else:
-                    builder.created_by = self.ref(creator).obj_id
+                    builder.extras[archive.ExtraKeys.CREATED_BY] = self.ref(creator).obj_id
 
             # Now ask the object to save itself and create the record
             if historian.is_primitive(obj):

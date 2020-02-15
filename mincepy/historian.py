@@ -359,17 +359,19 @@ class Historian:
             except KeyError:
                 pass
 
-        creator_id = self.created_in(obj_or_identifier)
+        creator_id = self.created_by(obj_or_identifier)
         return self.load_object(creator_id)
 
-    def created_in(self, obj_or_identifier):
+    def created_by(self, obj_or_identifier):
         """Return the id of the object that created the passed object"""
         try:
-            return self.get_current_record(obj_or_identifier).created_by
+            record = self.get_current_record(obj_or_identifier)
         except exceptions.NotFound:
-            if self.is_obj_id(obj_or_identifier):
-                return self._archive.load(self._get_latest_snapshot_reference(obj_or_identifier)).created_by
-            raise
+            if not self.is_obj_id(obj_or_identifier):
+                raise
+            record = self._archive.load(self._get_latest_snapshot_reference(obj_or_identifier))
+
+        return record.created_by
 
     @contextlib.contextmanager
     def transaction(self):

@@ -13,7 +13,6 @@ __all__ = 'Archive', 'DataRecord', 'Ref'
 
 OBJ_ID = 'obj_id'
 TYPE_ID = 'type_id'
-CREATED_BY = 'created_by'
 COPIED_FROM = 'copied_from'
 CREATION_TIME = 'creation_time'
 VERSION = 'version'
@@ -21,6 +20,12 @@ STATE = 'state'
 SNAPSHOT_HASH = 'snapshot_hash'
 SNAPSHOT_TIME = 'snapshot_time'
 EXTRAS = 'extras'
+
+
+class ExtraKeys:
+    CREATED_BY = 'created_by'  # The ID of the process the data was created in
+    COPIED_FROM = 'copied_from'  # The reference to the snapshot that this object was copied from
+
 
 DELETED = '!!deleted'
 
@@ -74,8 +79,6 @@ class DataRecord(
                 OBJ_ID,  # The ID of the object (spanning all snapshots)
                 TYPE_ID,  # The type ID of this object
                 CREATION_TIME,  # The time this object was created
-                CREATED_BY,  # The ID of the process the data was created in
-                COPIED_FROM,  # The reference to the snapshot that this object was copied from
                 # Snapshot properties
                 VERSION,  # The ID of this particular snapshot of the object
                 STATE,  # The saved state of the object
@@ -87,13 +90,11 @@ class DataRecord(
 
     @classmethod
     def defaults(cls) -> dict:
-        """Returns a dictionary of default values, the caller owns the ditionary and is free to modify it"""
+        """Returns a dictionary of default values, the caller owns the dict and is free to modify it"""
         return {
             CREATION_TIME: None,
-            CREATED_BY: None,
-            COPIED_FROM: None,
             SNAPSHOT_TIME: None,
-            EXTRAS: None,
+            EXTRAS: {},
         }
 
     @classmethod
@@ -108,6 +109,11 @@ class DataRecord(
         values.update(kwargs)
         return utils.NamedTupleBuilder(cls, values)
 
+    @property
+    def created_by(self):
+        """Convenience property to get the creator from the extras"""
+        return self.get_extra(ExtraKeys.CREATED_BY)
+
     def is_deleted_record(self):
         """Does this record represent the object having been deleted"""
         return self.state == DELETED
@@ -118,10 +124,15 @@ class DataRecord(
 
     def get_copied_from(self) -> Ref:
         """Get the reference of the data record this object was originally copied from"""
-        if self.copied_from is None:
+        obj_ref = self.get_extra(ExtraKeys.COPIED_FROM)
+        if obj_ref is None:
             return None
 
-        return Ref(*self.copied_from)
+        return Ref(*obj_ref)
+
+    def get_extra(self, name):
+        """Convenience function to get an extra from the record, returns None if the extra doesn't exist"""
+        return self.extras.get(name, None)
 
     def copy_builder(self, **kwargs) -> utils.NamedTupleBuilder:
         """Get a copy builder from this DataRecord instance.  The following attributes will be copied over:
@@ -137,9 +148,9 @@ class DataRecord(
             STATE: copy.deepcopy(self.state),
             SNAPSHOT_HASH: self.snapshot_hash,
             VERSION: 0,
-            COPIED_FROM: self.get_reference().save_instance_state(None),
             SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
         })
+        defaults[EXTRAS][ExtraKeys.COPIED_FROM] = self.get_reference().save_instance_state(None)
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
 
@@ -157,9 +168,9 @@ class DataRecord(
             OBJ_ID: self.obj_id,
             TYPE_ID: self.type_id,
             CREATION_TIME: self.creation_time,
-            CREATED_BY: self.created_by,
             VERSION: self.version + 1,
-            SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now)
+            SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
+            EXTRAS: self.extras.copy(),
         })
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)

@@ -11,15 +11,15 @@ def test_basic_save_process(historian: mincepy.Historian):
     with proc.running():
         car = Car('nissan', 'white')
         car_id = historian.save(car)
-    assert historian.created_in(car) == pid
+    assert historian.created_by(car) == pid
 
     second_car = Car('ford')
     historian.save(second_car)
-    assert historian.created_in(second_car) is None
+    assert historian.created_by(second_car) is None
 
     # Now check we can get the creator id from the object id
     del car
-    assert historian.created_in(car_id) == pid
+    assert historian.created_by(car_id) == pid
 
 
 def test_save_after_creation(historian: mincepy.Historian):
@@ -34,7 +34,7 @@ def test_save_after_creation(historian: mincepy.Historian):
 
     # Save it
     historian.save(car)
-    created_in = historian.created_in(car)
+    created_in = historian.created_by(car)
     assert created_in is not None
     assert created_in == historian.get_current_record(proc).obj_id
 
