@@ -66,7 +66,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
         self._type_restriction = None
 
         # Exclude obj_id which is a column header
-        self._column_names = mincepy.DataRecord._fields[1:]
+        self._column_names = mincepy.DataRecord._fields
         # If the historian changes then we get invalidated
         self._db_model.historian_changed.connect(lambda hist: self._invalidate_results())
 
@@ -116,10 +116,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
         self._invalidate_results()
 
     def rowCount(self, _parent: QtCore.QModelIndex = QModelIndex()) -> int:
-        self._ensure_results_current()
-
-        if self._results is None:
-            self._update_results()
+        # self._ensure_results_current()
 
         return len(self._results)
 
@@ -135,7 +132,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
         self._ensure_results_current()
 
-        return str(self._results[section].obj_id)
+        return str(self._results[section])
 
     def data(self, index: PySide2.QtCore.QModelIndex, role: int = ...) -> typing.Any:
         self._ensure_results_current()
@@ -168,7 +165,12 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
 
 class EntriesTable(QtCore.QAbstractTableModel):
-    ARCHIVE_COLUMNS = (archive.TYPE_ID, archive.CREATION_TIME, archive.SNAPSHOT_TIME, archive.VERSION, archive.STATE)
+    ARCHIVE_COLUMNS = (archive.OBJ_ID,
+                       archive.TYPE_ID,
+                       archive.CREATION_TIME,
+                       archive.SNAPSHOT_TIME,
+                       archive.VERSION,
+                       archive.STATE)
     DEFAULT_COLUMNS = [DATA_RECORD_MAPPING.inverse[label] for label in ARCHIVE_COLUMNS]
 
     def __init__(self, query_model: DataRecordQueryModel, parent=None):
@@ -224,10 +226,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
                 return None
             return self._columns[section]
 
-        if section > len(self._snapshots):
-            return None
-
-        return str(self._snapshots[section].record.obj_id)
+        return None
 
     def data(self, index: PySide2.QtCore.QModelIndex, role: int = ...) -> typing.Any:
         self._ensure_results_current()
