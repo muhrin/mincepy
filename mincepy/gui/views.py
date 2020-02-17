@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from PySide2 import QtCore, QtWidgets
 from PySide2.QtCore import Signal
 
@@ -133,17 +135,19 @@ class MincepyWidget(QtWidgets.QWidget):
             mincepy.set_historian(historian)
             return historian
 
+        self._executor = ThreadPoolExecutor()
+
         self._create_historian_callback = create_historian_callback or default_create_historian
 
         # The model
         self._db_model = models.DbModel()
-        self._data_records = models.DataRecordQueryModel(self._db_model, self)
+        self._data_records = models.DataRecordQueryModel(self._db_model, executor=self._executor, parent=self)
 
         # Set up the connect panel of the GUI
         connect_panel = ConnectionWidget(default_connect_uri, self)
         connect_panel.connection_requested.connect(self._connect)
 
-        self._entries_table = models.EntriesTable(self._data_records, self)
+        self._entries_table = models.EntriesTable(self._data_records, parent=self)
 
         control_panel = FilterControlPanel(self._entries_table, self)
 
@@ -172,13 +176,15 @@ class MincepyWidget(QtWidgets.QWidget):
         entries_view.setSortingEnabled(True)
         entries_view.setModel(entries_table)
 
-        record_tree = tree_models.RecordTree(panel)
+        record_tree = tree_models.RecordTree(parent=panel)
         record_tree_view = QtWidgets.QTreeView(panel)
         record_tree_view.setModel(record_tree)
 
         def row_changed(current, _previous):
-            record = self._entries_table.get_snapshot_record(current.row())
-            record_tree.set_data_snapshot(record)
+            entries_table = self._entries_table
+            record = entries_table.get_record(current.row())
+            snapshot = entries_table.get_snapshot(current.row())
+            record_tree.set_record(record, snapshot)
 
         entries_view.selectionModel().currentRowChanged.connect(row_changed)
 

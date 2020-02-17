@@ -8,7 +8,8 @@ import PySide2
 from PySide2 import QtCore
 from PySide2.QtCore import QModelIndex, Qt
 
-from .models import SnapshotRecord, pretty_type_string
+import mincepy
+from .models import pretty_type_string
 
 
 class BaseTreeItem(metaclass=ABCMeta):
@@ -108,12 +109,12 @@ class LazyMappingItem(BaseTreeItem):
 
 
 class RecordTree(QtCore.QAbstractItemModel):
-    COLUMN_HEDARES = ('Property', 'Type', 'Value')
+    COLUMN_HEDARES = 'Property', 'Type', 'Value'
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self._root_item = DataTreeItem(self.COLUMN_HEDARES)
-        self._data_record = None
+        self._data_record = None  # type: typing.Optional[mincepy.DataRecord]
 
     def index(self, row: int, column: int, parent: PySide2.QtCore.QModelIndex = ...) -> \
             PySide2.QtCore.QModelIndex:
@@ -180,15 +181,17 @@ class RecordTree(QtCore.QAbstractItemModel):
 
         return None
 
-    def set_data_snapshot(self, snapshot_record: SnapshotRecord):
+    def set_record(self, record: mincepy.DataRecord, obj=None):
+        """Set the data to visualise, the object instance can optionally be provided"""
         self.beginResetModel()
-        self._data_record = snapshot_record
+        self._data_record = record
         # Now build the three
         if self._data_record is None:
             self._root_item = DataTreeItem(self.COLUMN_HEDARES)
         else:
-            tree_dict = snapshot_record.record._asdict()
-            tree_dict['state'] = snapshot_record.snapshot
+            tree_dict = record._asdict()
+            if obj is not None:
+                tree_dict['obj'] = obj
             self._root_item = LazyMappingItem(self.COLUMN_HEDARES, tree_dict, self._item_builder, len(tree_dict))
         self.endResetModel()
 
