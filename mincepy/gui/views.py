@@ -1,9 +1,11 @@
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, Future
+from functools import partial
 
 from PySide2 import QtCore, QtWidgets
 from PySide2.QtCore import Signal
 
 import mincepy
+from . import common
 from . import models
 from . import tree_models
 
@@ -106,9 +108,16 @@ class FilterControlPanel(QtWidgets.QWidget):
 class ConnectionWidget(QtWidgets.QWidget):
     # Signals
     connection_requested = Signal(str)
+    historian_created = Signal(mincepy.Historian)
 
-    def __init__(self, default_connect_uri='', parent=None):
+    def __init__(self, default_connect_uri='',
+                 create_historian_callback=common.default_create_historian,
+                 executor=common.default_executor,
+                 parent=None):
         super().__init__(parent)
+        self._executor = executor
+        self._create_historian = create_historian_callback
+
         self._connection_string = QtWidgets.QLineEdit(self)
         self._connection_string.setText(default_connect_uri)
         self._connect_button = QtWidgets.QPushButton('Connect', self)
@@ -121,31 +130,42 @@ class ConnectionWidget(QtWidgets.QWidget):
         self._connect_button.clicked.connect(self._connect_pushed)
 
     def _connect_pushed(self):
-        string = self._connection_string.text()
-        self.connection_requested.emit(string)
+        uri = self._connection_string.text()
+        self._executor(partial(self._connect, uri, ), "Connecting", blocking=True)
+
+    def _connect(self, uri):
+        try:
+            historian = self._create_historian(uri)
+        except Exception as exc:
+            err_msg = "Error creating historian with uri '{}':\n{}".format(uri, exc)
+            raise RuntimeError(err_msg)
+        else:
+            self.historian_created.emit(historian)
+
+        return "Connected to {}".format(uri)
 
 
 class MincepyWidget(QtWidgets.QWidget):
 
-    def __init__(self, default_connect_uri='', create_historian_callback=None):
+    def __init__(self, default_connect_uri='', create_historian_callback=common.default_create_historian,
+                 executor=common.default_executor):
         super().__init__()
 
-        def default_create_historian(uri) -> mincepy.Historian:
-            historian = mincepy.create_historian(uri)
-            mincepy.set_historian(historian)
-            return historian
-
-        self._executor = ThreadPoolExecutor()
-
-        self._create_historian_callback = create_historian_callback or default_create_historian
+        self._create_historian_callback = create_historian_callback
 
         # The model
         self._db_model = models.DbModel()
-        self._data_records = models.DataRecordQueryModel(self._db_model, executor=self._executor, parent=self)
+        self._data_records = models.DataRecordQueryModel(self._db_model,
+                                                         executor=executor,
+                                                         parent=self)
 
         # Set up the connect panel of the GUI
-        connect_panel = ConnectionWidget(default_connect_uri, self)
-        connect_panel.connection_requested.connect(self._connect)
+        connect_panel = ConnectionWidget(default_connect_uri,
+                                         create_historian_callback=create_historian_callback,
+                                         executor=executor,
+                                         parent=self)
+
+        connect_panel.historian_created.connect(self._historian_created)
 
         self._entries_table = models.EntriesTable(self._data_records, parent=self)
 
@@ -161,13 +181,8 @@ class MincepyWidget(QtWidgets.QWidget):
     def db_model(self):
         return self._db_model
 
-    def _connect(self, uri):
-        try:
-            historian = self._create_historian_callback(uri)
-            self._db_model.historian = historian
-        except Exception as exc:
-            err_msg = "Error creating historian with uri '{}':\n{}".format(uri, exc)
-            QtWidgets.QErrorMessage(self).showMessage(err_msg)
+    def _historian_created(self, historian):
+        self._db_model.historian = historian
 
     def _create_display_panel(self, entries_table: models.EntriesTable):
         panel = QtWidgets.QSplitter(QtCore.Qt.Vertical)
@@ -192,3 +207,50 @@ class MincepyWidget(QtWidgets.QWidget):
         panel.addWidget(record_tree_view)
 
         return panel
+
+
+class MainWindow(QtWidgets.QMainWindow):
+    def __init__(self, default_connect_uri='', create_historian_callback=None):
+        super().__init__()
+        self._executor = ThreadPoolExecutor()
+        self._tasks = []
+
+        self._main_widget = MincepyWidget(
+            default_connect_uri,
+            create_historian_callback,
+            self._execute)
+        self.setCentralWidget(self._main_widget)
+
+        self._create_status_bar()
+
+        self._task_done_signal.connect(self._task_done)
+
+    def _create_status_bar(self):
+        self.statusBar().showMessage('Ready')
+
+    def _execute(self, func, msg=None, blocking=False) -> Future:
+        future = self._executor.submit(func)
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor if blocking else QtCore.Qt.BusyCursor)
+        self._tasks.append(future)
+        future.add_done_callback(self._task_done_signal.emit)
+        if msg is not None:
+            self.statusBar().showMessage(msg)
+
+        return future
+
+    _task_done_signal = Signal(Future)
+
+    @QtCore.Slot(Future)
+    def _task_done(self, future):
+        self._tasks.remove(future)
+        QtWidgets.QApplication.restoreOverrideCursor()
+
+        if not self._tasks:
+            self.statusBar().clearMessage()
+
+        try:
+            new_msg = future.result()
+            if new_msg is not None:
+                self.statusBar().showMessage(new_msg, 1000)
+        except Exception as exc:
+            QtWidgets.QErrorMessage(self).showMessage(str(exc))

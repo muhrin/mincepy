@@ -1,5 +1,5 @@
 from collections import namedtuple
-from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 import logging
 import typing
 
@@ -10,6 +10,7 @@ from PySide2.QtCore import QObject, Signal, Qt, QModelIndex
 
 import mincepy
 from mincepy import archive
+from . import common
 
 __all__ = 'DbModel', 'SnapshotRecord'
 
@@ -60,7 +61,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
     type_restriction_changed = Signal(object)
     sort_changed = Signal(dict)
 
-    def __init__(self, db_model: DbModel, executor=None, parent=None):
+    def __init__(self, db_model: DbModel, executor=common.default_executor, parent=None):
         super().__init__(parent)
         self._db_model = db_model
         self._query = {}
@@ -70,7 +71,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
         self._column_names = mincepy.DataRecord._fields
         self._update_future = None
 
-        self._executor = executor or ThreadPoolExecutor()
+        self._executor = executor
         self._new_results.connect(self._inject_results)
 
         # If the historian changes then we get invalidated
@@ -156,7 +157,10 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
                 query['sort'] = self._sort
 
             self._results = []
-            self._update_future = self._executor.submit(self._perform_query, query)
+            self._update_future = self._executor(
+                partial(self._perform_query, query),
+                msg="Querying...",
+                blocking=False)
 
     def _invalidate_results(self):
         self.beginResetModel()
@@ -278,6 +282,9 @@ class EntriesTable(QtCore.QAbstractTableModel):
             if section >= len(self._columns):
                 return None
             return self._columns[section]
+
+        if orientation == QtCore.Qt.Orientation.Vertical:
+            return str(section)
 
         return None
 
