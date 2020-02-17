@@ -110,7 +110,8 @@ class ConnectionWidget(QtWidgets.QWidget):
     connection_requested = Signal(str)
     historian_created = Signal(mincepy.Historian)
 
-    def __init__(self, default_connect_uri='',
+    def __init__(self,
+                 default_connect_uri='',
                  create_historian_callback=common.default_create_historian,
                  executor=common.default_executor,
                  parent=None):
@@ -155,9 +156,7 @@ class MincepyWidget(QtWidgets.QWidget):
 
         # The model
         self._db_model = models.DbModel()
-        self._data_records = models.DataRecordQueryModel(self._db_model,
-                                                         executor=executor,
-                                                         parent=self)
+        self._data_records = models.DataRecordQueryModel(self._db_model, executor=executor, parent=self)
 
         # Set up the connect panel of the GUI
         connect_panel = ConnectionWidget(default_connect_uri,
@@ -215,10 +214,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self._executor = ThreadPoolExecutor()
         self._tasks = []
 
-        self._main_widget = MincepyWidget(
-            default_connect_uri,
-            create_historian_callback,
-            self._execute)
+        self._main_widget = MincepyWidget(default_connect_uri, create_historian_callback, self._execute)
         self.setCentralWidget(self._main_widget)
 
         self._create_status_bar()

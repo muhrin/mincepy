@@ -157,10 +157,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
                 query['sort'] = self._sort
 
             self._results = []
-            self._update_future = self._executor(
-                partial(self._perform_query, query),
-                msg="Querying...",
-                blocking=False)
+            self._update_future = self._executor(partial(self._perform_query, query), msg="Querying...", blocking=False)
 
     def _invalidate_results(self):
         self.beginResetModel()
