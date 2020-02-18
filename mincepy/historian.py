@@ -128,8 +128,18 @@ class Historian:
     def load_snapshot(self, reference: records.Ref) -> Any:
         return depositors.SnapshotLoader(self).load(reference)
 
-    def load(self, obj_id_or_ref):
-        """Load an object or snapshot."""
+    def load(self, *obj_ids_or_refs):
+        """Load object(s) or snapshot(s)."""
+        loaded = []
+        for entry in obj_ids_or_refs:
+            loaded.append(self.load_one(entry))
+
+        if len(obj_ids_or_refs) == 1:
+            return loaded[0]
+
+        return loaded
+
+    def load_one(self, obj_id_or_ref):
         if isinstance(obj_id_or_ref, records.Ref):
             return self.load_snapshot(obj_id_or_ref)
 

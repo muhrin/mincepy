@@ -1,6 +1,7 @@
 import functools
 import uuid
 
+from . import base_savable
 from . import builtins
 from . import history
 from . import refs
@@ -12,7 +13,7 @@ class InvalidStateError(Exception):
     pass
 
 
-class FunctionCall(builtins.Archivable):
+class FunctionCall(base_savable.BaseSavableObject):
     TYPE_ID = uuid.UUID('dcacc483-c650-432e-b835-122f78e7a758')
     ATTRS = ('_function', '_args', '_kwargs', '_result', '_exception', '_done')
 

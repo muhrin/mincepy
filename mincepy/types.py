@@ -7,14 +7,14 @@ try:  # Python3
 except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 
-__all__ = ('Equator', 'SavableObject')
+__all__ = 'Savable', 'Comparable', 'Object', 'SavableObject', 'PRIMITIVE_TYPES'
 
 # The primitives that all archive types must support
 PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID, datetime.datetime)
 
 
 class Savable(metaclass=ABCMeta):
-    """An object that can save an load its instance state"""
+    """Interface for an object that can save an load its instance state"""
     TYPE_ID = None
 
     def __init__(self):
@@ -30,7 +30,7 @@ class Savable(metaclass=ABCMeta):
 
 
 class Comparable(metaclass=ABCMeta):
-    """An object that can be compared and hashed"""
+    """Interface for an object that can be compared and hashed"""
 
     @abstractmethod
     def __eq__(self, other) -> bool:
@@ -49,11 +49,6 @@ class Object(Comparable, metaclass=ABCMeta):
         historian = history.get_historian()
         if historian is not None:
             historian.created(self)
-
-
-class Primitive(Object, metaclass=ABCMeta):
-    """Primitives are types that are comparable but not encodable through save_instance_state.
-    They must be accepted directly by the archive"""
 
 
 class SavableObject(Object, Savable, metaclass=ABCMeta):

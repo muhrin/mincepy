@@ -11,7 +11,7 @@ from mincepy.testing import Car, Person
 def test_path_helper(historian: mincepy.Historian):
     historian.register_type(mincepy.common_helpers.PathHelper())
 
-    class File(mincepy.builtins.Archivable):
+    class File(mincepy.BaseSavableObject):
         TYPE_ID = uuid.UUID('8d645bb8-4657-455b-8b61-8613bc8a0acf')
         ATTRS = ('file',)
 

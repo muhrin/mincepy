@@ -3,59 +3,14 @@ import collections
 from typing import BinaryIO, Optional
 import uuid
 
+from . import base_savable
 from . import depositors
 from . import refs
-from . import types
 
 __all__ = 'List', 'Str', 'Dict', 'BaseFile'
 
 
-class Archivable(types.SavableObject):
-    """A helper class that makes a class compatible with the historian by flagging certain
-    attributes which will be saved/loaded/hashed and compared in __eq__.  This should be an
-    exhaustive list of all the attributes that define this class.  If more complex functionality
-    is needed then the standard SavableComparable interface methods should be overwritten."""
-    ATTRS = tuple()
-    IGNORE_MISSING = True
-
-    def __new__(cls, *_args, **_kwargs):
-        new_instance = super(Archivable, cls).__new__(cls)
-        attrs = []
-        for entry in cls.__mro__:
-            try:
-                local = getattr(entry, 'ATTRS')
-                attrs.extend(local)
-            except AttributeError:
-                pass
-        setattr(new_instance, '__attrs', attrs)
-        setattr(new_instance, '__to_deref', [])
-        return new_instance
-
-    def __eq__(self, other):
-        if not isinstance(other, type(self)):
-            return False
-
-        return all(getattr(self, name) == getattr(other, name) for name in self.__get_attrs())
-
-    def yield_hashables(self, hasher):
-        yield from hasher.yield_hashables([getattr(self, name) for name in self.__get_attrs()])
-
-    def save_instance_state(self, _saver):
-        return {name: getattr(self, name) for name in self.__get_attrs()}
-
-    def load_instance_state(self, saved_state, _loader):
-        for name in self.__get_attrs():
-            try:
-                setattr(self, name, saved_state[name])
-            except KeyError:
-                if not self.IGNORE_MISSING:
-                    raise
-
-    def __get_attrs(self):
-        return getattr(self, '__attrs')
-
-
-class _UserType(Archivable):
+class _UserType(base_savable.BaseSavableObject):
     """Mixin for helping user types to be compatible with the historian.
     These typically have a .data member that stores the actual data (list, dict, str, etc)"""
     ATTRS = ('data',)
@@ -92,7 +47,7 @@ class Str(collections.UserString, _UserType):
         self.data = state
 
 
-class RefList(collections.abc.MutableSequence, Archivable):
+class RefList(collections.abc.MutableSequence, base_savable.BaseSavableObject):
     """A list that stores all entries as references in the database"""
     TYPE_ID = uuid.UUID('091efff5-136d-4ac2-bd59-28f50f151263')
     ATTRS = ('_data',)
@@ -125,7 +80,7 @@ class RefList(collections.abc.MutableSequence, Archivable):
         self._data.insert(index, refs.ObjRef(value))
 
 
-class RefDict(collections.MutableMapping, Archivable):
+class RefDict(collections.MutableMapping, base_savable.BaseSavableObject):
     """A dictionary that stores all values as references in the database"""
     TYPE_ID = uuid.UUID('c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0')
     ATTRS = ('_data',)
@@ -160,7 +115,7 @@ class RefDict(collections.MutableMapping, Archivable):
         return self._data.__len__()
 
 
-class BaseFile(Archivable, metaclass=ABCMeta):
+class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):
     ATTRS = ('_filename', '_encoding')
     READ_SIZE = 256  # The number of bytes to read at a time
 

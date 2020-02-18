@@ -109,11 +109,6 @@ class Loader(Base, metaclass=ABCMeta):
         context manager.  Then loading is finished in load_instance_state.  Naturally,
         the state of the object should not be relied upon until the context exits.
         """
-        if isinstance(saved_state, types.Primitive):
-            # No decoding to be done
-            yield saved_state
-            return
-
         helper = self._historian.get_helper(type_id)
         if helper.IMMUTABLE:
             # Decode straight away

@@ -2,7 +2,7 @@ import contextlib
 import functools
 import uuid
 
-import mincepy.builtins
+from . import base_savable
 
 __all__ = 'Process', 'track'
 
@@ -17,7 +17,7 @@ def track(func):
     return wrapper
 
 
-class Process(mincepy.builtins.Archivable):
+class Process(base_savable.BaseSavableObject):
     TYPE_ID = uuid.UUID('bcf03171-a1f1-49c7-b890-b7f9d9f9e5a2')
     STACK = []
     ATTRS = '_name', '_running'

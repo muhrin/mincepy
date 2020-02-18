@@ -297,3 +297,24 @@ def test_user_info(historian: mincepy.Historian):
 
     assert record.extras[mincepy.ExtraKeys.USER] == user_info[mincepy.ExtraKeys.USER]
     assert record.extras[mincepy.ExtraKeys.HOSTNAME] == user_info[mincepy.ExtraKeys.HOSTNAME]
+
+
+def test_save_as_ref(historian: mincepy.Historian):
+
+    class Person(mincepy.BaseSavableObject):
+        ATTRS = (mincepy.AsRef('car'),)  # Save the car by reference
+
+        def __init__(self, car):
+            super().__init__()
+            self.car = car
+
+    car = Car()
+    # Both martin and sonia have the same car
+    martin = Person(car)
+    sonia = Person(car)
+    martin_id, sonia_id = historian.save(martin, sonia)
+    del martin, sonia, car
+
+    # No reload and check they still have the same car
+    martin, sonia = historian.load(martin_id, sonia_id)
+    assert martin.car is sonia.car
