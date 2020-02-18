@@ -1,5 +1,6 @@
 import uuid
 
+import mincepy.records
 from . import archive
 
 
@@ -13,8 +14,8 @@ class InMemory(archive.BaseArchive):
     def create_archive_id(self):
         return uuid.uuid4()
 
-    def save(self, record: archive.DataRecord):
+    def save(self, record: mincepy.records.DataRecord):
         self._records[record.obj_id] = record
 
-    def load(self, snapshot_id) -> archive.DataRecord:
+    def load(self, snapshot_id) -> mincepy.records.DataRecord:
         return self._records[snapshot_id]

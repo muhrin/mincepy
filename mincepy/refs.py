@@ -1,6 +1,7 @@
 """References module"""
 import uuid
 
+import mincepy.records
 from . import archive
 from . import types
 
@@ -67,7 +68,7 @@ class ObjRef(types.SavableObject):
         return {'ref': [ref.obj_id, ref.version], 'auto': self._auto}
 
     def load_instance_state(self, saved_state, loader):
-        self._ref = archive.Ref(*saved_state['ref'])
+        self._ref = mincepy.records.Ref(*saved_state['ref'])
         self._obj = None
         self._loader = loader
         self._auto = saved_state['auto']

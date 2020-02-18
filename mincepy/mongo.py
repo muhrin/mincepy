@@ -11,22 +11,22 @@ import pymongo.database
 import pymongo.errors
 
 from . import archive
-from .archive import BaseArchive, DataRecord
 from . import builtins
 from . import depositors
 from . import exceptions
 from . import helpers
+from . import records
 
 __all__ = 'MongoArchive', 'GridFsFile'
 
-OBJ_ID = archive.OBJ_ID
-TYPE_ID = archive.TYPE_ID
+OBJ_ID = records.OBJ_ID
+TYPE_ID = records.TYPE_ID
 CREATION_TIME = 'ctime'
 VERSION = 'ver'
 STATE = 'state'
 SNAPSHOT_HASH = 'hash'
 SNAPSHOT_TIME = 'stime'
-EXTRAS = archive.EXTRAS
+EXTRAS = records.EXTRAS
 
 
 class ObjectIdHelper(helpers.TypeHelper):
@@ -46,7 +46,7 @@ class ObjectIdHelper(helpers.TypeHelper):
         return obj.__init__(saved_state)
 
 
-class MongoArchive(BaseArchive[bson.ObjectId]):
+class MongoArchive(archive.BaseArchive[bson.ObjectId]):
     ID_TYPE = bson.ObjectId
 
     DATA_COLLECTION = 'data'
@@ -55,14 +55,14 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     # Here we map the data record property names onto ones in our entry format.
     # If a record property doesn't appear here it means the name says the same
     KEY_MAP = bidict({
-        archive.OBJ_ID: OBJ_ID,
-        archive.TYPE_ID: TYPE_ID,
-        archive.CREATION_TIME: CREATION_TIME,
-        archive.VERSION: VERSION,
-        archive.STATE: STATE,
-        archive.SNAPSHOT_HASH: SNAPSHOT_HASH,
-        archive.SNAPSHOT_TIME: SNAPSHOT_TIME,
-        archive.EXTRAS: EXTRAS,
+        records.OBJ_ID: OBJ_ID,
+        records.TYPE_ID: TYPE_ID,
+        records.CREATION_TIME: CREATION_TIME,
+        records.VERSION: VERSION,
+        records.STATE: STATE,
+        records.SNAPSHOT_HASH: SNAPSHOT_HASH,
+        records.SNAPSHOT_TIME: SNAPSHOT_TIME,
+        records.EXTRAS: EXTRAS,
     })
 
     META = 'meta'
@@ -79,8 +79,8 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
     def _create_indices(self):
         # Make sure that no two entries can share the same object id and version
-        self._data_collection.create_index([(self.KEY_MAP[archive.OBJ_ID], pymongo.ASCENDING),
-                                            (self.KEY_MAP[archive.VERSION], pymongo.ASCENDING)],
+        self._data_collection.create_index([(self.KEY_MAP[records.OBJ_ID], pymongo.ASCENDING),
+                                            (self.KEY_MAP[records.VERSION], pymongo.ASCENDING)],
                                            unique=True)
 
     def create_archive_id(self):  # pylint: disable=no-self-use
@@ -92,11 +92,11 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
     def get_gridfs_bucket(self) -> gridfs.GridFSBucket:
         return self._file_bucket
 
-    def save(self, record: DataRecord):
+    def save(self, record: records.DataRecord):
         self.save_many([record])
         return record
 
-    def save_many(self, records: typing.List[DataRecord]):
+    def save_many(self, records: typing.List[records.DataRecord]):
         # Generate the entries for our collection collecting the metadata that we gathered
         entries = [self._to_entry(record) for record in records]
         try:
@@ -107,14 +107,14 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
                 raise exceptions.ModificationError("You're trying to rewrite history, that's not allowed!")
             raise  # Otherwise just raise what we got
 
-    def load(self, reference: archive.Ref) -> DataRecord:
-        if not isinstance(reference, archive.Ref):
+    def load(self, reference: records.Ref) -> records.DataRecord:
+        if not isinstance(reference, records.Ref):
             raise TypeError(reference)
 
         results = list(
             self._data_collection.find({
-                self.KEY_MAP[archive.OBJ_ID]: reference.obj_id,
-                self.KEY_MAP[archive.VERSION]: reference.version,
+                self.KEY_MAP[records.OBJ_ID]: reference.obj_id,
+                self.KEY_MAP[records.VERSION]: reference.version,
             }))
         if not results:
             raise exceptions.NotFound("Snapshot id '{}' not found".format(reference))
@@ -125,7 +125,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
         if not results:
             return []
 
-        return [archive.Ref(obj_id, result[VERSION]) for result in results]
+        return [records.Ref(obj_id, result[VERSION]) for result in results]
 
     def get_meta(self, obj_id):
         assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
@@ -202,7 +202,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
             else:
                 mfilter[STATE] = state
         if snapshot_hash is not None:
-            mfilter[self.KEY_MAP[archive.SNAPSHOT_HASH]] = snapshot_hash
+            mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
         if version == -1:
             # For counting we don't care which version we get we just want there to be only 1
             # counted per obj_id so select the first
@@ -255,7 +255,7 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
             else:
                 mfilter[STATE] = state
         if snapshot_hash is not None:
-            mfilter[self.KEY_MAP[archive.SNAPSHOT_HASH]] = snapshot_hash
+            mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
         if version is not None and version != -1:
             mfilter[VERSION] = version
 
@@ -318,23 +318,23 @@ class MongoArchive(BaseArchive[bson.ObjectId]):
 
         return pipeline
 
-    def _to_record(self, entry) -> archive.DataRecord:
+    def _to_record(self, entry) -> records.DataRecord:
         """Convert a MongoDB data collection entry to a DataRecord"""
-        record_dict = DataRecord.defaults()
+        record_dict = records.DataRecord.defaults()
 
         # Invert our mapping of keys back to the data record property names and update over any defaults
         record_dict.update({recordkey: entry[dbkey] for recordkey, dbkey in self.KEY_MAP.items() if dbkey in entry})
-        decoded_state = self._decode_state(record_dict[archive.STATE])
-        record_dict[archive.STATE] = decoded_state
+        decoded_state = self._decode_state(record_dict[records.STATE])
+        record_dict[records.STATE] = decoded_state
 
-        return DataRecord(**record_dict)
+        return records.DataRecord(**record_dict)
 
-    def _to_entry(self, record: DataRecord) -> dict:
+    def _to_entry(self, record: records.DataRecord) -> dict:
         """Convert a DataRecord to a MongoDB data collection entry"""
-        defaults = DataRecord.defaults()
+        defaults = records.DataRecord.defaults()
         entry = {}
         for key, item in record._asdict().items():
-            if key == archive.STATE:
+            if key == records.STATE:
                 entry[self.KEY_MAP[key]] = self._encode_state(item)
             else:
                 # Exclude entries that have the default value

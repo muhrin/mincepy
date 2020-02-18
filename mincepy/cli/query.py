@@ -6,6 +6,7 @@ import pymongo
 from tabulate import tabulate
 
 import mincepy
+import mincepy.records
 
 
 @click.command()
@@ -35,7 +36,7 @@ UNSET = ''
 REF = 'ref'
 
 
-def print_records(records: typing.Sequence[mincepy.DataRecord], historian):
+def print_records(records: typing.Sequence[mincepy.records.DataRecord], historian):
     columns = OrderedDict()
     refs = []
     for record in records:
@@ -89,7 +90,7 @@ def get_value(title, state):
         value = state[idx]
         # Check for references
         if isinstance(value, dict) and set(value.keys()) == {'type_id', 'state'}:
-            return str(mincepy.Ref(*value['state']))
+            return str(mincepy.records.Ref(*value['state']))
 
         if len(title) > 1:
             return get_value(title[1:], value)

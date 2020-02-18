@@ -1,6 +1,8 @@
 from collections import namedtuple
 import contextlib
 import copy
+import getpass
+import socket
 import typing
 from typing import MutableMapping, Any, Optional, Mapping
 import weakref
@@ -12,6 +14,7 @@ from . import refs
 from . import exceptions
 from . import helpers
 from . import process
+from . import records
 from . import types
 from . import type_registry
 from . import utils
@@ -29,8 +32,7 @@ class Historian:
         self._equator = types.Equator(defaults.get_default_equators() + equators)
 
         # Snapshot objects -> reference. Objects that were loaded from historical snapshots
-        self._snapshots_objects = utils.WeakObjectIdDict()  # type: MutableMapping[Any, archive.Ref]
-
+        self._snapshots_objects = utils.WeakObjectIdDict()  # type: MutableMapping[Any, records.Ref]
         self._live_objects = LiveObjects()
 
         self._type_registry = type_registry.TypeRegistry()
@@ -45,6 +47,9 @@ class Historian:
         self.register_type(refs.ObjRef)
 
         self._saving_set = set()
+
+        self._user = getpass.getuser()
+        self._hostname = socket.gethostname()
 
     def get_archive(self):
         return self._archive
@@ -120,12 +125,12 @@ class Historian:
         except KeyError:
             pass
 
-    def load_snapshot(self, reference: archive.Ref) -> Any:
+    def load_snapshot(self, reference: records.Ref) -> Any:
         return depositors.SnapshotLoader(self).load(reference)
 
     def load(self, obj_id_or_ref):
         """Load an object or snapshot."""
-        if isinstance(obj_id_or_ref, archive.Ref):
+        if isinstance(obj_id_or_ref, records.Ref):
             return self.load_snapshot(obj_id_or_ref)
 
         return self.load_object(obj_id_or_ref)
@@ -135,6 +140,7 @@ class Historian:
         with self.transaction() as trans:
             record = self._save_object(obj, depositors.LiveDepositor(self))
             copy_builder = record.copy_builder(obj_id=self._archive.create_archive_id())
+            self._record_builder_created(copy_builder)
 
             # Copy the object and record
             obj_copy = copy.copy(obj)
@@ -150,14 +156,15 @@ class Historian:
         """Delete a live object"""
         record = self.get_current_record(obj)
         with self.transaction() as trans:
-            deleted_record = archive.make_deleted_record(record)
+            builder = records.make_deleted_builder(record)
+            deleted_record = self._record_builder_created(builder).build()
             trans.stage(deleted_record)
         self._live_objects.delete(obj)
 
     def history(self,
                 obj_or_obj_id,
                 idx_or_slice='*',
-                as_objects=True) -> [typing.Sequence[ObjectEntry], typing.Sequence[archive.DataRecord]]:
+                as_objects=True) -> [typing.Sequence[ObjectEntry], typing.Sequence[records.DataRecord]]:
         """
         Get a sequence of object ids and instances from the history of the given object.
 
@@ -192,7 +199,7 @@ class Historian:
     def load_object(self, obj_id):
         return self._load_object(obj_id, depositors.LiveDepositor(self))
 
-    def save_object(self, obj) -> archive.DataRecord:
+    def save_object(self, obj) -> records.DataRecord:
         return self._save_object(obj, depositors.LiveDepositor(self))
 
     # region Metadata
@@ -233,7 +240,7 @@ class Historian:
 
     # endregion
 
-    def get_current_record(self, obj) -> archive.DataRecord:
+    def get_current_record(self, obj) -> records.DataRecord:
         """Get a record for an object known to the historian"""
         trans = self.current_transaction()
         # Try the transaction first
@@ -334,7 +341,7 @@ class Historian:
 
         :param obj_type: the object type to look for
         :param criteria: the criteria on the state of the object to apply
-        :param version: the version of the object to retrieve, -1 means latests
+        :param version: the version of the object to retrieve, -1 means latest
         :param meta: the search criteria to apply on the metadata of the object
         :param sort: the sort criteria
         :param limit: the maximum number of results to return, 0 means unlimited
@@ -383,6 +390,14 @@ class Historian:
 
         return record.created_by
 
+    def get_user_info(self) -> dict:
+        user_info = {}
+        if self._user:
+            user_info[records.ExtraKeys.USER] = self._user
+        if self._hostname:
+            user_info[records.ExtraKeys.HOSTNAME] = self._hostname
+        return user_info
+
     @contextlib.contextmanager
     def transaction(self):
         """Start a new transaction.  Will be nested if there is already one underway"""
@@ -427,8 +442,8 @@ class Historian:
             return None
         return self._transactions[-1]
 
-    def _get_latest_snapshot_reference(self, obj_id) -> archive.Ref:
-        """Given an object id this will return a refernce to the latest snapshot"""
+    def _get_latest_snapshot_reference(self, obj_id) -> records.Ref:
+        """Given an object id this will return a reference to the latest snapshot"""
         try:
             return self._archive.get_snapshot_refs(obj_id)[-1]
         except IndexError:
@@ -463,7 +478,7 @@ class Historian:
                 # The one in the archive is newer, so use that
                 return depositor.load_from_record(archive_record)
 
-    def _save_object(self, obj, depositor) -> archive.DataRecord:
+    def _save_object(self, obj, depositor) -> records.DataRecord:
         with self.transaction() as trans:
             # Check if an object is already being saved in the transaction
             try:
@@ -492,6 +507,7 @@ class Historian:
                             transaction.rollback()
                         else:
                             builder = record.child_builder(snapshot_hash=current_hash)
+                            self._record_builder_created(builder)
                             record = depositor.save_from_builder(obj, builder)
 
                     return record
@@ -499,9 +515,10 @@ class Historian:
     def _create_builder(self, obj, additional=None):
         additional = additional or {}
         helper = self._ensure_compatible(obj)
-        builder = archive.DataRecord.new_builder(type_id=helper.TYPE_ID,
+        builder = records.DataRecord.new_builder(type_id=helper.TYPE_ID,
                                                  obj_id=self._archive.create_archive_id(),
                                                  version=0)
+        self._record_builder_created(builder)
         builder.update(additional)
         return builder
 
@@ -542,3 +559,8 @@ class Historian:
             yield
         finally:
             self._saving_set.remove(obj_id)
+
+    def _record_builder_created(self, builder: records.DataRecordBuilder) -> records.DataRecordBuilder:
+        """Update a data record builder with standard information."""
+        builder.extras.update(self.get_user_info())
+        return builder

@@ -2,6 +2,7 @@ from abc import ABCMeta, abstractmethod
 from contextlib import contextmanager
 from typing import Optional, MutableMapping, Any
 
+import mincepy.records
 from . import archive
 from . import exceptions
 from . import refs
@@ -30,7 +31,7 @@ class Base(metaclass=ABCMeta):
 class Saver(Base, metaclass=ABCMeta):
 
     @abstractmethod
-    def ref(self, obj) -> archive.Ref:
+    def ref(self, obj) -> mincepy.records.Ref:
         """Get a persistent reference for the given object"""
 
     def encode(self, obj):
@@ -134,7 +135,7 @@ class Loader(Base, metaclass=ABCMeta):
 class LiveDepositor(Saver, Loader):
     """Depositor with strategy that all objects that get referenced should be saved"""
 
-    def ref(self, obj) -> Optional[archive.Ref]:
+    def ref(self, obj) -> Optional[mincepy.records.Ref]:
         if obj is None:
             return None
 
@@ -147,7 +148,7 @@ class LiveDepositor(Saver, Loader):
             # Then we have to save it and get the resulting reference
             return self._historian._save_object(obj, self).get_reference()
 
-    def load(self, reference: archive.Ref):
+    def load(self, reference: mincepy.records.Ref):
         try:
             return self._historian.get_obj(reference.obj_id)
         except exceptions.NotFound:
@@ -166,7 +167,7 @@ class LiveDepositor(Saver, Loader):
 
         with historian.transaction() as trans:
             # Insert the object into the transaction so others can refer to it
-            ref = archive.Ref(builder.obj_id, builder.version)
+            ref = mincepy.records.Ref(builder.obj_id, builder.version)
             trans.insert_live_object_reference(ref, obj)
 
             # Deal with a possible object creator
@@ -176,7 +177,7 @@ class LiveDepositor(Saver, Loader):
                 except exceptions.NotFound:
                     pass
                 else:
-                    builder.extras[archive.ExtraKeys.CREATED_BY] = self.ref(creator).obj_id
+                    builder.extras[mincepy.records.ExtraKeys.CREATED_BY] = self.ref(creator).obj_id
 
             # Now ask the object to save itself and create the record
             if historian.is_primitive(obj):
@@ -203,8 +204,8 @@ class SnapshotLoader(Loader):
         super().__init__(historian)
         self._snapshots = {}  # type: MutableMapping[archive.Ref, Any]
 
-    def load(self, ref: archive.Ref):
-        if not isinstance(ref, archive.Ref):
+    def load(self, ref: mincepy.records.Ref):
+        if not isinstance(ref, mincepy.records.Ref):
             raise TypeError(ref)
 
         try:
@@ -220,7 +221,7 @@ class SnapshotLoader(Loader):
             self._snapshots[ref] = snapshot
             return snapshot
 
-    def load_from_record(self, record: archive.DataRecord):
+    def load_from_record(self, record: mincepy.records.DataRecord):
         with self._historian.transaction() as trans:
             with self._create_from(record.type_id, record.state) as obj:
                 self._snapshots[record.get_reference()] = obj

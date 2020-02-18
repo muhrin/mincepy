@@ -9,7 +9,6 @@ from PySide2 import QtCore, QtGui
 from PySide2.QtCore import QObject, Signal, Qt, QModelIndex
 
 import mincepy
-from mincepy import archive
 from . import common
 
 __all__ = 'DbModel', 'SnapshotRecord'
@@ -21,10 +20,10 @@ DATA_RECORD_MAPPING = bidict({"[{}]".format(entry): entry for entry in mincepy.D
 UNSET = ''  # The value printed for records that don't have a particular attribute
 
 TOOLTIPS = {
-    DATA_RECORD_MAPPING.inverse[archive.TYPE_ID]: 'Object type',
-    DATA_RECORD_MAPPING.inverse[archive.CREATION_TIME]: 'Creation time',
-    DATA_RECORD_MAPPING.inverse[archive.SNAPSHOT_TIME]: 'Last modification time',
-    DATA_RECORD_MAPPING.inverse[archive.VERSION]: 'Version',
+    DATA_RECORD_MAPPING.inverse[mincepy.TYPE_ID]: 'Object type',
+    DATA_RECORD_MAPPING.inverse[mincepy.CREATION_TIME]: 'Creation time',
+    DATA_RECORD_MAPPING.inverse[mincepy.SNAPSHOT_TIME]: 'Last modification time',
+    DATA_RECORD_MAPPING.inverse[mincepy.VERSION]: 'Version',
 }
 
 SnapshotRecord = namedtuple("SnapshotRecord", 'snapshot record')
@@ -196,8 +195,8 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
 
 class EntriesTable(QtCore.QAbstractTableModel):
-    ARCHIVE_COLUMNS = (archive.OBJ_ID, archive.TYPE_ID, archive.CREATION_TIME, archive.SNAPSHOT_TIME, archive.VERSION,
-                       archive.STATE)
+    ARCHIVE_COLUMNS = (mincepy.OBJ_ID, mincepy.TYPE_ID, mincepy.CREATION_TIME, mincepy.SNAPSHOT_TIME, mincepy.VERSION,
+                       mincepy.STATE)
     DEFAULT_COLUMNS = tuple(DATA_RECORD_MAPPING.inverse[label] for label in ARCHIVE_COLUMNS)
 
     def __init__(self, query_model: DataRecordQueryModel, parent=None):
@@ -356,7 +355,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
             record_value = record._asdict()[original_name]
 
             # Special case to show type ids as the class name
-            if original_name == archive.TYPE_ID:
+            if original_name == mincepy.TYPE_ID:
                 try:
                     historian = self._query_model.db_model.historian
                     return pretty_type_string(historian.get_obj_type(record_value))

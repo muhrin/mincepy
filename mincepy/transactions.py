@@ -2,6 +2,7 @@ import contextlib
 from typing import MutableMapping, Any, List, Sequence
 import weakref
 
+import mincepy.records
 from . import archive
 from . import exceptions
 from . import utils
@@ -131,12 +132,12 @@ class Transaction:
         except KeyError:
             raise exceptions.NotFound("No snapshot with reference '{}' found".format(ref))
 
-    def stage(self, record: archive.DataRecord):
+    def stage(self, record: mincepy.records.DataRecord):
         """Stage a record to be saved once on completion of this transaction"""
         self._staged.append(record)
 
     @property
-    def staged(self) -> Sequence[archive.DataRecord]:
+    def staged(self) -> Sequence[mincepy.records.DataRecord]:
         """The list of records that were staged during this transaction"""
         return self._staged
 

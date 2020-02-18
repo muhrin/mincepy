@@ -9,6 +9,7 @@ from PySide2 import QtCore
 from PySide2.QtCore import QModelIndex, Qt
 
 import mincepy
+import mincepy.records
 from .models import pretty_type_string
 
 
@@ -181,7 +182,7 @@ class RecordTree(QtCore.QAbstractItemModel):
 
         return None
 
-    def set_record(self, record: mincepy.DataRecord, obj=None):
+    def set_record(self, record: mincepy.records.DataRecord, obj=None):
         """Set the data to visualise, the object instance can optionally be provided"""
         self.beginResetModel()
         self._data_record = record

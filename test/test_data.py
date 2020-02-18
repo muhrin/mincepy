@@ -284,3 +284,16 @@ def test_store_by_value(historian: mincepy.Historian):
     loaded = historian.load(record_id)
     assert loaded.person.name == 'Mark'
     assert loaded.person.age == 23
+
+
+def test_user_info(historian: mincepy.Historian):
+    user_info = historian.get_user_info()
+    assert user_info[mincepy.ExtraKeys.USER]
+    assert user_info[mincepy.ExtraKeys.HOSTNAME]
+
+    car = Car()
+    historian.save(car)
+    record = historian.get_current_record(car)
+
+    assert record.extras[mincepy.ExtraKeys.USER] == user_info[mincepy.ExtraKeys.USER]
+    assert record.extras[mincepy.ExtraKeys.HOSTNAME] == user_info[mincepy.ExtraKeys.HOSTNAME]
