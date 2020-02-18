@@ -154,7 +154,7 @@ class DataRecord(
         })
         defaults[EXTRAS][ExtraKeys.COPIED_FROM] = self.get_reference().save_instance_state(None)
         defaults.update(kwargs)
-        return utils.NamedTupleBuilder[DataRecord](type(self), defaults)
+        return utils.NamedTupleBuilder(type(self), defaults)
 
     def child_builder(self, **kwargs) -> utils.NamedTupleBuilder:
         """
@@ -175,7 +175,7 @@ class DataRecord(
             EXTRAS: self.extras.copy(),
         })
         defaults.update(kwargs)
-        return utils.NamedTupleBuilder[DataRecord](type(self), defaults)
+        return utils.NamedTupleBuilder(type(self), defaults)
 
 
 DataRecordBuilder = utils.NamedTupleBuilder[DataRecord]
