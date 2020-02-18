@@ -2,16 +2,19 @@ import sys
 
 from PySide2 import QtWidgets
 
-import mincepy
+from . import common
 from . import views
 
 __all__ = ('run_application',)
 
 
-def run_application(default_connect_uri="mongodb://localhost/test_database",
-                    create_historian_callback=mincepy.create_historian):
+def run_application(app_common: common.AppCommon = None):
     app = QtWidgets.QApplication([])
-    widget = views.MainWindow(default_connect_uri, create_historian_callback)
+
+    if app_common is None:
+        app_common = common.AppCommon()
+
+    widget = views.MainWindow(app_common)
     widget.resize(800, 600)
     widget.show()
 

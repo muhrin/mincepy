@@ -6,10 +6,10 @@ import typing
 
 import PySide2
 from PySide2 import QtCore
-from PySide2.QtCore import QModelIndex, Qt
+from PySide2.QtCore import QModelIndex, Qt, Signal, Slot
 
 import mincepy
-import mincepy.records
+from . import common
 from .models import pretty_type_string
 
 
@@ -112,10 +112,18 @@ class LazyMappingItem(BaseTreeItem):
 class RecordTree(QtCore.QAbstractItemModel):
     COLUMN_HEDARES = 'Property', 'Type', 'Value'
 
+    object_activated = Signal(object)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self._root_item = DataTreeItem(self.COLUMN_HEDARES)
         self._data_record = None  # type: typing.Optional[mincepy.DataRecord]
+
+    @Slot(QModelIndex)
+    def activate_entry(self, index: QModelIndex):
+        obj = self.data(index, role=common.DataRole)
+        if obj:
+            self.object_activated.emit(obj)
 
     def index(self, row: int, column: int, parent: PySide2.QtCore.QModelIndex = ...) -> \
             PySide2.QtCore.QModelIndex:
@@ -163,11 +171,12 @@ class RecordTree(QtCore.QAbstractItemModel):
         if not index.isValid():
             return None
 
-        if role != Qt.DisplayRole:
-            return None
-
-        item = index.internalPointer()
-        return item.data(index.column())
+        if role == Qt.DisplayRole:
+            item = index.internalPointer()
+            value = item.data(index.column())
+            return str(value)
+        if role == common.DataRole:
+            return index.internalPointer().data(index.column())
 
     def flags(self, index: PySide2.QtCore.QModelIndex) -> PySide2.QtCore.Qt.ItemFlags:
         if not index.isValid():
@@ -182,7 +191,7 @@ class RecordTree(QtCore.QAbstractItemModel):
 
         return None
 
-    def set_record(self, record: mincepy.records.DataRecord, obj=None):
+    def set_record(self, record: mincepy.DataRecord, obj=None):
         """Set the data to visualise, the object instance can optionally be provided"""
         self.beginResetModel()
         self._data_record = record
@@ -206,7 +215,7 @@ class RecordTree(QtCore.QAbstractItemModel):
         else:
             raise TypeError("Type '{}' does not support children")
 
-        column_data = (key, pretty_type_string(type(child)), str(child))
+        column_data = (key, pretty_type_string(type(child)), child)
 
         # Is the child nested?
         nested_child_data = None

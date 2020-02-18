@@ -6,7 +6,7 @@ import typing
 from bidict import bidict
 import PySide2
 from PySide2 import QtCore, QtGui
-from PySide2.QtCore import QObject, Signal, Qt, QModelIndex
+from PySide2.QtCore import QObject, Signal, Slot, Qt, QModelIndex
 
 import mincepy
 from . import common
@@ -199,6 +199,8 @@ class EntriesTable(QtCore.QAbstractTableModel):
                        mincepy.STATE)
     DEFAULT_COLUMNS = tuple(DATA_RECORD_MAPPING.inverse[label] for label in ARCHIVE_COLUMNS)
 
+    object_activated = Signal(object)
+
     def __init__(self, query_model: DataRecordQueryModel, parent=None):
         super().__init__(parent)
         self._query_model = query_model
@@ -286,9 +288,10 @@ class EntriesTable(QtCore.QAbstractTableModel):
 
     def data(self, index: PySide2.QtCore.QModelIndex, role: int = ...) -> typing.Any:
         column_name = self._columns[index.column()]
+        if role == common.DataRole:
+            return self._get_value(index.row(), index.column())
         if role == Qt.DisplayRole:
-            value = self._get_value_string(index.row(), index.column())
-            return value
+            return self._get_value_string(index.row(), index.column())
         if role == Qt.FontRole:
             if column_name in DATA_RECORD_MAPPING:
                 font = QtGui.QFont()
@@ -314,6 +317,12 @@ class EntriesTable(QtCore.QAbstractTableModel):
 
         sort_dict = {sort_criterion: mincepy.ASCENDING if order == Qt.AscendingOrder else mincepy.DESCENDING}
         self._query_model.set_sort(sort_dict)
+
+    @Slot(QModelIndex)
+    def activate_entry(self, index: QModelIndex):
+        obj = self.data(index, role=common.DataRole)
+        if obj is not None and obj != UNSET:
+            self.object_activated.emit(obj)
 
     def _invalidate(self):
         self.beginResetModel()
@@ -346,7 +355,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
 
         return ()
 
-    def _get_value_string(self, row: int, column: int) -> str:
+    def _get_value(self, row: int, column: int) -> typing.Any:
         column_name = self._columns[column]
         record = self.get_record(row)
 
@@ -361,7 +370,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
                     return pretty_type_string(historian.get_obj_type(record_value))
                 except TypeError:
                     pass
-            return str(record_value)
+            return record_value
 
         # The column is a custom attribute of the item
         if self.get_show_as_objects():
@@ -375,9 +384,12 @@ class EntriesTable(QtCore.QAbstractTableModel):
 
         # The state in the record needn't be a dict so we check
         if isinstance(state, dict):
-            return str(state.get(column_name, UNSET))
+            return state.get(column_name, UNSET)
 
         return UNSET
+
+    def _get_value_string(self, row: int, column: int) -> str:
+        return str(self._get_value(row, column))
 
     def _query_rows_inserted(self, _parent: QModelIndex, first: int, last: int):
         """Called when there are new entries inserted into the entries table"""

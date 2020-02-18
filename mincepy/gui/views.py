@@ -9,7 +9,7 @@ from . import common
 from . import models
 from . import tree_models
 
-__all__ = 'TypeDropDown', 'ConnectionWidget', 'MincepyWidget'
+__all__ = 'TypeDropDown', 'ConnectionWidget', 'MincepyWidget', 'MainWindow'
 
 
 class TypeDropDown(QtWidgets.QComboBox):
@@ -132,7 +132,10 @@ class ConnectionWidget(QtWidgets.QWidget):
 
     def _connect_pushed(self):
         uri = self._connection_string.text()
-        self._executor(partial(self._connect, uri, ), "Connecting", blocking=True)
+        self._executor(partial(
+            self._connect,
+            uri,
+        ), "Connecting", blocking=True)
 
     def _connect(self, uri):
         try:
@@ -147,26 +150,27 @@ class ConnectionWidget(QtWidgets.QWidget):
 
 
 class MincepyWidget(QtWidgets.QWidget):
+    object_activated = Signal(object)
 
-    def __init__(self, default_connect_uri='', create_historian_callback=common.default_create_historian,
-                 executor=common.default_executor):
+    def __init__(self, app_common: common.AppCommon):
         super().__init__()
 
-        self._create_historian_callback = create_historian_callback
-
+        # Models
         # The model
         self._db_model = models.DbModel()
-        self._data_records = models.DataRecordQueryModel(self._db_model, executor=executor, parent=self)
+        self._data_records = models.DataRecordQueryModel(self._db_model, executor=app_common.executor, parent=self)
 
+        self._entries_table = models.EntriesTable(self._data_records, parent=self)
+        self._entries_table.object_activated.connect(self._activate_object)
+
+        # Create the views
         # Set up the connect panel of the GUI
-        connect_panel = ConnectionWidget(default_connect_uri,
-                                         create_historian_callback=create_historian_callback,
-                                         executor=executor,
+        connect_panel = ConnectionWidget(default_connect_uri=app_common.default_connect_uri,
+                                         create_historian_callback=app_common.create_historian_callback,
+                                         executor=app_common.executor,
                                          parent=self)
 
         connect_panel.historian_created.connect(self._historian_created)
-
-        self._entries_table = models.EntriesTable(self._data_records, parent=self)
 
         control_panel = FilterControlPanel(self._entries_table, self)
 
@@ -180,6 +184,9 @@ class MincepyWidget(QtWidgets.QWidget):
     def db_model(self):
         return self._db_model
 
+    def _activate_object(self, obj):
+        self.object_activated.emit(obj)
+
     def _historian_created(self, historian):
         self._db_model.historian = historian
 
@@ -189,10 +196,13 @@ class MincepyWidget(QtWidgets.QWidget):
         entries_view = QtWidgets.QTableView(panel)
         entries_view.setSortingEnabled(True)
         entries_view.setModel(entries_table)
+        entries_view.doubleClicked.connect(entries_table.activate_entry)
 
         record_tree = tree_models.RecordTree(parent=panel)
+        record_tree.object_activated.connect(self._activate_object)
         record_tree_view = QtWidgets.QTreeView(panel)
         record_tree_view.setModel(record_tree)
+        record_tree_view.doubleClicked.connect(record_tree.activate_entry)
 
         def row_changed(current, _previous):
             entries_table = self._entries_table
@@ -209,17 +219,24 @@ class MincepyWidget(QtWidgets.QWidget):
 
 
 class MainWindow(QtWidgets.QMainWindow):
-    def __init__(self, default_connect_uri='', create_historian_callback=None):
+
+    def __init__(self, app_common: common.AppCommon):
         super().__init__()
+        self._app_common = app_common
         self._executor = ThreadPoolExecutor()
         self._tasks = []
 
-        self._main_widget = MincepyWidget(default_connect_uri, create_historian_callback, self._execute)
-        self.setCentralWidget(self._main_widget)
+        app_common.executor = self._execute
 
+        self.setCentralWidget(self._create_main_widget())
         self._create_status_bar()
 
         self._task_done_signal.connect(self._task_done)
+
+    def _create_main_widget(self):
+        main_widget = MincepyWidget(self._app_common)
+        main_widget.object_activated.connect(self._object_activated)
+        return main_widget
 
     def _create_status_bar(self):
         self.statusBar().showMessage('Ready')
@@ -235,6 +252,11 @@ class MainWindow(QtWidgets.QMainWindow):
         return future
 
     _task_done_signal = Signal(Future)
+
+    @QtCore.Slot(object)
+    def _object_activated(self, obj):
+        if self._app_common.type_viewers:
+            self._execute(partial(self._app_common.call_viewers, obj), msg="Calling viewer", blocking=True)
 
     @QtCore.Slot(Future)
     def _task_done(self, future):
