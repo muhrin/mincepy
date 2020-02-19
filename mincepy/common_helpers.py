@@ -15,13 +15,13 @@ class PathHelper(helpers.BaseHelper):
     def yield_hashables(self, obj: pathlib.Path, hasher):
         yield from hasher.yield_hashables(str(obj))
 
-    def save_instance_state(self, obj: pathlib.Path, _depositor):
+    def save_instance_state(self, obj: pathlib.Path, _saver):
         return str(obj)
 
     def new(self, encoded_saved_state):
         return pathlib.Path(encoded_saved_state)
 
-    def load_instance_state(self, obj: pathlib.Path, saved_state, _depositor):
+    def load_instance_state(self, obj: pathlib.Path, saved_state, _loader):
         pass  # Done it all in new
 
 
@@ -30,13 +30,13 @@ class TupleHelper(helpers.BaseHelper):
     TYPE_ID = uuid.UUID('fd9d2f50-71d6-4e70-90b7-117f23d9cbaf')
     IMMUTABLE = True
 
-    def save_instance_state(self, obj: tuple, _depositor):
+    def save_instance_state(self, obj: tuple, _saver):
         return list(obj)
 
     def new(self, encoded_saved_state):
         return tuple(encoded_saved_state)
 
-    def load_instance_state(self, obj: pathlib.Path, saved_state, depositor):
+    def load_instance_state(self, obj: pathlib.Path, saved_state, _loader):
         pass  # Done it all in new
 
 
@@ -47,10 +47,10 @@ class NamespaceHelper(helpers.BaseHelper):
     def yield_hashables(self, obj, hasher):
         yield from hasher.yield_hashables(vars(obj))
 
-    def save_instance_state(self, obj, _depositor):
+    def save_instance_state(self, obj, _saver):
         return vars(obj)
 
-    def load_instance_state(self, obj, saved_state, _depositor):
+    def load_instance_state(self, obj, saved_state, _loader):
         obj.__init__(**saved_state)
 
 

@@ -15,11 +15,11 @@ class SimpleHelper(TypeHelper):
     def eq(self, one, other) -> bool:
         return one == other
 
-    def save_instance_state(self, obj, depositor):
-        return obj.save_instance_state(depositor)
+    def save_instance_state(self, obj, saver):
+        return obj.save_instance_state(saver)
 
-    def load_instance_state(self, obj, saved_state, depositor):
-        return obj.load(saved_state, depositor)
+    def load_instance_state(self, obj, saved_state, loader):
+        return obj.load(saved_state, loader)
 
 
 class BytesEquator(SimpleHelper):
