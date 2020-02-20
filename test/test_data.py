@@ -4,7 +4,7 @@ import pytest
 
 import mincepy
 import mincepy.builtins
-from mincepy.testing import Car, Garage, Person, Cycle
+from mincepy.testing import Car, Garage, Cycle
 
 
 def test_basic_save_load(historian: mincepy.Historian):
@@ -257,35 +257,6 @@ def test_replace_invalid(historian: mincepy.Historian):
         historian.replace(honda, Garage())
 
 
-def test_store_by_value(historian: mincepy.Historian):
-
-    class Record(mincepy.SavableObject):
-
-        def __init__(self, person):
-            super().__init__()
-            self.person = person
-
-        def __eq__(self, other):
-            return self.person == other.person
-
-        def yield_hashables(self, hasher):
-            yield from hasher.yield_hashables(self.person)
-
-        def save_instance_state(self, depositor):
-            return {'person': depositor.save_instance_state(self.person)}
-
-        def load_instance_state(self, saved_state, depositor):
-            self.person = depositor.create_from(Person, saved_state['person'])
-
-    record = Record(Person('Mark', 23))
-    record_id = historian.save(record)
-    del record
-
-    loaded = historian.load(record_id)
-    assert loaded.person.name == 'Mark'
-    assert loaded.person.age == 23
-
-
 def test_user_info(historian: mincepy.Historian):
     user_info = historian.get_user_info()
     assert user_info[mincepy.ExtraKeys.USER]
@@ -302,6 +273,7 @@ def test_user_info(historian: mincepy.Historian):
 def test_save_as_ref(historian: mincepy.Historian):
 
     class Person(mincepy.BaseSavableObject):
+        TYPE_ID = uuid.UUID('692429b6-a08b-489a-aa09-6eb3174b6405')
         ATTRS = (mincepy.AsRef('car'),)  # Save the car by reference
 
         def __init__(self, car):
@@ -318,3 +290,31 @@ def test_save_as_ref(historian: mincepy.Historian):
     # No reload and check they still have the same car
     martin, sonia = historian.load(martin_id, sonia_id)
     assert martin.car is sonia.car
+
+
+def test_encode_nested(historian: mincepy.Historian):
+
+    class CarDelegate(mincepy.BaseSavableObject):
+        TYPE_ID = uuid.UUID('c0148a43-c0c0-4d2b-9262-ed1c8c6ab2fc')
+        ATTRS = ('car',)
+
+        def __init__(self, car):
+            super(CarDelegate, self).__init__()
+            self.car = car
+
+        def save_instance_state(self, saver):
+            return {'car': self.car}
+
+        def load_instance_state(self, saved_state, _loader):
+            self.car = saved_state['car']
+
+    historian.register_type(CarDelegate)
+
+    car = Car()
+    delegate = CarDelegate(car)
+    garage = Garage(delegate)
+
+    garage_id = historian.save(garage)
+    del garage
+
+    historian.load(garage_id)

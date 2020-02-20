@@ -13,23 +13,17 @@ def test_path_helper(historian: mincepy.Historian):
 
     class File(mincepy.BaseSavableObject):
         TYPE_ID = uuid.UUID('8d645bb8-4657-455b-8b61-8613bc8a0acf')
-        ATTRS = ('file',)
+        ATTRS = ('path',)
 
-        def __init__(self, file):
+        def __init__(self, path):
             super(File, self).__init__()
-            self.file = file
-
-        def save_instance_state(self, saver):
-            return self.file
-
-        def load_instance_state(self, saved_state, loader):
-            self.__init__(saved_state)
+            self.path = path
 
     file = File(pathlib.Path('some_path'))
     file_id = historian.save(file)
     del file
     loaded = historian.load(file_id)
-    assert loaded.file == pathlib.Path('some_path')
+    assert loaded.path == pathlib.Path('some_path')
 
 
 def test_tuple_helper(historian: mincepy.Historian):

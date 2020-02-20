@@ -1,5 +1,7 @@
 import collections
 import collections.abc
+from functools import reduce
+import operator
 import typing
 from typing import TypeVar, Generic
 import weakref
@@ -142,3 +144,50 @@ def to_slice(specifier) -> slice:
         return slice(None)
 
     raise ValueError("Unknown slice specifier: {}".format(specifier))
+
+
+def path_assign(path: typing.Sequence, container: dict, value):
+    current = container
+    for part in path[:-1]:
+        current = current.setdefault(part, {})
+    # Set the leaf to a value
+    current[path[-1]] = value
+    return container
+
+
+def get_by_path(root, items):
+    """Access a nested object in root by item sequence.  Taken from:
+    https://stackoverflow.com/questions/14692690/access-nested-dictionary-items-via-a-list-of-keys"""
+    return reduce(operator.getitem, items, root)
+
+
+def set_by_path(root, items, value):
+    """Set a value in a nested object in root by item sequence.  Taken from:
+    https://stackoverflow.com/questions/14692690/access-nested-dictionary-items-via-a-list-of-keys"""
+    if not items:
+        # Support either empty items or None items meaning give back root
+        return root
+    get_by_path(root, items[:-1])[items[-1]] = value
+
+
+class Visitor:
+
+    def on_enter(self, path, node):
+        pass
+
+    def on_exit(self, path, node):
+        pass
+
+
+def visit(root, visitor, path=None):
+    if path is None:
+        path = ()
+
+    visitor.on_enter(path, root)
+    if isinstance(root, dict):
+        for key, value in root.items():
+            visit(value, visitor, path + (key,))
+    elif isinstance(root, list):
+        for idx, value in root:
+            visit(value, visitor, path + (idx,))
+    visitor.on_exit(path, root)

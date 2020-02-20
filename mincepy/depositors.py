@@ -1,18 +1,26 @@
 from abc import ABCMeta, abstractmethod
-from contextlib import contextmanager
+import functools
 from typing import Optional, MutableMapping, Any
 
-import mincepy.records
 from . import archive
 from . import exceptions
-from . import refs
-from . import types
+from . import records
 
 __all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor'
 
-# Keys used in to store the state state of an object when encoding/decoding
-TYPE_KEY = '!!type_id'
-STATE_KEY = '!!state'
+
+def transform(visitor, value, path: tuple = (), **kwargs):
+    """Given a list or a dict call create a new container of that type calling
+    `visitor` for each entry to get the transformed value.  kwargs will be passed
+    to the visitor.
+    """
+
+    if isinstance(value, dict):
+        return {key: visitor(value, path=path + (key,), **kwargs) for key, value in value.items()}
+    if isinstance(value, list):
+        return [visitor(value, path=path + (idx,), **kwargs) for idx, value in enumerate(value)]
+
+    return value
 
 
 class Base(metaclass=ABCMeta):
@@ -31,106 +39,66 @@ class Base(metaclass=ABCMeta):
 class Saver(Base, metaclass=ABCMeta):
 
     @abstractmethod
-    def ref(self, obj) -> mincepy.records.Ref:
+    def ref(self, obj) -> records.Ref:
         """Get a persistent reference for the given object"""
 
-    def encode(self, obj):
+    def encode(self, obj, types_schema=None, path=()):
         """Encode a type for archiving"""
-        if self._historian.is_primitive(obj):
-            # Deal with the special containers by encoding their values if need be
-            if isinstance(obj, list):
-                return [self.encode(entry) for entry in obj]
-            if isinstance(obj, dict):
-                return {key: self.encode(value) for key, value in obj.items()}
+        if types_schema is None:
+            types_schema = []
 
-            return obj
+        historian = self.get_historian()
+
+        if historian.is_primitive(obj):
+            # Deal with the special containers by encoding their values if need be
+            return transform(self.encode, obj, path, types_schema=types_schema)
 
         # Store by value
-        return self.to_dict(obj)
+        helper = historian.get_helper_from_obj_type(type(obj))
+        save_state = helper.save_instance_state(obj, self)
+        assert historian.is_primitive(save_state), "Saved state must be one of the primitive types"
+        types_schema.append((path, helper.TYPE_ID))
+        return self.encode(save_state, types_schema, path)
 
-    def to_dict(self, savable: types.Savable) -> dict:
-        obj_type = type(savable)
-        return {TYPE_KEY: self._historian.get_obj_type_id(obj_type), STATE_KEY: self.save_instance_state(savable)}
-
-    def save_instance_state(self, obj):
+    def save_state(self, obj):
         """Save the state of an object and return the encoded state ready to be archived in a record"""
-        obj_type = type(obj)
-        helper = self._historian.get_helper_from_obj_type(obj_type)
-        return self.encode(helper.save_instance_state(obj, self))
+        state_types = []
+        saved_state = self.encode(obj, state_types)
+        return {records.STATE: saved_state, records.STATE_TYPES: state_types}
 
 
 class Loader(Base, metaclass=ABCMeta):
 
-    def decode(self, encoded):
-        """Decode the saved state recreating any saved objects within."""
-        enc_type = type(encoded)
-        if not self._historian.is_primitive(encoded):
-            raise TypeError("Encoded type is not one of the primitives, got '{}'".format(enc_type))
-
-        if enc_type is dict:
-            # Maybe it's a value dictionary
-            try:
-                decoded = self.from_dict(encoded)
-                if isinstance(decoded, refs.ObjRef) and decoded.auto:
-                    decoded = decoded()  # Dereference
-                return decoded
-            except ValueError:
-                return {key: self.decode(value) for key, value in encoded.items()}
-
-        if enc_type is list:
-            return [self.decode(entry) for entry in encoded]
-
-        # No decoding to be done
-        return encoded
-
-    def from_dict(self, state_dict: dict):
-        if not isinstance(state_dict, dict):
-            raise TypeError("State dict is of type '{}', should be dictionary!".format(type(state_dict)))
-        if not (TYPE_KEY in state_dict and STATE_KEY in state_dict):
-            raise ValueError("Passed non-state-dictionary: '{}'".format(state_dict))
-
-        type_id, saved_state = state_dict[TYPE_KEY], state_dict[STATE_KEY]
-        with self._create_from(type_id, saved_state) as obj:
-            assert obj is not None, "Helper '{}' failed to create a class given state '{}'".format(
-                type(obj), saved_state)
-            return obj
-
-    def create_from(self, obj_type, saved_state):
-        """Given a type to create and the saved state, recreate the object"""
-        type_id = self._historian.get_obj_type_id(obj_type)
-        with self._create_from(type_id, saved_state) as obj:
-            return obj
-
-    @contextmanager
-    def _create_from(self, type_id, saved_state):
-        """
-        Loading of an object takes place in two steps, analogously to the way python
-        creates objects.  First a 'blank' object is created and and yielded by this
-        context manager.  Then loading is finished in load_instance_state.  Naturally,
-        the state of the object should not be relied upon until the context exits.
-        """
-        helper = self._historian.get_helper(type_id)
-        if helper.IMMUTABLE:
-            # Decode straight away
-            saved_state = self.decode(saved_state)
-
-        new_obj = helper.new(saved_state)
-        assert new_obj is not None, "Helper '{}' failed to create a class given state '{}'".format(
-            helper.__class__, saved_state)
+    def decode(self, encoded, type_schema: dict = None, path=(), created_callback=None):
+        decode_further = functools.partial(self.decode, type_schema=type_schema, created_callback=created_callback)
 
         try:
-            yield new_obj
-        finally:
+            type_id = type_schema[path]
+        except KeyError:
+            return transform(decode_further, encoded, path)
+        else:
+            saved_state = encoded
+            helper = self.get_historian().get_helper(type_id)
+            if helper.IMMUTABLE:
+                saved_state = transform(decode_further, encoded, path)
+
+            new_obj = helper.new(saved_state)
+            assert new_obj is not None, "Helper '{}' failed to create a class given state '{}'".format(
+                helper.__class__, saved_state)
+            if created_callback is not None:
+                created_callback(path, new_obj)
+
             if not helper.IMMUTABLE:
-                # Decode only after the yield
-                saved_state = self.decode(saved_state)
+                saved_state = transform(decode_further, encoded, path)
+
             helper.load_instance_state(new_obj, saved_state, self)
+            return new_obj
 
 
 class LiveDepositor(Saver, Loader):
     """Depositor with strategy that all objects that get referenced should be saved"""
 
-    def ref(self, obj) -> Optional[mincepy.records.Ref]:
+    def ref(self, obj) -> Optional[records.Ref]:
         if obj is None:
             return None
 
@@ -143,7 +111,7 @@ class LiveDepositor(Saver, Loader):
             # Then we have to save it and get the resulting reference
             return self._historian._save_object(obj, self).get_reference()
 
-    def load(self, reference: mincepy.records.Ref):
+    def load(self, reference: records.Ref):
         try:
             return self._historian.get_obj(reference.obj_id)
         except exceptions.NotFound:
@@ -151,9 +119,14 @@ class LiveDepositor(Saver, Loader):
 
     def load_from_record(self, record):
         with self._historian.transaction() as trans:
-            with self._create_from(record.type_id, record.state) as obj:
-                trans.insert_live_object(obj, record)
-                return obj
+
+            def created(path, new_obj):
+                # For the root object, put it into the transaction as a live object
+                if not path:
+                    trans.insert_live_object(new_obj, record)
+
+            norm_schema = {tuple(path): type_id for path, type_id in record.state_types}
+            return self.decode(record.state, norm_schema, created_callback=created)
 
     def save_from_builder(self, obj, builder):
         """Save a live object"""
@@ -162,7 +135,7 @@ class LiveDepositor(Saver, Loader):
 
         with historian.transaction() as trans:
             # Insert the object into the transaction so others can refer to it
-            ref = mincepy.records.Ref(builder.obj_id, builder.version)
+            ref = records.Ref(builder.obj_id, builder.version)
             trans.insert_live_object_reference(ref, obj)
 
             # Deal with a possible object creator
@@ -172,15 +145,11 @@ class LiveDepositor(Saver, Loader):
                 except exceptions.NotFound:
                     pass
                 else:
-                    builder.extras[mincepy.records.ExtraKeys.CREATED_BY] = self.ref(creator).obj_id
+                    # Found one
+                    builder.extras[records.ExtraKeys.CREATED_BY] = self.ref(creator).obj_id
 
             # Now ask the object to save itself and create the record
-            if historian.is_primitive(obj):
-                saved_state = obj
-            else:
-                saved_state = self.save_instance_state(obj)
-
-            builder.update(dict(type_id=builder.type_id, state=saved_state))
+            builder.update(self.save_state(obj))
             record = builder.build()
 
             # Insert the record into the transaction
@@ -199,8 +168,8 @@ class SnapshotLoader(Loader):
         super().__init__(historian)
         self._snapshots = {}  # type: MutableMapping[archive.Ref, Any]
 
-    def load(self, ref: mincepy.records.Ref):
-        if not isinstance(ref, mincepy.records.Ref):
+    def load(self, ref: records.Ref):
+        if not isinstance(ref, records.Ref):
             raise TypeError(ref)
 
         try:
@@ -216,9 +185,9 @@ class SnapshotLoader(Loader):
             self._snapshots[ref] = snapshot
             return snapshot
 
-    def load_from_record(self, record: mincepy.records.DataRecord):
+    def load_from_record(self, record: records.DataRecord):
         with self._historian.transaction() as trans:
-            with self._create_from(record.type_id, record.state) as obj:
-                self._snapshots[record.get_reference()] = obj
-                trans.insert_snapshot(obj, record.get_reference())
-                return obj
+            norm_schema = {tuple(path): type_id for path, type_id in record.state_types}
+            obj = self.decode(record.state, norm_schema)
+            trans.insert_snapshot(obj, record.get_reference())
+            return obj

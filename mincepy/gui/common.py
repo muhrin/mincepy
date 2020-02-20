@@ -25,7 +25,7 @@ def default_create_historian(uri) -> mincepy.Historian:
 class AppCommon:
 
     def __init__(self,
-                 default_connect_uri='',
+                 default_connect_uri='mongodb://localhost/test',
                  create_historian_callback=default_create_historian,
                  executor=default_executor):
         self.default_connect_uri = default_connect_uri

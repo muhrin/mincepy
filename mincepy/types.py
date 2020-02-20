@@ -44,6 +44,7 @@ class Comparable(metaclass=ABCMeta):
 class Object(Comparable, metaclass=ABCMeta):
 
     def __init__(self):
+        super().__init__()
         from . import history
         # Tell the historian that we've been created
         historian = history.get_historian()

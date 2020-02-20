@@ -24,6 +24,7 @@ TYPE_ID = records.TYPE_ID
 CREATION_TIME = 'ctime'
 VERSION = 'ver'
 STATE = 'state'
+STATE_TYPES = 'state_type'
 SNAPSHOT_HASH = 'hash'
 SNAPSHOT_TIME = 'stime'
 EXTRAS = records.EXTRAS
@@ -60,6 +61,7 @@ class MongoArchive(archive.BaseArchive[bson.ObjectId]):
         records.CREATION_TIME: CREATION_TIME,
         records.VERSION: VERSION,
         records.STATE: STATE,
+        records.STATE_TYPES: STATE_TYPES,
         records.SNAPSHOT_HASH: SNAPSHOT_HASH,
         records.SNAPSHOT_TIME: SNAPSHOT_TIME,
         records.EXTRAS: EXTRAS,

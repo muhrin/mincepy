@@ -316,9 +316,11 @@ class Historian:
     def is_obj_id(self, obj_id):
         return isinstance(obj_id, self._archive.get_id_type())
 
-    def register_type(self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableObject]]):
+    def register_type(
+            self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableObject]]) -> helpers.TypeHelper:
         helper = self._type_registry.register_type(obj_class_or_helper)
         self._equator.add_equator(helper)
+        return helper
 
     def register_types(self, obj_claases_or_helpers):
         for item in obj_claases_or_helpers:
@@ -490,6 +492,8 @@ class Historian:
 
     def _save_object(self, obj, depositor) -> records.DataRecord:
         with self.transaction() as trans:
+            self._ensure_compatible(obj)
+
             # Check if an object is already being saved in the transaction
             try:
                 record = trans.get_record_for_live_object(obj)
@@ -551,10 +555,10 @@ class Historian:
             # This helps for common obj id types which can be constructed from a string
             return self._archive.get_id_type()(obj_or_identifier)
 
-    def _ensure_compatible(self, obj):
+    def _ensure_compatible(self, obj) -> helpers.TypeHelper:
         obj_type = type(obj)
         if obj_type not in self._type_registry:
-            self._type_registry.register_type(obj_type)
+            return self.register_type(obj_type)
 
         return self._type_registry.get_helper_from_obj_type(obj_type)
 

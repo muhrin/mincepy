@@ -16,6 +16,7 @@ TYPE_ID = 'type_id'
 CREATION_TIME = 'creation_time'
 VERSION = 'version'
 STATE = 'state'
+STATE_TYPES = 'state_types'
 SNAPSHOT_HASH = 'snapshot_hash'
 SNAPSHOT_TIME = 'snapshot_time'
 EXTRAS = 'extras'
@@ -84,6 +85,7 @@ class DataRecord(
                 # Snapshot properties
                 VERSION,  # The ID of this particular snapshot of the object
                 STATE,  # The saved state of the object
+                STATE_TYPES,  # The historian types saved in the state
                 SNAPSHOT_HASH,  # The hash of the state
                 SNAPSHOT_TIME,  # The time this snapshot was created
                 EXTRAS,  # Additional data stored with the snapshot
@@ -148,6 +150,7 @@ class DataRecord(
             TYPE_ID: self.type_id,
             CREATION_TIME: utils.DefaultFromCall(datetime.datetime.now),
             STATE: copy.deepcopy(self.state),
+            STATE_TYPES: copy.deepcopy(self.state_types),
             SNAPSHOT_HASH: self.snapshot_hash,
             VERSION: 0,
             SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
@@ -183,4 +186,4 @@ DataRecordBuilder = utils.NamedTupleBuilder[DataRecord]
 
 def make_deleted_builder(last_record: DataRecord) -> DataRecordBuilder:
     """Get a record that represents the deletion of this object"""
-    return last_record.child_builder(state=DELETED, snapshot_hash=None)
+    return last_record.child_builder(state=DELETED, state_types=None, snapshot_hash=None)
