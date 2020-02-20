@@ -1,7 +1,9 @@
 from concurrent.futures import ThreadPoolExecutor, Future
 from functools import partial
+import json
+import uuid
 
-from PySide2 import QtCore, QtWidgets
+from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtCore import Signal
 
 import mincepy
@@ -10,6 +12,31 @@ from . import models
 from . import tree_models
 
 __all__ = 'TypeDropDown', 'ConnectionWidget', 'MincepyWidget', 'MainWindow'
+
+
+class UUIDEncoder(json.JSONEncoder):
+
+    def default(self, obj):
+        if isinstance(obj, uuid.UUID):
+            # if the obj is uuid, we simply return the value of uuid
+            return repr(obj)
+        return json.JSONEncoder.default(self, obj)
+
+
+class UUIDDecoder(json.JSONDecoder):
+
+    def decode(self, s):
+        decoded = super(UUIDDecoder, self).decode(s)
+
+        def to_uuid(entry, path):
+            if isinstance(entry, str) and entry.startswith('UUID('):
+                try:
+                    return uuid.UUID(entry[6:-2])
+                except ValueError:
+                    pass
+            return entry
+
+        return mincepy.utils.transform(to_uuid, decoded)
 
 
 class TypeDropDown(QtWidgets.QComboBox):
@@ -72,13 +99,9 @@ class FilterControlPanel(QtWidgets.QWidget):
         super().__init__(parent)
         self._entries_table = entries_table
 
-        refresh = QtWidgets.QPushButton("Refresh")
-        refresh.clicked.connect(self._entries_table.refresh)
-
-        layout = QtWidgets.QHBoxLayout()
-        layout.addWidget(self._create_type_drop_down())
-        layout.addWidget(self._create_display_as_class_checkbox())
-        layout.addWidget(refresh)
+        layout = QtWidgets.QVBoxLayout()
+        layout.addWidget(self._create_controls())
+        layout.addWidget(self._create_query())
         self.setLayout(layout)
 
     def _create_display_as_class_checkbox(self):
@@ -94,15 +117,85 @@ class FilterControlPanel(QtWidgets.QWidget):
     def _create_type_drop_down(self):
         type_drop_down = TypeDropDown(self._entries_table.query_model, self)
         type_drop_down.selected_type_changed.connect(self._entries_table.query_model.set_type_restriction)
+        type_drop_down.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
+                                     type_drop_down.sizePolicy().verticalPolicy())
+        return type_drop_down
 
-        # Create an lay out the panel
+    def _create_refresh_button(self):
+        refresh = QtWidgets.QPushButton("Refresh")
+        refresh.clicked.connect(self._entries_table.refresh)
+        return refresh
+
+    def _create_controls(self):
         panel = QtWidgets.QWidget()
+
         layout = QtWidgets.QHBoxLayout()
-        layout.addWidget(QtWidgets.QLabel("Restrict type:"))
-        layout.addWidget(type_drop_down)
+        layout.setMargin(0)
+        layout.setSpacing(6)
+        layout.addWidget(QtWidgets.QLabel("Type:"))
+        layout.addWidget(self._create_type_drop_down())
+        layout.addWidget(self._create_display_as_class_checkbox())
+        layout.addWidget(self._create_refresh_button())
         panel.setLayout(layout)
 
         return panel
+
+    def _create_query(self):
+        panel = QtWidgets.QWidget()
+
+        layout = QtWidgets.QHBoxLayout()
+        layout.setMargin(0)
+        layout.setSpacing(6)
+        layout.addWidget(QtWidgets.QLabel("Query:"))
+        layout.addWidget(self._create_query_line())
+        panel.setLayout(layout)
+
+        return panel
+
+    def _create_query_line(self):
+        query_line = QtWidgets.QLineEdit()
+
+        def set_query_edited():
+            palette = query_line.palette()
+            palette.setColor(palette.Base, QtGui.QColor(192, 212, 192))
+            query_line.setPalette(palette)
+
+        def reset_query_edited():
+            palette = query_line.palette()
+            palette.setColor(palette.Base, QtGui.QColor(255, 255, 255))
+            query_line.setPalette(palette)
+
+        def query_changed(new_query: dict):
+            new_text = json.dumps(new_query, cls=UUIDEncoder)
+            if new_text != query_line.text():
+                query_line.setText(new_text)
+            reset_query_edited()
+
+        def text_edited(_text):
+            try:
+                current_query = json.dumps(self._entries_table.query_model.get_query(), cls=UUIDEncoder)
+            except json.decoder.JSONDecodeError:
+                pass
+            else:
+                if _text != current_query:
+                    set_query_edited()
+                else:
+                    reset_query_edited()
+
+        def query_submitted():
+            new_text = query_line.text()
+            try:
+                query = json.loads(new_text, cls=UUIDDecoder)
+            except json.decoder.JSONDecodeError as exc:
+                QtWidgets.QErrorMessage(self).showMessage(str(exc))
+            else:
+                self._entries_table.query_model.set_query(query)
+
+        self._entries_table.query_model.query_changed.connect(query_changed)
+        query_line.returnPressed.connect(query_submitted)
+        query_line.textEdited.connect(text_edited)
+
+        return query_line
 
 
 class ConnectionWidget(QtWidgets.QWidget):
@@ -128,6 +221,7 @@ class ConnectionWidget(QtWidgets.QWidget):
         layout.addWidget(self._connect_button)
         self.setLayout(layout)
 
+        self._connection_string.returnPressed.connect(self._connect_pushed)
         self._connect_button.clicked.connect(self._connect_pushed)
 
     def _connect_pushed(self):

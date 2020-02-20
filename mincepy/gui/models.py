@@ -59,6 +59,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
     # Signals
     type_restriction_changed = Signal(object)
     sort_changed = Signal(dict)
+    query_changed = Signal(dict)
 
     def __init__(self, db_model: DbModel, executor=common.default_executor, parent=None):
         super().__init__(parent)
@@ -89,30 +90,38 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
     def set_query(self, query: dict):
         """Set the query that will be passed to historian.find()"""
+        if query == self._query:
+            return
+
         self._query = query
+        self.query_changed.emit(query)
         self._invalidate_results()
+
+    def update_query(self, update: dict):
+        new_query = self.get_query().copy()
+        new_query.update(update)
+        self.set_query(new_query)
 
     def set_type_restriction(self, type_id):
-        if type_id == self._type_restriction:
+        restriction = {'obj_type': type_id}
+        if restriction == self.get_type_restriction():
             return
 
-        self._type_restriction = type_id
-        self._invalidate_results()
-        self.type_restriction_changed.emit(self._type_restriction)
+        self.update_query(restriction)
+        self.type_restriction_changed.emit(self.get_type_restriction())
 
     def get_type_restriction(self):
-        return self._type_restriction
+        return self.get_query().get('obj_type', None)
 
     def set_sort(self, sort):
-        if sort == self._sort:
+        if sort == self.get_sort():
             return
 
-        self._sort = sort
-        self._invalidate_results()
-        self.sort_changed.emit(self._sort)
+        self.update_query({'sort': sort})
+        self.sort_changed.emit(self.get_sort())
 
     def get_sort(self):
-        return self._sort
+        return self._query.get('sort', None)
 
     def get_records(self):
         return self._results
@@ -149,14 +158,10 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
         if self._query is None or self._db_model.historian is None:
             self._results = []
         else:
-            query = self._query.copy()
-            if self._type_restriction is not None:
-                query['obj_type'] = self._type_restriction
-            if self._sort is not None:
-                query['sort'] = self._sort
-
             self._results = []
-            self._update_future = self._executor(partial(self._perform_query, query), msg="Querying...", blocking=False)
+            self._update_future = self._executor(partial(self._perform_query, self.get_query()),
+                                                 msg="Querying...",
+                                                 blocking=False)
 
     def _invalidate_results(self):
         self.beginResetModel()

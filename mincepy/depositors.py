@@ -5,22 +5,9 @@ from typing import Optional, MutableMapping, Any
 from . import archive
 from . import exceptions
 from . import records
+from . import utils
 
 __all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor'
-
-
-def transform(visitor, value, path: tuple = (), **kwargs):
-    """Given a list or a dict call create a new container of that type calling
-    `visitor` for each entry to get the transformed value.  kwargs will be passed
-    to the visitor.
-    """
-
-    if isinstance(value, dict):
-        return {key: visitor(value, path=path + (key,), **kwargs) for key, value in value.items()}
-    if isinstance(value, list):
-        return [visitor(value, path=path + (idx,), **kwargs) for idx, value in enumerate(value)]
-
-    return value
 
 
 class Base(metaclass=ABCMeta):
@@ -51,7 +38,7 @@ class Saver(Base, metaclass=ABCMeta):
 
         if historian.is_primitive(obj):
             # Deal with the special containers by encoding their values if need be
-            return transform(self.encode, obj, path, types_schema=types_schema)
+            return utils.transform(self.encode, obj, path, types_schema=types_schema)
 
         # Store by value
         helper = historian.get_helper(type(obj))
@@ -75,12 +62,12 @@ class Loader(Base, metaclass=ABCMeta):
         try:
             type_id = type_schema[path]
         except KeyError:
-            return transform(decode_further, encoded, path)
+            return utils.transform(decode_further, encoded, path)
         else:
             saved_state = encoded
             helper = self.get_historian().get_helper(type_id)
             if helper.IMMUTABLE:
-                saved_state = transform(decode_further, encoded, path)
+                saved_state = utils.transform(decode_further, encoded, path)
 
             new_obj = helper.new(saved_state)
             assert new_obj is not None, "Helper '{}' failed to create a class given state '{}'".format(
@@ -89,7 +76,7 @@ class Loader(Base, metaclass=ABCMeta):
                 created_callback(path, new_obj)
 
             if not helper.IMMUTABLE:
-                saved_state = transform(decode_further, encoded, path)
+                saved_state = utils.transform(decode_further, encoded, path)
 
             helper.load_instance_state(new_obj, saved_state, self)
             return new_obj
