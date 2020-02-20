@@ -332,11 +332,8 @@ class Historian:
     def get_obj_type(self, type_id):
         return self.get_helper(type_id).TYPE
 
-    def get_helper(self, type_id) -> helpers.TypeHelper:
-        return self._type_registry.get_helper_from_type_id(type_id)
-
-    def get_helper_from_obj_type(self, obj_type) -> helpers.TypeHelper:
-        return self._type_registry.get_helper_from_obj_type(obj_type)
+    def get_helper(self, type_id_or_type) -> helpers.TypeHelper:
+        return self._type_registry.get_helper(type_id_or_type)
 
     # endregion
 

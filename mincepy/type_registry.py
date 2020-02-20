@@ -40,6 +40,12 @@ class TypeRegistry:
                     return type_id
             raise ValueError("Type '{}' is not known".format(obj_type))
 
+    def get_helper(self, type_id_or_type) -> helpers.TypeHelper:
+        if isinstance(type_id_or_type, type):
+            return self.get_helper_from_obj_type(type_id_or_type)
+
+        return self.get_helper_from_type_id(type_id_or_type)
+
     def get_helper_from_type_id(self, type_id) -> helpers.TypeHelper:
         try:
             return self.get_helper_from_obj_type(self._type_ids[type_id])
