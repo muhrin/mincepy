@@ -60,10 +60,6 @@ class TypeHelper(metaclass=ABCMeta):
     def load_instance_state(self, obj, saved_state, loader):
         """Take the given blank object and load the instance state into it"""
 
-    def __del__(self):
-        if self.INJECT_CREATION_TRACKING:
-            remove_creation_tracking(self.TYPE)
-
 
 class BaseHelper(TypeHelper, metaclass=ABCMeta):
     """A base helper that defaults to yielding hashables directly on the object

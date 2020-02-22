@@ -9,13 +9,13 @@ def test_find_state(historian: mincepy.Historian):
     fiat = Car('fiat', 'green')
 
     historian.save(honda, porsche, red_honda, fiat)
-    hondas = list(historian.find(Car, criteria={'make': 'honda'}))
+    hondas = list(historian.find(Car, state={'make': 'honda'}))
     assert len(hondas) == 2
     assert honda in hondas
     assert red_honda in hondas
 
     # Try without type
-    greens = list(historian.find(criteria={'colour': 'green'}))
+    greens = list(historian.find(state={'colour': 'green'}))
     assert len(greens) == 2
     assert honda in greens
     assert fiat in greens

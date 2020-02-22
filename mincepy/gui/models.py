@@ -3,7 +3,6 @@ from functools import partial
 import logging
 import typing
 
-from bidict import bidict
 import PySide2
 from PySide2 import QtCore, QtGui
 from PySide2.QtCore import QObject, Signal, Slot, Qt, QModelIndex
@@ -15,15 +14,13 @@ __all__ = 'DbModel', 'SnapshotRecord'
 
 logger = logging.getLogger(__name__)
 
-DATA_RECORD_MAPPING = bidict({"[{}]".format(entry): entry for entry in mincepy.DataRecord._fields})
-
 UNSET = ''  # The value printed for records that don't have a particular attribute
 
 TOOLTIPS = {
-    DATA_RECORD_MAPPING.inverse[mincepy.TYPE_ID]: 'Object type',
-    DATA_RECORD_MAPPING.inverse[mincepy.CREATION_TIME]: 'Creation time',
-    DATA_RECORD_MAPPING.inverse[mincepy.SNAPSHOT_TIME]: 'Last modification time',
-    DATA_RECORD_MAPPING.inverse[mincepy.VERSION]: 'Version',
+    mincepy.TYPE_ID: 'Object type',
+    mincepy.CREATION_TIME: 'Creation time',
+    mincepy.SNAPSHOT_TIME: 'Last modification time',
+    mincepy.VERSION: 'Version',
 }
 
 SnapshotRecord = namedtuple("SnapshotRecord", 'snapshot record')
@@ -200,9 +197,7 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
 
 class EntriesTable(QtCore.QAbstractTableModel):
-    ARCHIVE_COLUMNS = (mincepy.OBJ_ID, mincepy.TYPE_ID, mincepy.CREATION_TIME, mincepy.SNAPSHOT_TIME, mincepy.VERSION,
-                       mincepy.STATE)
-    DEFAULT_COLUMNS = tuple(DATA_RECORD_MAPPING.inverse[label] for label in ARCHIVE_COLUMNS)
+    DEFAULT_COLUMNS = (mincepy.TYPE_ID, mincepy.CREATION_TIME, mincepy.SNAPSHOT_TIME, mincepy.VERSION, mincepy.STATE)
 
     object_activated = Signal(object)
 
@@ -298,7 +293,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
         if role == Qt.DisplayRole:
             return self._get_value_string(index.row(), index.column())
         if role == Qt.FontRole:
-            if column_name in DATA_RECORD_MAPPING:
+            if column_name in mincepy.DataRecord._fields:
                 font = QtGui.QFont()
                 font.setItalic(True)
                 return font
@@ -313,7 +308,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
     def sort(self, column: int, order: PySide2.QtCore.Qt.SortOrder = ...):
         column_name = self._columns[column]
         try:
-            sort_criterion = DATA_RECORD_MAPPING[column_name]
+            sort_criterion = column_name
         except KeyError:
             if self._show_objects:
                 # We can't deal with sorting objects at the moment
@@ -349,30 +344,36 @@ class EntriesTable(QtCore.QAbstractTableModel):
         if self.get_show_as_objects():
             obj = self.get_snapshot(row)
             try:
-                state = vars(obj)
+                return tuple(vars(obj).keys())
             except TypeError:
-                state = {}
+                pass
         else:
             state = self.get_record(row).state
-
-        if isinstance(state, dict):
-            return tuple(state.keys())
+            if isinstance(state, dict):
+                return tuple("state.{}".format(key) for key in state)
 
         return ()
 
     def _get_value(self, row: int, column: int) -> typing.Any:
         column_name = self._columns[column]
+        if not column_name:
+            return UNSET
+
+        column_path = column_name.split('.')
         record = self.get_record(row)
 
-        if column < len(self.DEFAULT_COLUMNS):
-            original_name = DATA_RECORD_MAPPING[column_name]
-            record_value = record._asdict()[original_name]
+        if column_path[0] in record._fields:
+            try:
+                record_value = mincepy.utils.get_by_path(record._asdict(), column_path)
+            except (KeyError, IndexError, TypeError):
+                # Probably trying to access the state using path from a different object type
+                return UNSET
 
             # Special case to show type ids as the class name
-            if original_name == mincepy.TYPE_ID:
+            if column_name == mincepy.TYPE_ID:
                 try:
                     historian = self._query_model.db_model.historian
-                    return pretty_type_string(historian.get_obj_type(record_value))
+                    return historian.get_obj_type(record_value)
                 except TypeError:
                     pass
             return record_value
@@ -381,20 +382,18 @@ class EntriesTable(QtCore.QAbstractTableModel):
         if self.get_show_as_objects():
             snapshot = self.get_snapshot(row)
             try:
-                state = vars(snapshot)
+                return vars(snapshot).get(column_name, UNSET)
             except TypeError:
-                state = {}
-        else:
-            state = record.state
-
-        # The state in the record needn't be a dict so we check
-        if isinstance(state, dict):
-            return state.get(column_name, UNSET)
+                pass
 
         return UNSET
 
     def _get_value_string(self, row: int, column: int) -> str:
-        return str(self._get_value(row, column))
+        value = self._get_value(row, column)
+        if isinstance(value, type):
+            return pretty_type_string(value)
+
+        return str(value)
 
     def _query_rows_inserted(self, _parent: QModelIndex, first: int, last: int):
         """Called when there are new entries inserted into the entries table"""

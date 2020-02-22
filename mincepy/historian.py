@@ -339,8 +339,8 @@ class Historian:
 
     def find(self,
              obj_type=None,
-             criteria: dict = None,
              version: int = -1,
+             state: dict = None,
              meta: dict = None,
              sort=None,
              limit=0,
@@ -349,8 +349,8 @@ class Historian:
         """Find entries in the archive
 
         :param obj_type: the object type to look for
-        :param criteria: the criteria on the state of the object to apply
         :param version: the version of the object to retrieve, -1 means latest
+        :param state: the criteria on the state of the object to apply
         :param meta: the search criteria to apply on the metadata of the object
         :param sort: the sort criteria
         :param limit: the maximum number of results to return, 0 means unlimited
@@ -364,7 +364,7 @@ class Historian:
             except TypeError:
                 pass
         results = self._archive.find(type_id=type_id,
-                                     state=criteria,
+                                     state=state,
                                      version=version,
                                      meta=meta,
                                      sort=sort,
