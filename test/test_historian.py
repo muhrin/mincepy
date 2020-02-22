@@ -61,3 +61,31 @@ def test_find(historian: mincepy.Historian):
     assert 'honda' in makes
     assert 'zonda' in makes
     assert 'porsche' in makes
+
+
+def test_update(historian: mincepy.Historian):
+    car = Car('ferrari', 'red')
+    historian.save(car)
+
+    # Simulate saving the car from another connection
+    honda = Car('honda', 'black')
+    historian.save(honda)
+    honda_record = historian.get_current_record(honda)
+
+    archive = historian.get_archive()
+    record = historian.get_current_record(car)
+    builder = record.child_builder(obj_id=historian.get_obj_id(car),
+                                   snapshot_hash=honda_record.snapshot_hash,
+                                   state=honda_record.state,
+                                   state_types=honda_record.state_types)
+    archive.save(builder.build())
+
+    # Now update and check the state
+    historian.update(car)
+    assert car.make == 'honda'
+    assert car.colour == 'black'
+
+    # Also, check the cached record
+    car_record = historian.get_current_record(car)
+    assert car_record.snapshot_hash == honda_record.snapshot_hash
+    assert car_record.state == honda_record.state

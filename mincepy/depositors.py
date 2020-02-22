@@ -1,5 +1,4 @@
 from abc import ABCMeta, abstractmethod
-import functools
 from typing import Optional, MutableMapping, Any
 
 from . import archive
@@ -57,17 +56,15 @@ class Saver(Base, metaclass=ABCMeta):
 class Loader(Base, metaclass=ABCMeta):
 
     def decode(self, encoded, type_schema: dict = None, path=(), created_callback=None):
-        decode_further = functools.partial(self.decode, type_schema=type_schema, created_callback=created_callback)
-
         try:
             type_id = type_schema[path]
         except KeyError:
-            return utils.transform(decode_further, encoded, path)
+            return self._unpack(encoded, type_schema, path, created_callback)
         else:
             saved_state = encoded
             helper = self.get_historian().get_helper(type_id)
             if helper.IMMUTABLE:
-                saved_state = utils.transform(decode_further, encoded, path)
+                saved_state = self._unpack(encoded, type_schema, path, created_callback)
 
             new_obj = helper.new(saved_state)
             assert new_obj is not None, "Helper '{}' failed to create a class given state '{}'".format(
@@ -76,10 +73,18 @@ class Loader(Base, metaclass=ABCMeta):
                 created_callback(path, new_obj)
 
             if not helper.IMMUTABLE:
-                saved_state = utils.transform(decode_further, encoded, path)
+                saved_state = self._unpack(encoded, type_schema, path, created_callback)
 
             helper.load_instance_state(new_obj, saved_state, self)
             return new_obj
+
+    def _unpack(self, encoded_saved_state, type_schema: dict = None, path=(), created_callback=None):
+        """Unpack a saved state expanding any contained objects"""
+        return utils.transform(self.decode,
+                               encoded_saved_state,
+                               path,
+                               type_schema=type_schema,
+                               created_callback=created_callback)
 
 
 class LiveDepositor(Saver, Loader):
@@ -108,12 +113,25 @@ class LiveDepositor(Saver, Loader):
         with self._historian.transaction() as trans:
 
             def created(path, new_obj):
+                """Called each time an object is created whilst decoding"""
                 # For the root object, put it into the transaction as a live object
                 if not path:
                     trans.insert_live_object(new_obj, record)
 
             norm_schema = {tuple(path): type_id for path, type_id in record.state_types}
             return self.decode(record.state, norm_schema, created_callback=created)
+
+    def update_from_record(self, obj, record):
+        historian = self.get_historian()
+        helper = historian.get_helper(type(obj))
+        with historian.transaction() as trans:
+            # Make sure the record is in the transaction with the object
+            trans.insert_live_object(obj, record)
+
+            norm_schema = {tuple(path): type_id for path, type_id in record.state_types}
+            saved_state = self._unpack(record.state, norm_schema)
+            helper.load_instance_state(obj, saved_state, self)
+            return obj
 
     def save_from_builder(self, obj, builder):
         """Save a live object"""

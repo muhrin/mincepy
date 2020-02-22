@@ -2,6 +2,7 @@ from collections import namedtuple
 import contextlib
 import copy
 import getpass
+import logging
 import socket
 import typing
 from typing import MutableMapping, Any, Optional, Mapping
@@ -22,6 +23,7 @@ from .transactions import RollbackTransaction, Transaction, LiveObjects
 
 __all__ = 'Historian', 'ObjectEntry'
 
+logger = logging.getLogger(__name__)
 ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
 
 
@@ -140,10 +142,23 @@ class Historian:
         return loaded
 
     def load_one(self, obj_id_or_ref):
+        """Load one object or shot from the database"""
         if isinstance(obj_id_or_ref, records.Ref):
             return self.load_snapshot(obj_id_or_ref)
 
         return self.load_object(obj_id_or_ref)
+
+    def update(self, obj):
+        """Update an object with the latest state in the database"""
+        obj_id = self.get_obj_id(obj)
+        ref = self._get_latest_snapshot_reference(obj_id)
+        archive_record = self._archive.load(ref)
+        if archive_record.is_deleted_record():
+            raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(obj_id))
+
+        # The one in the archive is newer, so use that
+        depositor = depositors.LiveDepositor(self)
+        return depositor.update_from_record(obj, archive_record)
 
     def copy(self, obj):
         """Create a shallow copy of the object, save that copy and return it"""
@@ -470,26 +485,26 @@ class Historian:
 
             # Couldn't find it, so let's check if we have one and check if it is up to date
             ref = self._get_latest_snapshot_reference(obj_id)
-            archive_record = self._archive.load(ref)
-            if archive_record.is_deleted_record():
+            record = self._archive.load(ref)
+            if record.is_deleted_record():
                 raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(obj_id))
 
             try:
                 obj = self._live_objects.get_object(obj_id)
             except exceptions.NotFound:
                 # Ok, just use the one from the archive
-                return depositor.load_from_record(archive_record)
+                return depositor.load_from_record(record)
             else:
-                if archive_record.version == self._live_objects.get_record(obj).version:
+                if record.version == self._live_objects.get_record(obj).version:
                     # We're still up to date
                     return obj
 
                 # The one in the archive is newer, so use that
-                return depositor.load_from_record(archive_record)
+                return depositor.update_from_record(obj, record)
 
     def _save_object(self, obj, depositor) -> records.DataRecord:
         with self.transaction() as trans:
-            self._ensure_compatible(obj)
+            helper = self._ensure_compatible(obj)
 
             # Check if an object is already being saved in the transaction
             try:
@@ -509,6 +524,10 @@ class Historian:
                     builder = self._create_builder(obj, dict(snapshot_hash=current_hash))
                     return depositor.save_from_builder(obj, builder)
                 else:
+                    if helper.IMMUTABLE:
+                        logger.info("Tried to save immutable object with id '%s' again", record.obj_id)
+                        return record
+
                     # Check if our record is up to date
                     with self.transaction() as transaction:
                         loaded_obj = depositors.SnapshotLoader(self).load_from_record(record)
