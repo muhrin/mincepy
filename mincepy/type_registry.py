@@ -18,7 +18,7 @@ class TypeRegistry:
             helper = obj_class_or_helper
         else:
             if not issubclass(obj_class_or_helper, types.Object):
-                raise TypeError("Type '{}' is nether a TypeHelper nor a SavableComparable".format(obj_class_or_helper))
+                raise TypeError("Type '{}' is nether a TypeHelper nor a SavableObject".format(obj_class_or_helper))
             helper = helpers.WrapperHelper(obj_class_or_helper)
 
         obj_types = helper.TYPE if isinstance(helper.TYPE, Iterable) else (helper.TYPE,)

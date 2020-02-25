@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import datetime
+import typing
 import uuid
 
 try:  # Python3
@@ -42,18 +43,42 @@ class Comparable(metaclass=ABCMeta):
 
 
 class Object(Comparable, metaclass=ABCMeta):
-
-    def __init__(self):
-        super().__init__()
-        from . import history
-        # Tell the historian that we've been created
-        historian = history.get_historian()
-        if historian is not None:
-            historian.created(self)
+    """A simple object that is comparable"""
 
 
 class SavableObject(Object, Savable, metaclass=ABCMeta):
     """A class that is both savable and comparable"""
+
+    def __init__(self, historian=None):
+        super().__init__()
+        from . import history
+        # Tell the historian that we've been created
+        self._historian = historian or history.get_historian()
+        assert self._historian is not None, \
+            "Must provide a valid historian or set one globally using mincepy.set_historian()"
+
+        if self._historian is not None:
+            self._historian.created(self)
+
+    @property
+    def obj_id(self):
+        return self._historian.get_obj_id(self)
+
+    def get_meta(self) -> dict:
+        """Get the metadata dictionary for this object"""
+        return self._historian.get_meta(self)
+
+    def set_meta(self, meta: typing.Optional[dict]):
+        """Set the metadata dictionary for this object"""
+        self._historian.set_meta(self, meta)
+
+    def update_meta(self, meta: dict):
+        """Update the metadata dictionary for this object"""
+        self._historian.update_meta(self, meta)
+
+    def save(self, with_meta=None, return_sref=False):
+        """Save the object"""
+        return self._historian.save(self, with_meta=with_meta, return_sref=return_sref)
 
 
 class Equator:
