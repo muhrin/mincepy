@@ -54,6 +54,7 @@ class BaseSavableObject(types.SavableObject):
         return saved_state
 
     def load_instance_state(self, saved_state, _loader):
+        super(BaseSavableObject, self).load_instance_state(saved_state, _loader)
         for attr in self.__get_attrs():
             try:
                 obj = saved_state[attr.name]

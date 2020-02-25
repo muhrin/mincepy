@@ -80,6 +80,11 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
         """Save the object"""
         return self._historian.save(self, with_meta=with_meta, return_sref=return_sref)
 
+    def load_instance_state(self, saved_state, depositor):
+        """Take the given object and load the instance state into it"""
+        super().load_instance_state(saved_state, depositor)
+        self._historian = depositor.get_historian()
+
 
 class Equator:
 
