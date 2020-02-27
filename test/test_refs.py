@@ -75,3 +75,15 @@ def test_obj_ref_complex(historian: mincepy.Historian):
     loaded3 = historian.load_snapshot(parent_snapshot_id)
     assert loaded3.ns1().car().make == 'honda'
     assert loaded3.ns2().car().make == 'fiat'
+
+
+def test_null_ref(historian: mincepy.Historian):
+    null = mincepy.ObjRef()
+    null2 = mincepy.ObjRef()
+
+    assert null == null2
+
+    nid1, nid2 = historian.save(null, null2)
+    del null
+    loaded = historian.load(nid1)
+    assert loaded == null2

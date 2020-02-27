@@ -16,7 +16,7 @@ class ObjRef(types.SavableObject):
     _ref = None
     _loader = None
 
-    def __init__(self, obj, historian=None):
+    def __init__(self, obj=None, historian=None):
         super().__init__(historian)
         self._obj = obj
 
@@ -71,17 +71,21 @@ class ObjRef(types.SavableObject):
             yield from hasher.yield_hashables(self._ref)
 
     def save_instance_state(self, saver):
+        if self._obj is None:
+            return None
+
         ref = self._ref
         if ref is None:
-            # This should mean that we have loaded the object via the 'call' method previously
-            assert self._obj is not None
             ref = saver.ref(self._obj)
 
         return ref.to_list()
 
     def load_instance_state(self, saved_state, loader):
-        self._ref = records.Ref(*saved_state)
-        self._loader = loader
+        if saved_state is None:
+            self._obj = None
+        else:
+            self._ref = records.Ref(*saved_state)
+            self._loader = loader
 
 
 HISTORIAN_TYPES = (ObjRef,)
