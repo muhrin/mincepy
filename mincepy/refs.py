@@ -16,8 +16,8 @@ class ObjRef(types.SavableObject):
     _ref = None
     _loader = None
 
-    def __init__(self, obj):
-        super().__init__()
+    def __init__(self, obj, historian=None):
+        super().__init__(historian)
         self._obj = obj
 
     def __str__(self):

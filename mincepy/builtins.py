@@ -24,6 +24,12 @@ class ObjProxy(_UserType):
         super(ObjProxy, self).__init__(historian)
         self.data = data
 
+    def __call__(self):
+        return self.data
+
+    def assign(self, value):
+        self.data = value
+
 
 class List(collections.UserList, _UserType):
     TYPE_ID = uuid.UUID('2b033f70-168f-4412-99ea-d1f131e3a25a')
@@ -83,24 +89,23 @@ class RefList(collections.abc.MutableSequence, _UserType):
 
 class LiveList(RefList):
     """A list that is always in sync with the database"""
-
     TYPE_ID = uuid.UUID('c83e6206-cd29-4fda-bf76-11fce1681cd9')
 
     def __init__(self, init_list=None, historian=None):
         init_list = init_list or []
-        self._ref_list = RefList([ObjProxy(value, historian) for value in init_list])
+        self._ref_list = RefList([self._create_proxy(value, historian) for value in init_list])
         super().__init__(historian)
 
     def __getitem__(self, item):
         self.sync()
         proxy = super(LiveList, self).__getitem__(item)  # type: ObjProxy
         proxy.sync()
-        return proxy.data
+        return proxy()
 
     def __setitem__(self, key, value):
         self.sync()
         proxy = super(LiveList, self).__getitem__(key)  # type: ObjProxy
-        proxy.data = value
+        proxy.assign(value)
         proxy.save()
 
     def __delitem__(self, key):
@@ -115,10 +120,23 @@ class LiveList(RefList):
         return super(LiveList, self).__len__()
 
     def insert(self, index, value):
-        proxy = ObjProxy(value, self._historian)
+        proxy = self._create_proxy(value, self._historian)
         self.sync()
         super(LiveList, self).insert(index, proxy)
         self.save()
+
+    @staticmethod
+    def _create_proxy(value, historian):
+        return ObjProxy(value, historian)
+
+
+class LiveRefList(LiveList):
+    """A live list that uses references to store objects"""
+    TYPE_ID = uuid.UUID('98454806-c587-4fcc-a514-65fdefb0180d')
+
+    @staticmethod
+    def _create_proxy(value, historian):
+        return refs.ObjRef(value, historian)
 
 
 class RefDict(collections.MutableMapping, _UserType):
@@ -169,13 +187,13 @@ class LiveDict(RefDict):
         self.sync()
         proxy = super().__getitem__(item)  # type: ObjProxy
         proxy.sync()
-        return proxy.data
+        return proxy()
 
     def __setitem__(self, key, value):
         self.sync()
         if key in self:
             proxy = super().__getitem__(key)  # type: ObjProxy
-            proxy.data = value
+            proxy.assign(value)
             proxy.save()
         else:
             proxy = ObjProxy(value)
@@ -197,6 +215,19 @@ class LiveDict(RefDict):
     def __len__(self):
         self.sync()
         return super(LiveDict, self).__len__()
+
+    @staticmethod
+    def _create_proxy(value, historian):
+        return ObjProxy(value, historian)
+
+
+class LiveRefDict(LiveDict):
+    """A live dictionary that uses references to refer to contained objects"""
+    TYPE_ID = uuid.UUID('16e7e814-8268-46e0-8d8e-6f34132366b9')
+
+    @staticmethod
+    def _create_proxy(value, historian):
+        return refs.ObjRef(value, historian)
 
 
 class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):
