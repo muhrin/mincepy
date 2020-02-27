@@ -10,16 +10,18 @@ __all__ = 'TypeHelper', 'WrapperHelper', 'BaseHelper'
 
 
 def inject_creation_tracking(cls):
-    cls.__orig_new = cls.__new__
+    # Check to make sure we don't do this twice!
+    if not hasattr(cls, '__orig_new'):
+        cls.__orig_new = cls.__new__
 
-    def new(_cls, *_args, **_kwargs):
-        inst = cls.__orig_new(_cls)
-        hist = mincepy.get_historian()
-        if hist is not None:
-            hist.created(inst)
-        return inst
+        def new(_cls, *_args, **_kwargs):
+            inst = cls.__orig_new(_cls)
+            hist = mincepy.get_historian()
+            if hist is not None:
+                hist.created(inst)
+            return inst
 
-    cls.__new__ = new
+        cls.__new__ = new
 
 
 def remove_creation_tracking(cls):
