@@ -37,6 +37,14 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         """Create a new archive id"""
 
     @abstractmethod
+    def construct_archive_id(self, value) -> IdT:
+        """If it's possible, construct an archive value from the passed value.
+        This is useful as a convenience to the user if, say, the archive id can be
+        constructed from a string.  Raise TypeError or ValueError if this is not possible
+        for the given value.
+        """
+
+    @abstractmethod
     def create_file(self, filename: str = None, encoding: str = None):
         """Create a new file object specific for this archive type"""
 
@@ -129,3 +137,6 @@ class BaseArchive(Archive[IdT]):
 
         # Single one
         return self.load(refs[0])
+
+    def construct_archive_id(self, value) -> IdT:
+        raise TypeError("Not possible to construct an archive id from '{}'".format(type(value)))

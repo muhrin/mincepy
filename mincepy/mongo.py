@@ -35,7 +35,7 @@ class ObjectIdHelper(helpers.TypeHelper):
     TYPE_ID = uuid.UUID('bdde0765-36d2-4f06-bb8b-536a429f32ab')
 
     def yield_hashables(self, obj, hasher):
-        yield from hasher.yield_hashables(obj.binary)
+        yield obj.binary
 
     def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
         return one.__eq__(other)
@@ -87,6 +87,11 @@ class MongoArchive(archive.BaseArchive[bson.ObjectId]):
 
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
+
+    def construct_archive_id(self, value) -> bson.ObjectId:
+        if not isinstance(value, str):
+            raise TypeError("Cannot construct an ObjectID from a '{}'".format(type(value)))
+        return bson.ObjectId(value)
 
     def create_file(self, filename: str = None, encoding: str = None):
         return GridFsFile(self._file_bucket, filename, encoding)

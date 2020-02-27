@@ -88,8 +88,8 @@ class ComplexEquator(SimpleHelper):
     TYPE = numbers.Complex
 
     def yield_hashables(self, obj: numbers.Complex, hasher):
-        yield hasher.yield_hashables(obj.real)
-        yield hasher.yield_hashables(obj.imag)
+        yield from hasher.yield_hashables(obj.real)
+        yield from hasher.yield_hashables(obj.imag)
 
 
 class IntegerEquator(SimpleHelper):

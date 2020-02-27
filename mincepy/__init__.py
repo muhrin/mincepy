@@ -1,6 +1,7 @@
 from .archive import *
 from .base_savable import *
 from .archive_factory import *
+from .convenience import *
 from .comparators import *
 from .depositors import *
 from .exceptions import *
@@ -22,5 +23,5 @@ from . import utils
 _ADDITIONAL = ('analysis', 'mongo', 'buitins', 'common_helpers', 'testing', 'utils')
 
 __all__ = (archive.__all__ + comparators.__all__ + depositors.__all__ + exceptions.__all__ + historian.__all__ +
-           process.__all__ + types.__all__ + helpers.__all__ + version.__all__ + history.__all__ +
+           convenience.__all__ + process.__all__ + types.__all__ + helpers.__all__ + version.__all__ + history.__all__ +
            archive_factory.__all__ + refs.__all__ + records.__all__ + base_savable.__all__ + _ADDITIONAL)

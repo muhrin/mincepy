@@ -81,7 +81,7 @@ def test_update(historian: mincepy.Historian):
     archive.save(builder.build())
 
     # Now update and check the state
-    historian.update(car)
+    historian.sync(car)
     assert car.make == 'honda'
     assert car.colour == 'black'
 

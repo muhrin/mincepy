@@ -34,9 +34,9 @@ class Historian:
         self._equator = types.Equator(defaults.get_default_equators() + equators)
         # Register default types
         self._type_registry = type_registry.TypeRegistry()
-        self.register_types(archive.get_types())
         self.register_type(refs.ObjRef)
-        self.register_type(records.Ref)
+        self.register_type(helpers.SnapshotRefHelper())
+        self.register_types(archive.get_types())
 
         # Snapshot objects -> reference. Objects that were loaded from historical snapshots
         self._snapshots_objects = utils.WeakObjectIdDict()  # type: MutableMapping[Any, records.Ref]
@@ -148,7 +148,7 @@ class Historian:
 
         return self.load_object(obj_id_or_ref)
 
-    def update(self, obj) -> bool:
+    def sync(self, obj) -> bool:
         """Update an object with the latest state in the database.
         If there is no new version in the archive then the current version remains
         unchanged including any modifications.
@@ -576,13 +576,13 @@ class Historian:
         if self.is_obj_id(obj_or_identifier):
             return obj_or_identifier
 
-        # Maybe we've been passed an object
         try:
-            return self.get_obj_id(obj_or_identifier)
-        except exceptions.NotFound:
             # Try creating it for the user by calling the constructor with the argument passed.
             # This helps for common obj id types which can be constructed from a string
-            return self._archive.get_id_type()(obj_or_identifier)
+            return self._archive.construct_archive_id(obj_or_identifier)
+        except (ValueError, TypeError):
+            # Maybe we've been passed an object
+            return self.get_obj_id(obj_or_identifier)
 
     def _ensure_compatible(self, obj) -> helpers.TypeHelper:
         obj_type = type(obj)

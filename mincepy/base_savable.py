@@ -20,18 +20,20 @@ class BaseSavableObject(types.SavableObject):
 
     def __new__(cls, *_args, **_kwargs):
         new_instance = super(BaseSavableObject, cls).__new__(cls)
-        attrs = []
+        attrs = {}
         for entry in cls.__mro__:
             try:
-                for save_attr in getattr(entry, 'ATTRS'):
-                    if isinstance(save_attr, AsRef):
-                        attrs.append(AttrSpec(save_attr.attr, True))
-                    else:
-                        attrs.append(AttrSpec(save_attr, False))
+                for name in getattr(entry, 'ATTRS'):
+                    if name not in attrs:
+                        if isinstance(name, AsRef):
+                            spec = AttrSpec(name.attr, True)
+                        else:
+                            spec = AttrSpec(name, False)
+                        attrs[name] = spec
 
             except AttributeError:
                 pass
-        setattr(new_instance, '__attrs', attrs)
+        setattr(new_instance, '__attrs', attrs.values())
         return new_instance
 
     def __eq__(self, other):

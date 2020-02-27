@@ -1,7 +1,9 @@
 from abc import ABCMeta, abstractmethod
 from typing import Type
+import uuid
 
 import mincepy
+from . import records
 from . import types
 
 __all__ = 'TypeHelper', 'WrapperHelper', 'BaseHelper'
@@ -94,3 +96,25 @@ class WrapperHelper(TypeHelper):
 
     def load_instance_state(self, obj, saved_state: types.Savable, loader):
         self.TYPE.load_instance_state(obj, saved_state, loader)
+
+
+class SnapshotRefHelper(TypeHelper):
+    """Add ability to store references"""
+    TYPE = records.Ref
+    TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
+
+    def eq(self, one, other):
+        if not (isinstance(one, records.Ref) and isinstance(other, records.Ref)):
+            return False
+
+        return one.obj_id == other.obj_id and one.version == other.version
+
+    def yield_hashables(self, obj, hasher):
+        yield from hasher.yield_hashables(obj.obj_id)
+        yield from hasher.yield_hashables(obj.version)
+
+    def save_instance_state(self, obj, saver):
+        return obj.to_list()
+
+    def load_instance_state(self, obj, saved_state, loader):
+        obj.__init__(*saved_state)

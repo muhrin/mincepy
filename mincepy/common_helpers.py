@@ -39,6 +39,10 @@ class TupleHelper(helpers.BaseHelper):
     def load_instance_state(self, obj: pathlib.Path, saved_state, _loader):
         pass  # Done it all in new
 
+    def yield_hashables(self, obj, hasher):
+        for entry in obj:
+            yield from hasher.yield_hashables(entry)
+
 
 class NamespaceHelper(helpers.BaseHelper):
     TYPE = Namespace

@@ -87,7 +87,7 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
 
     def sync(self):
         """Update the state of this object by loading the latest version from the historian"""
-        return self._historian.update(self)
+        return self._historian.sync(self)
 
     def load_instance_state(self, saved_state, loader):
         """Take the given object and load the instance state into it"""
@@ -122,7 +122,8 @@ class Equator:
             self._equators.reverse()
 
     def get_equator(self, obj):
-        for equator in self._equators:
+        # Iterate in reversed order i.e. the latest added should be used preferentially
+        for equator in reversed(self._equators):
             if isinstance(obj, equator.TYPE):
                 return equator
         raise TypeError("Don't know how to compare '{}' types, no type equator set".format(type(obj)))

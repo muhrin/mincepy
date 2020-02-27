@@ -77,7 +77,7 @@ class ObjRef(types.SavableObject):
             assert self._obj is not None
             ref = saver.ref(self._obj)
 
-        return [ref.obj_id, ref.version]
+        return ref.to_list()
 
     def load_instance_state(self, saved_state, loader):
         self._ref = records.Ref(*saved_state)

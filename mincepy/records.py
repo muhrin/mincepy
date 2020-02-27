@@ -1,11 +1,9 @@
 import copy
 import datetime
 import typing
-import uuid
 from collections import namedtuple
 
 from . import utils
-from . import types
 
 __all__ = 'OBJ_ID', 'TYPE_ID', 'CREATION_TIME', 'VERSION', 'STATE', 'SNAPSHOT_TIME', \
           'SNAPSHOT_HASH', 'EXTRAS', 'ExtraKeys', 'DELETED', 'DataRecord', 'Ref', \
@@ -34,9 +32,8 @@ DELETED = '!!deleted'  # Special state to denote a deleted record
 IdT = typing.TypeVar('IdT')  # The archive ID type
 
 
-class Ref(typing.Generic[IdT], types.SavableObject):
+class Ref(typing.Generic[IdT]):
     """Reference information for looking up a snapshot"""
-    TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
 
     def __init__(self, obj_id, version):
         super(Ref, self).__init__()
@@ -63,15 +60,9 @@ class Ref(typing.Generic[IdT], types.SavableObject):
     def version(self):
         return self._version
 
-    def yield_hashables(self, hasher):
-        yield from hasher.yield_hashables(self.obj_id)
-        yield from hasher.yield_hashables(self.version)
-
-    def save_instance_state(self, _depositor):
+    def to_list(self) -> list:
+        """Convenience to represent the reference as a list"""
         return [self.obj_id, self.version]
-
-    def load_instance_state(self, saved_state, _depositor):
-        self.__init__(*saved_state)
 
 
 class DataRecord(
@@ -155,7 +146,7 @@ class DataRecord(
             VERSION: 0,
             SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
         })
-        defaults[EXTRAS][ExtraKeys.COPIED_FROM] = self.get_reference().save_instance_state(None)
+        defaults[EXTRAS][ExtraKeys.COPIED_FROM] = self.get_reference().to_list()
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
 

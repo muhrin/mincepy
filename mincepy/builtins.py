@@ -268,4 +268,4 @@ class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):
             yield from hasher.yield_hashables(None)
 
 
-HISTORIAN_TYPES = Str, List, Dict, RefList, RefDict
+HISTORIAN_TYPES = Str, List, Dict, RefList, RefDict, LiveDict, LiveList, ObjProxy

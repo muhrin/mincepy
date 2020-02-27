@@ -208,7 +208,10 @@ class RecordTree(QtCore.QAbstractItemModel):
     def _item_builder(self, build_from, row, parent=None):
         if isinstance(build_from, collections.Sequence):
             key = str(row)
-            child = build_from[row]
+            try:
+                child = build_from[row]
+            except Exception as exc:
+                child = "Error getting child: {}".format(exc)
         elif isinstance(build_from, collections.Mapping):
             entry = sorted(build_from.items(), key=operator.itemgetter(0))[row]
             key, child = str(entry[0]), entry[1]
