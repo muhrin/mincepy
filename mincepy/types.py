@@ -8,6 +8,8 @@ try:  # Python3
 except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 
+from . import exceptions
+
 __all__ = 'Savable', 'Comparable', 'Object', 'SavableObject', 'PRIMITIVE_TYPES'
 
 # The primitives that all archive types must support
@@ -22,11 +24,11 @@ class Savable(metaclass=ABCMeta):
         assert self.TYPE_ID is not None, "Must set the TYPE_ID for an object to be savable"
 
     @abstractmethod
-    def save_instance_state(self, depositor):
+    def save_instance_state(self, saver):
         """Save the instance state of an object, should return a saved instance"""
 
     @abstractmethod
-    def load_instance_state(self, saved_state, depositor):
+    def load_instance_state(self, saved_state, loader):
         """Take the given object and load the instance state into it"""
 
 
@@ -62,7 +64,10 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
 
     @property
     def obj_id(self):
-        return self._historian.get_obj_id(self)
+        try:
+            return self._historian.get_obj_id(self)
+        except exceptions.NotFound:
+            return None
 
     def get_meta(self) -> dict:
         """Get the metadata dictionary for this object"""
@@ -80,10 +85,14 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
         """Save the object"""
         return self._historian.save(self, with_meta=with_meta, return_sref=return_sref)
 
-    def load_instance_state(self, saved_state, depositor):
+    def sync(self):
+        """Update the state of this object by loading the latest version from the historian"""
+        return self._historian.update(self)
+
+    def load_instance_state(self, saved_state, loader):
         """Take the given object and load the instance state into it"""
-        super().load_instance_state(saved_state, depositor)
-        self._historian = depositor.get_historian()
+        super().load_instance_state(saved_state, loader)
+        self._historian = loader.get_historian()
 
 
 class Equator:

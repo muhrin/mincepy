@@ -93,4 +93,4 @@ class WrapperHelper(TypeHelper):
         return self.TYPE.save_instance_state(obj, saver)
 
     def load_instance_state(self, obj, saved_state: types.Savable, loader):
-        return self.TYPE.load_instance_state(obj, saved_state, loader)
+        self.TYPE.load_instance_state(obj, saved_state, loader)

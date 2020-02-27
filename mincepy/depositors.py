@@ -121,7 +121,7 @@ class LiveDepositor(Saver, Loader):
             norm_schema = {tuple(path): type_id for path, type_id in record.state_types}
             return self.decode(record.state, norm_schema, created_callback=created)
 
-    def update_from_record(self, obj, record):
+    def update_from_record(self, obj, record) -> bool:
         historian = self.get_historian()
         helper = historian.get_helper(type(obj))
         with historian.transaction() as trans:
@@ -131,7 +131,7 @@ class LiveDepositor(Saver, Loader):
             norm_schema = {tuple(path): type_id for path, type_id in record.state_types}
             saved_state = self._unpack(record.state, norm_schema)
             helper.load_instance_state(obj, saved_state, self)
-            return obj
+            return True
 
     def save_from_builder(self, obj, builder):
         """Save a live object"""

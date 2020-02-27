@@ -4,10 +4,9 @@ from typing import BinaryIO, Optional
 import uuid
 
 from . import base_savable
-from . import depositors
 from . import refs
 
-__all__ = 'List', 'Str', 'Dict', 'BaseFile'
+__all__ = 'List', 'LiveList', 'Str', 'Dict', 'LiveDict', 'BaseFile'
 
 
 class _UserType(base_savable.BaseSavableObject):
@@ -17,102 +16,187 @@ class _UserType(base_savable.BaseSavableObject):
     data = None  # placeholder
 
 
+class ObjProxy(_UserType):
+    """A simple proxy for any object/data type which can also be a primitive"""
+    TYPE_ID = uuid.UUID('d43c2db5-1e8c-428f-988f-8b198accde47')
+
+    def __init__(self, data=None, historian=None):
+        super(ObjProxy, self).__init__(historian)
+        self.data = data
+
+
 class List(collections.UserList, _UserType):
     TYPE_ID = uuid.UUID('2b033f70-168f-4412-99ea-d1f131e3a25a')
 
-    def save_instance_state(self, _saver: depositors.Saver):
-        return self.data
-
-    def load_instance_state(self, state, _loader: depositors.Loader):
-        self.__init__(state)
+    def __init__(self, initlist=None, historian=None):
+        collections.UserList.__init__(self, initlist)
+        _UserType.__init__(self, historian)
 
 
 class Dict(collections.UserDict, _UserType):
     TYPE_ID = uuid.UUID('a7584078-95b6-4e00-bb8a-b077852ca510')
 
-    def save_instance_state(self, _saver: depositors.Saver):
-        return self.data
-
-    def load_instance_state(self, state, _loader: depositors.Loader):
-        self.__init__(state)
+    def __init__(self, *args, historian=None, **kwarg):
+        collections.UserDict.__init__(self, *args, **kwarg)
+        _UserType.__init__(self, historian)
 
 
 class Str(collections.UserString, _UserType):
     TYPE_ID = uuid.UUID('350f3634-4a6f-4d35-b229-71238ce9727d')
 
-    def save_instance_state(self, _saver: depositors.Saver):
-        return self.data
-
-    def load_instance_state(self, state, _loader: depositors.Loader):
-        self.data = state
+    def __init__(self, seq, historian=None):
+        collections.UserString.__init__(self, seq)
+        _UserType.__init__(self, historian)
 
 
-class RefList(collections.abc.MutableSequence, base_savable.BaseSavableObject):
+class RefList(collections.abc.MutableSequence, _UserType):
     """A list that stores all entries as references in the database"""
     TYPE_ID = uuid.UUID('091efff5-136d-4ac2-bd59-28f50f151263')
-    ATTRS = ('_data',)
 
-    def __init__(self, init_list=None):
-        super().__init__()
-        self._data = []
+    def __init__(self, init_list=None, historian=None):
+        super().__init__(historian)
+        self.data = []
         if init_list is not None:
-            self._data = [refs.ObjRef(item) for item in init_list]
+            self.data = [refs.ObjRef(item) for item in init_list]
 
     def __str__(self):
-        return str(self._data)
+        return str(self.data)
 
     def __repr__(self):
-        return repr(self._data)
+        return repr(self.data)
 
     def __getitem__(self, item):
-        return self._data[item]()
+        return self.data[item]()
 
     def __setitem__(self, key, value):
-        self._data[key] = refs.ObjRef(value)
+        self.data[key] = refs.ObjRef(value)
 
     def __delitem__(self, key):
-        self._data.__delitem__(key)
+        self.data.__delitem__(key)
 
     def __len__(self):
-        return self._data.__len__()
+        return self.data.__len__()
 
     def insert(self, index, value):
-        self._data.insert(index, refs.ObjRef(value))
+        self.data.insert(index, refs.ObjRef(value))
 
 
-class RefDict(collections.MutableMapping, base_savable.BaseSavableObject):
-    """A dictionary that stores all values as references in the database"""
-    TYPE_ID = uuid.UUID('c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0')
-    ATTRS = ('_data',)
+class LiveList(RefList):
+    """A list that is always in sync with the database"""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__()
-        initial = dict(*args, **kwargs)
-        if initial:
-            self._data = {key: refs.ObjRef(value) for key, value in initial.items()}
-        else:
-            self._data = {}
+    TYPE_ID = uuid.UUID('c83e6206-cd29-4fda-bf76-11fce1681cd9')
 
-    def __str__(self):
-        return str(self._data)
-
-    def __repr__(self):
-        return repr(self._data)
+    def __init__(self, init_list=None, historian=None):
+        init_list = init_list or []
+        self._ref_list = RefList([ObjProxy(value, historian) for value in init_list])
+        super().__init__(historian)
 
     def __getitem__(self, item):
-        return self._data[item]()
+        self.sync()
+        proxy = super(LiveList, self).__getitem__(item)  # type: ObjProxy
+        proxy.sync()
+        return proxy.data
 
     def __setitem__(self, key, value):
-        self._data[key] = refs.ObjRef(value)
+        self.sync()
+        proxy = super(LiveList, self).__getitem__(key)  # type: ObjProxy
+        proxy.data = value
+        proxy.save()
 
     def __delitem__(self, key):
-        self._data.__delitem__(key)
-
-    def __iter__(self):
-        return self._data.__iter__()
+        self.sync()
+        proxy = super(LiveList, self).__getitem__(key)  # type: ObjProxy
+        super(LiveList, self).__delitem__(key)
+        self.save()
+        self._historian.delete(proxy)
 
     def __len__(self):
-        return self._data.__len__()
+        self.sync()
+        return super(LiveList, self).__len__()
+
+    def insert(self, index, value):
+        proxy = ObjProxy(value, self._historian)
+        self.sync()
+        super(LiveList, self).insert(index, proxy)
+        self.save()
+
+
+class RefDict(collections.MutableMapping, _UserType):
+    """A dictionary that stores all values as references in the database"""
+    TYPE_ID = uuid.UUID('c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(kwargs.pop('historian', None))
+        initial = dict(*args, **kwargs)
+        if initial:
+            self.data = {key: refs.ObjRef(value) for key, value in initial.items()}
+        else:
+            self.data = {}
+
+    def __str__(self):
+        return str(self.data)
+
+    def __repr__(self):
+        return repr(self.data)
+
+    def __getitem__(self, item):
+        return self.data[item]()
+
+    def __setitem__(self, key, value):
+        self.data[key] = refs.ObjRef(value)
+
+    def __delitem__(self, key):
+        self.data.__delitem__(key)
+
+    def __iter__(self):
+        return self.data.__iter__()
+
+    def __len__(self):
+        return self.data.__len__()
+
+
+class LiveDict(RefDict):
+    TYPE_ID = uuid.UUID('740cc832-721c-4f85-9628-706257eb55b9')
+
+    def __init__(self, *args, **kwargs):
+        historian = kwargs.pop('historian', None)
+        initial = dict(*args, **kwargs)
+        if initial:
+            initial = {key: ObjProxy(value) for key, value in initial.items()}
+        super().__init__(initial, historian=historian)
+
+    def __getitem__(self, item):
+        self.sync()
+        proxy = super().__getitem__(item)  # type: ObjProxy
+        proxy.sync()
+        return proxy.data
+
+    def __setitem__(self, key, value):
+        self.sync()
+        if key in self:
+            proxy = super().__getitem__(key)  # type: ObjProxy
+            proxy.data = value
+            proxy.save()
+        else:
+            proxy = ObjProxy(value)
+            super().__setitem__(key, proxy)
+            self.save()
+            proxy.save()
+
+    def __delitem__(self, key):
+        self.sync()
+        proxy = super(LiveDict, self).__getitem__(key)  # type: ObjProxy
+        super(LiveDict, self).__delitem__(key)
+        self.save()
+        self._historian.delete(proxy)
+
+    def __iter__(self):
+        self.sync()
+        return super(LiveDict, self).__iter__()
+
+    def __len__(self):
+        self.sync()
+        return super(LiveDict, self).__len__()
 
 
 class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):

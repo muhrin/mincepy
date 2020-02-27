@@ -32,21 +32,21 @@ class Historian:
     def __init__(self, archive: archive.Archive, equators=()):
         self._archive = archive
         self._equator = types.Equator(defaults.get_default_equators() + equators)
+        # Register default types
+        self._type_registry = type_registry.TypeRegistry()
+        self.register_types(archive.get_types())
+        self.register_type(refs.ObjRef)
+        self.register_type(records.Ref)
 
         # Snapshot objects -> reference. Objects that were loaded from historical snapshots
         self._snapshots_objects = utils.WeakObjectIdDict()  # type: MutableMapping[Any, records.Ref]
         self._live_objects = LiveObjects()
-
-        self._type_registry = type_registry.TypeRegistry()
 
         # Staged objects that have been created but not saved
         self._creators = utils.WeakObjectIdDict()  # type: MutableMapping[typing.Any, Any]
         self._type_ids = {}
 
         self._transactions = None
-
-        self.register_types(archive.get_types())
-        self.register_type(refs.ObjRef)
 
         self._saving_set = set()
 
@@ -148,13 +148,27 @@ class Historian:
 
         return self.load_object(obj_id_or_ref)
 
-    def update(self, obj):
-        """Update an object with the latest state in the database"""
-        obj_id = self.get_obj_id(obj)
+    def update(self, obj) -> bool:
+        """Update an object with the latest state in the database.
+        If there is no new version in the archive then the current version remains
+        unchanged including any modifications.
+
+        :return: True if the object was updated, False otherwise
+        """
+        try:
+            obj_id = self.get_obj_id(obj)
+        except exceptions.NotFound:
+            # Not found, so the object is as up to date as can be i.e. never saved!
+            return False
+
         ref = self._get_latest_snapshot_reference(obj_id)
         archive_record = self._archive.load(ref)
         if archive_record.is_deleted_record():
             raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(obj_id))
+
+        if ref.version == self.get_snapshot_ref(obj).version:
+            # Nothing has changed
+            return False
 
         # The one in the archive is newer, so use that
         depositor = depositors.LiveDepositor(self)
@@ -292,8 +306,8 @@ class Historian:
 
         return self._live_objects.get_object(obj_id)
 
-    def get_ref(self, obj):
-        """Get the current reference for a live object"""
+    def get_snapshot_ref(self, obj):
+        """Get the current snapshot reference for a live object"""
         trans = self.current_transaction()
         if trans:
             try:
@@ -495,12 +509,11 @@ class Historian:
                 # Ok, just use the one from the archive
                 return depositor.load_from_record(record)
             else:
-                if record.version == self._live_objects.get_record(obj).version:
-                    # We're still up to date
-                    return obj
+                if record.version != self.get_snapshot_ref(obj).version:
+                    # The one in the archive is newer, so use that
+                    depositor.update_from_record(obj, record)
 
-                # The one in the archive is newer, so use that
-                return depositor.update_from_record(obj, record)
+                return obj
 
     def _save_object(self, obj, depositor) -> records.DataRecord:
         with self.transaction() as trans:

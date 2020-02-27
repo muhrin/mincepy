@@ -2,7 +2,6 @@ import collections
 import typing
 
 from . import types
-from . import refs
 
 __all__ = 'BaseSavableObject', 'AsRef'
 
@@ -45,6 +44,8 @@ class BaseSavableObject(types.SavableObject):
         yield from hasher.yield_hashables([getattr(self, attr.name) for attr in self.__get_attrs()])
 
     def save_instance_state(self, _saver) -> dict:
+        from . import refs
+
         saved_state = {}
         for attr in self.__get_attrs():
             item = getattr(self, attr.name)
