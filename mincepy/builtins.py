@@ -1,5 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import collections
+from pathlib import Path
+import shutil
 from typing import BinaryIO, Optional
 import uuid
 
@@ -251,6 +253,19 @@ class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):
     def open(self, mode='r', **kwargs) -> BinaryIO:
         """Open returning a file like object that supports close() and read()"""
 
+    def from_disk(self, path):
+        """Copy the contents of a disk file to this file"""
+        with open(path, 'r', encoding=self.encoding) as disk_file:
+            with self.open('w') as this:
+                shutil.copyfileobj(disk_file, this)
+
+    def to_disk(self, folder):
+        """Copy the contents of this file to a file on disk in the given folder"""
+        file_path = folder / Path(self.filename)
+        with open(file_path, 'r', encoding=self._encoding) as disk_file:
+            with self.open('r') as this:
+                shutil.copyfileobj(disk_file, this)
+
     def __str__(self):
         contents = [str(self._filename)]
         if self._encoding is not None:
@@ -287,7 +302,7 @@ class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):
                 return True
 
     def yield_hashables(self, hasher):
-        """Has the contents of the file"""
+        """Hash the contents of the file"""
         try:
             with self.open('rb') as opened:
                 while True:

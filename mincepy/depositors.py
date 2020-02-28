@@ -40,7 +40,7 @@ class Saver(Base, metaclass=ABCMeta):
             return utils.transform(self.encode, obj, path, types_schema=types_schema)
 
         # Store by value
-        helper = historian.get_helper(type(obj))
+        helper = historian.get_helper(type(obj), auto_register=True)
         save_state = helper.save_instance_state(obj, self)
         assert historian.is_primitive(save_state), "Saved state must be one of the primitive types"
         types_schema.append((path, helper.TYPE_ID))

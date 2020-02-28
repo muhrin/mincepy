@@ -9,6 +9,7 @@ from typing import MutableMapping, Any, Optional, Mapping
 import weakref
 
 from . import archive
+from . import builtins
 from . import defaults
 from . import depositors
 from . import refs
@@ -63,7 +64,7 @@ class Historian:
         if creator is not None:
             self._creators[obj] = creator
 
-    def create_file(self, filename: str = None, encoding: str = None):
+    def create_file(self, filename: str = None, encoding: str = None) -> builtins.BaseFile:
         """Create a new file.  The historian will supply file type compatible with the archive in use."""
         return self._archive.create_file(filename, encoding)
 
@@ -351,8 +352,8 @@ class Historian:
         self._equator.add_equator(helper)
         return helper
 
-    def register_types(self, obj_claases_or_helpers):
-        for item in obj_claases_or_helpers:
+    def register_types(self, obj_clases_or_helpers):
+        for item in obj_clases_or_helpers:
             self.register_type(item)
 
     def get_obj_type_id(self, obj_type):
@@ -361,7 +362,10 @@ class Historian:
     def get_obj_type(self, type_id):
         return self.get_helper(type_id).TYPE
 
-    def get_helper(self, type_id_or_type) -> helpers.TypeHelper:
+    def get_helper(self, type_id_or_type, auto_register=False) -> helpers.TypeHelper:
+        if auto_register and issubclass(type_id_or_type, types.SavableObject):
+            self._ensure_compatible(type_id_or_type)
+
         return self._type_registry.get_helper(type_id_or_type)
 
     # endregion
@@ -517,7 +521,7 @@ class Historian:
 
     def _save_object(self, obj, depositor) -> records.DataRecord:
         with self.transaction() as trans:
-            helper = self._ensure_compatible(obj)
+            helper = self._ensure_compatible(type(obj))
 
             # Check if an object is already being saved in the transaction
             try:
@@ -557,7 +561,7 @@ class Historian:
 
     def _create_builder(self, obj, additional=None):
         additional = additional or {}
-        helper = self._ensure_compatible(obj)
+        helper = self._ensure_compatible(type(obj))
         builder = records.DataRecord.new_builder(type_id=helper.TYPE_ID,
                                                  obj_id=self._archive.create_archive_id(),
                                                  version=0)
@@ -584,8 +588,7 @@ class Historian:
             # Maybe we've been passed an object
             return self.get_obj_id(obj_or_identifier)
 
-    def _ensure_compatible(self, obj) -> helpers.TypeHelper:
-        obj_type = type(obj)
+    def _ensure_compatible(self, obj_type) -> helpers.TypeHelper:
         if obj_type not in self._type_registry:
             return self.register_type(obj_type)
 
