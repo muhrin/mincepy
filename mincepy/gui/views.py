@@ -73,6 +73,7 @@ class TypeDropDown(QtWidgets.QComboBox):
         self._types.extend(list(set(result.type_id for result in results)))
 
         type_names = self._get_type_names(self._types)
+        type_names.sort()
 
         self.addItems(type_names)
         completer = QtWidgets.QCompleter(type_names)

@@ -32,7 +32,8 @@ def remove_creation_tracking(cls):
 
 
 class TypeHelper(metaclass=ABCMeta):
-    """Responsible for generating a hash and checking equality of objects"""
+    """This interface provides the basic methods necessary to enable a type
+    to be compatible with the historian."""
     TYPE = None  # The type this helper corresponds to
     TYPE_ID = None  # The unique id for this type of objects
     IMMUTABLE = False  # If set to true then the object is decoded straight away

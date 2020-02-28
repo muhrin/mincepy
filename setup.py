@@ -25,7 +25,7 @@ setup(name='mincepy',
           'Programming Language :: Python :: 3.7',
       ],
       keywords='workflow',
-      install_requires=['pymongo', 'bidict', 'pyblake2; python_version<"3.6"'],
+      install_requires=['pymongo', 'bidict', 'pyblake2; python_version<"3.6"', 'stevedore'],
       extras_require={
           'cli': ['click', 'tabulate'],
           'gui': ['PySide2'],
@@ -41,4 +41,7 @@ setup(name='mincepy',
           ],
       },
       packages=['mincepy', 'mincepy.gui', 'mincepy.cli'],
-      test_suite='test')
+      include_package_data=True,
+      test_suite='test',
+      provides=['mincepy.plugins'],
+      entry_points={'mincepy.plugins.types': ['native_types = mincepy.provides:get_types',]})

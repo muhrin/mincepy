@@ -2,10 +2,8 @@ import os
 from typing import Optional
 
 from . import archive_factory
-from . import builtins
-from . import common_helpers
 from . import historian
-from . import refs
+from . import plugins
 
 __all__ = 'get_historian', 'set_historian'
 
@@ -34,10 +32,8 @@ def get_historian() -> historian.Historian:
     return CURRENT_HISTORIAN
 
 
-def set_historian(new_historian: Optional[historian.Historian], register_common_types=True):
+def set_historian(new_historian: Optional[historian.Historian], apply_plugins=True):
     global CURRENT_HISTORIAN  # pylint: disable=global-statement
     CURRENT_HISTORIAN = new_historian
-    if new_historian is not None and register_common_types:
-        new_historian.register_types(common_helpers.HISTORIAN_TYPES)
-        new_historian.register_types(builtins.HISTORIAN_TYPES)
-        new_historian.register_types(refs.HISTORIAN_TYPES)
+    if new_historian is not None and apply_plugins:
+        new_historian.register_types(plugins.get_types())
