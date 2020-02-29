@@ -111,13 +111,15 @@ class FilterControlPanel(QtWidgets.QWidget):
         display_class_checkbox.setCheckState(QtCore.Qt.Checked)
         display_class_checkbox.stateChanged.connect(
             lambda state: self._entries_table.set_show_as_objects(state == QtCore.Qt.Checked))
-        self._entries_table.set_show_as_objects(display_class_checkbox.checkState() == QtCore.Qt.Checked)
+        self._entries_table.set_show_as_objects(
+            display_class_checkbox.checkState() == QtCore.Qt.Checked)
 
         return display_class_checkbox
 
     def _create_type_drop_down(self):
         type_drop_down = TypeDropDown(self._entries_table.query_model, self)
-        type_drop_down.selected_type_changed.connect(self._entries_table.query_model.set_type_restriction)
+        type_drop_down.selected_type_changed.connect(
+            self._entries_table.query_model.set_type_restriction)
         type_drop_down.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding,
                                      type_drop_down.sizePolicy().verticalPolicy())
         return type_drop_down
@@ -174,7 +176,8 @@ class FilterControlPanel(QtWidgets.QWidget):
 
         def text_edited(_text):
             try:
-                current_query = json.dumps(self._entries_table.query_model.get_query(), cls=UUIDEncoder)
+                current_query = json.dumps(self._entries_table.query_model.get_query(),
+                                           cls=UUIDEncoder)
             except json.decoder.JSONDecodeError:
                 pass
             else:
@@ -253,17 +256,20 @@ class MincepyWidget(QtWidgets.QWidget):
         # Models
         # The model
         self._db_model = models.DbModel()
-        self._data_records = models.DataRecordQueryModel(self._db_model, executor=app_common.executor, parent=self)
+        self._data_records = models.DataRecordQueryModel(self._db_model,
+                                                         executor=app_common.executor,
+                                                         parent=self)
 
         self._entries_table = models.EntriesTable(self._data_records, parent=self)
         self._entries_table.object_activated.connect(self._activate_object)
 
         # Create the views
         # Set up the connect panel of the GUI
-        connect_panel = ConnectionWidget(default_connect_uri=app_common.default_connect_uri,
-                                         create_historian_callback=app_common.create_historian_callback,
-                                         executor=app_common.executor,
-                                         parent=self)
+        connect_panel = ConnectionWidget(
+            default_connect_uri=app_common.default_connect_uri,
+            create_historian_callback=app_common.create_historian_callback,
+            executor=app_common.executor,
+            parent=self)
 
         connect_panel.historian_created.connect(self._historian_created)
 
@@ -338,7 +344,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _execute(self, func, msg=None, blocking=False) -> Future:
         future = self._executor.submit(func)
-        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.WaitCursor if blocking else QtCore.Qt.BusyCursor)
+        QtWidgets.QApplication.setOverrideCursor(
+            QtCore.Qt.WaitCursor if blocking else QtCore.Qt.BusyCursor)
         self._tasks.append(future)
         future.add_done_callback(self._task_done_signal.emit)
         if msg is not None:
@@ -351,7 +358,9 @@ class MainWindow(QtWidgets.QMainWindow):
     @QtCore.Slot(object)
     def _object_activated(self, obj):
         if self._app_common.type_viewers:
-            self._execute(partial(self._app_common.call_viewers, obj), msg="Calling viewer", blocking=True)
+            self._execute(partial(self._app_common.call_viewers, obj),
+                          msg="Calling viewer",
+                          blocking=True)
 
     @QtCore.Slot(Future)
     def _task_done(self, future):

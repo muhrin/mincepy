@@ -13,7 +13,8 @@ from . import exceptions
 __all__ = 'Savable', 'Comparable', 'Object', 'SavableObject', 'PRIMITIVE_TYPES'
 
 # The primitives that all archive types must support
-PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID, datetime.datetime)
+PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID,
+                   datetime.datetime)
 
 
 class Savable(metaclass=ABCMeta):
@@ -126,7 +127,8 @@ class Equator:
         for equator in reversed(self._equators):
             if isinstance(obj, equator.TYPE):
                 return equator
-        raise TypeError("Don't know how to compare '{}' types, no type equator set".format(type(obj)))
+        raise TypeError("Don't know how to compare '{}' types, no type equator set".format(
+            type(obj)))
 
     def yield_hashables(self, obj):
         try:
@@ -136,7 +138,8 @@ class Equator:
             try:
                 yield from obj.yield_hashables(self)
             except AttributeError:
-                raise TypeError("No helper registered and no yield_hashabled method on '{}'".format(type(obj)))
+                raise TypeError("No helper registered and no yield_hashabled method on '{}'".format(
+                    type(obj)))
         else:
             yield from equator.yield_hashables(obj, self)
 

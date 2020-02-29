@@ -122,7 +122,8 @@ class NamedTupleBuilder(Generic[T]):
 
     def build(self) -> T:
         build_from = {
-            key: value if not isinstance(value, DefaultFromCall) else value() for key, value in self._values.items()
+            key: value if not isinstance(value, DefaultFromCall) else value()
+            for key, value in self._values.items()
         }
         return self._tuple_type(**build_from)
 

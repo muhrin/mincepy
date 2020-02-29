@@ -111,7 +111,8 @@ class MongoArchive(archive.BaseArchive[bson.ObjectId]):
         except pymongo.errors.BulkWriteError as exc:
             write_errors = exc.details['writeErrors']
             if write_errors:
-                raise exceptions.ModificationError("You're trying to rewrite history, that's not allowed!")
+                raise exceptions.ModificationError(
+                    "You're trying to rewrite history, that's not allowed!")
             raise  # Otherwise just raise what we got
 
     def load(self, reference: records.Ref) -> records.DataRecord:
@@ -230,7 +231,8 @@ class MongoArchive(archive.BaseArchive[bson.ObjectId]):
             })
             # _meta should only contain at most one entry per document i.e. the metadata for
             # that object.  So check that for the search criteria
-            pipeline.append({'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
+            pipeline.append(
+                {'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
 
         if limit:
             pipeline.append({'$limit': limit})
@@ -321,7 +323,8 @@ class MongoArchive(archive.BaseArchive[bson.ObjectId]):
             })
             # _meta should only contain at most one entry per document i.e. the metadata for
             # that object.  So check that for the search criteria
-            pipeline.append({'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
+            pipeline.append(
+                {'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
 
         return pipeline
 
@@ -330,7 +333,9 @@ class MongoArchive(archive.BaseArchive[bson.ObjectId]):
         record_dict = records.DataRecord.defaults()
 
         # Invert our mapping of keys back to the data record property names and update over any defaults
-        record_dict.update({recordkey: entry[dbkey] for recordkey, dbkey in self.KEY_MAP.items() if dbkey in entry})
+        record_dict.update({
+            recordkey: entry[dbkey] for recordkey, dbkey in self.KEY_MAP.items() if dbkey in entry
+        })
         decoded_state = self._decode_state(record_dict[records.STATE])
         record_dict[records.STATE] = decoded_state
 
@@ -382,7 +387,10 @@ class GridFsFile(builtins.BaseFile):
     TYPE_ID = uuid.UUID('3bf3c24e-f6c8-4f70-956f-bdecd7aed091')
     ATTRS = '_persistent_id', '_file_id'
 
-    def __init__(self, file_bucket: gridfs.GridFSBucket, filename: str = None, encoding: str = None):
+    def __init__(self,
+                 file_bucket: gridfs.GridFSBucket,
+                 filename: str = None,
+                 encoding: str = None):
         super().__init__(filename, encoding)
         self._file_store = file_bucket
         self._file_id = None

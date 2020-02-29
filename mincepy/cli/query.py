@@ -63,7 +63,11 @@ def print_records(records: typing.Sequence[mincepy.records.DataRecord], historia
     for row in range(len(records)):
         rows.append([columns[column][row] for column in columns.keys()])
 
-    print(tabulate(rows, headers=[".".join(path) if isinstance(path, tuple) else path for path in columns.keys()]))
+    print(
+        tabulate(rows,
+                 headers=[
+                     ".".join(path) if isinstance(path, tuple) else path for path in columns.keys()
+                 ]))
 
 
 def get_all_columns(state):

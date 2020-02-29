@@ -13,12 +13,15 @@ class TypeRegistry:
     def __contains__(self, item: Type) -> bool:
         return item in self._helpers
 
-    def register_type(self, obj_class_or_helper: [helpers.TypeHelper, Type[types.Object]]) -> helpers.WrapperHelper:
+    def register_type(
+            self, obj_class_or_helper: [helpers.TypeHelper,
+                                        Type[types.Object]]) -> helpers.WrapperHelper:
         if isinstance(obj_class_or_helper, helpers.TypeHelper):
             helper = obj_class_or_helper
         else:
             if not issubclass(obj_class_or_helper, types.Object):
-                raise TypeError("Type '{}' is nether a TypeHelper nor a SavableObject".format(obj_class_or_helper))
+                raise TypeError("Type '{}' is nether a TypeHelper nor a SavableObject".format(
+                    obj_class_or_helper))
             helper = helpers.WrapperHelper(obj_class_or_helper)
 
         obj_types = helper.TYPE if isinstance(helper.TYPE, Iterable) else (helper.TYPE,)

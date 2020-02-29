@@ -40,7 +40,8 @@ class BaseSavableObject(types.SavableObject):
         if not isinstance(other, type(self)):
             return False
 
-        return all(getattr(self, attr.name) == getattr(other, attr.name) for attr in self.__get_attrs())
+        return all(
+            getattr(self, attr.name) == getattr(other, attr.name) for attr in self.__get_attrs())
 
     def yield_hashables(self, hasher):
         yield from hasher.yield_hashables([getattr(self, attr.name) for attr in self.__get_attrs()])

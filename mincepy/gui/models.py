@@ -135,7 +135,10 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
     def columnCount(self, _parent: QtCore.QModelIndex = QModelIndex()) -> int:
         return len(self.column_names)
 
-    def headerData(self, section: int, orientation: PySide2.QtCore.Qt.Orientation, role: int = ...) -> typing.Any:
+    def headerData(self,
+                   section: int,
+                   orientation: PySide2.QtCore.Qt.Orientation,
+                   role: int = ...) -> typing.Any:
         if role != Qt.DisplayRole:
             return None
 
@@ -197,7 +200,8 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
 
 class EntriesTable(QtCore.QAbstractTableModel):
-    DEFAULT_COLUMNS = (mincepy.TYPE_ID, mincepy.CREATION_TIME, mincepy.SNAPSHOT_TIME, mincepy.VERSION, mincepy.STATE)
+    DEFAULT_COLUMNS = (mincepy.TYPE_ID, mincepy.CREATION_TIME, mincepy.SNAPSHOT_TIME,
+                       mincepy.VERSION, mincepy.STATE)
 
     object_activated = Signal(object)
 
@@ -272,7 +276,10 @@ class EntriesTable(QtCore.QAbstractTableModel):
     def columnCount(self, _parent: PySide2.QtCore.QModelIndex = ...) -> int:
         return len(self._columns)
 
-    def headerData(self, section: int, orientation: PySide2.QtCore.Qt.Orientation, role: int = ...) -> typing.Any:
+    def headerData(self,
+                   section: int,
+                   orientation: PySide2.QtCore.Qt.Orientation,
+                   role: int = ...) -> typing.Any:
         if role != Qt.DisplayRole:
             return None
 
@@ -315,7 +322,9 @@ class EntriesTable(QtCore.QAbstractTableModel):
                 return
             sort_criterion = "state.{}".format(column_name)
 
-        sort_dict = {sort_criterion: mincepy.ASCENDING if order == Qt.AscendingOrder else mincepy.DESCENDING}
+        sort_dict = {
+            sort_criterion: mincepy.ASCENDING if order == Qt.AscendingOrder else mincepy.DESCENDING
+        }
         self._query_model.set_sort(sort_dict)
 
     @Slot(QModelIndex)

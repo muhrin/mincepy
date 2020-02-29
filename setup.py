@@ -24,8 +24,14 @@ setup(name='mincepy',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
       ],
-      keywords='workflow',
-      install_requires=['pymongo', 'bidict', 'pyblake2; python_version<"3.6"', 'stevedore'],
+      keywords='database schemaless nosql object-store',
+      install_requires=[
+          'pymongo',
+          'bidict',
+          'pyblake2; python_version<"3.6"',
+          'stevedore',
+          'click',
+      ],
       extras_require={
           'cli': ['click', 'tabulate'],
           'gui': ['PySide2'],
@@ -44,4 +50,7 @@ setup(name='mincepy',
       include_package_data=True,
       test_suite='test',
       provides=['mincepy.plugins'],
-      entry_points={'mincepy.plugins.types': ['native_types = mincepy.provides:get_types',]})
+      entry_points={
+          'console_scripts': ['mince = mincepy.cli.main:mince'],
+          'mincepy.plugins.types': ['native_types = mincepy.provides:get_types',]
+      })

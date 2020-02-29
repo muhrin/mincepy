@@ -56,6 +56,7 @@ class Process(base_savable.BaseSavableObject):
         finally:
             if self.STACK[-1] != self:
                 raise RuntimeError("Someone has corrupted the process stack!\n"
-                                   "Expected to find '{}' on top but found:{}".format(self, self.STACK))
+                                   "Expected to find '{}' on top but found:{}".format(
+                                       self, self.STACK))
             self._running -= 1
             self.STACK.pop()

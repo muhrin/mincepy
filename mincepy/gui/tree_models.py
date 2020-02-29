@@ -79,7 +79,12 @@ class DataTreeItem(BaseTreeItem):
 
 class LazyMappingItem(BaseTreeItem):
 
-    def __init__(self, column_data: collections.Sequence, raw_data, child_builder, num_children, parent=None):
+    def __init__(self,
+                 column_data: collections.Sequence,
+                 raw_data,
+                 child_builder,
+                 num_children,
+                 parent=None):
         super(LazyMappingItem, self).__init__(column_data, parent)
         self._raw_data = raw_data
         self._child_builder = child_builder
@@ -202,7 +207,8 @@ class RecordTree(QtCore.QAbstractItemModel):
             tree_dict = record._asdict()
             if obj is not None:
                 tree_dict['obj'] = obj
-            self._root_item = LazyMappingItem(self.COLUMN_HEDARES, tree_dict, self._item_builder, len(tree_dict))
+            self._root_item = LazyMappingItem(self.COLUMN_HEDARES, tree_dict, self._item_builder,
+                                              len(tree_dict))
         self.endResetModel()
 
     def _item_builder(self, build_from, row, parent=None):
@@ -234,7 +240,8 @@ class RecordTree(QtCore.QAbstractItemModel):
 
         if nested_child_data is not None:
             # We have a nested child so get a lazy item
-            return LazyMappingItem(column_data, nested_child_data, self._item_builder, len(nested_child_data), parent)
+            return LazyMappingItem(column_data, nested_child_data, self._item_builder,
+                                   len(nested_child_data), parent)
 
         # Fall back to a plain unnested item
         return DataTreeItem(column_data, parent)

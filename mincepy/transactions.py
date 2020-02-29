@@ -68,9 +68,9 @@ class Transaction:
         self._snapshots = {}  # type: MutableMapping[archive.Ref, Any]
 
     def __str__(self):
-        return "{}, {} live ref(s), {} snapshots, {} staged".format(self._live_objects,
-                                                                    len(self._live_object_references),
-                                                                    len(self._snapshots), len(self._staged))
+        return "{}, {} live ref(s), {} snapshots, {} staged".format(
+            self._live_objects, len(self._live_object_references), len(self._snapshots),
+            len(self._staged))
 
     @property
     def live_objects(self) -> LiveObjects:

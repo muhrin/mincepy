@@ -78,7 +78,11 @@ class Loader(Base, metaclass=ABCMeta):
             helper.load_instance_state(new_obj, saved_state, self)
             return new_obj
 
-    def _unpack(self, encoded_saved_state, type_schema: dict = None, path=(), created_callback=None):
+    def _unpack(self,
+                encoded_saved_state,
+                type_schema: dict = None,
+                path=(),
+                created_callback=None):
         """Unpack a saved state expanding any contained objects"""
         return utils.transform(self.decode,
                                encoded_saved_state,

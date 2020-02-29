@@ -96,7 +96,8 @@ class Historian:
     def save_one(self, obj, with_meta=None, return_sref=False):
         """Save the object in the history producing a unique id"""
         if obj in self._snapshots_objects:
-            raise exceptions.ModificationError("Cannot save a snapshot object, that would rewrite history!")
+            raise exceptions.ModificationError(
+                "Cannot save a snapshot object, that would rewrite history!")
 
         record = self.save_object(obj)
         if with_meta is not None:
@@ -114,8 +115,10 @@ class Historian:
         continue the history of the object as the original rather than a brand new object.  Then just
         replace the old object with the new one by calling this function.
         """
-        assert not self.current_transaction(), "Can't replace during a transaction for the time being"
-        assert isinstance(new, type(old)), "Can't replace type '{} with type '{}!".format(type(old), type(new))
+        assert not self.current_transaction(
+        ), "Can't replace during a transaction for the time being"
+        assert isinstance(new, type(old)), "Can't replace type '{} with type '{}!".format(
+            type(old), type(new))
 
         # Get the current record and replace the object with the new one
         record = self._live_objects.get_record(old)
@@ -201,10 +204,11 @@ class Historian:
             trans.stage(deleted_record)
         self._live_objects.delete(obj)
 
-    def history(self,
-                obj_or_obj_id,
-                idx_or_slice='*',
-                as_objects=True) -> [typing.Sequence[ObjectEntry], typing.Sequence[records.DataRecord]]:
+    def history(
+            self,
+            obj_or_obj_id,
+            idx_or_slice='*',
+            as_objects=True) -> [typing.Sequence[ObjectEntry], typing.Sequence[records.DataRecord]]:
         """
         Get a sequence of object ids and instances from the history of the given object.
 
@@ -340,14 +344,16 @@ class Historian:
 
     def is_primitive(self, obj):
         """Check if the object is one of the primitives and should be saved by value in the archive"""
-        primitives = types.PRIMITIVE_TYPES + (self._archive.get_id_type(),) + self._archive.get_extra_primitives()
+        primitives = types.PRIMITIVE_TYPES + (
+            self._archive.get_id_type(),) + self._archive.get_extra_primitives()
         return isinstance(obj, primitives)
 
     def is_obj_id(self, obj_id):
         return isinstance(obj_id, self._archive.get_id_type())
 
     def register_type(
-            self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableObject]]) -> helpers.TypeHelper:
+        self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableObject]]
+    ) -> helpers.TypeHelper:
         helper = self._type_registry.register_type(obj_class_or_helper)
         self._equator.add_equator(helper)
         return helper
@@ -505,7 +511,8 @@ class Historian:
             ref = self._get_latest_snapshot_reference(obj_id)
             record = self._archive.load(ref)
             if record.is_deleted_record():
-                raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(obj_id))
+                raise exceptions.ObjectDeleted(
+                    "Object with id '{}' has been deleted".format(obj_id))
 
             try:
                 obj = self._live_objects.get_object(obj_id)
@@ -542,7 +549,8 @@ class Historian:
                     return depositor.save_from_builder(obj, builder)
                 else:
                     if helper.IMMUTABLE:
-                        logger.info("Tried to save immutable object with id '%s' again", record.obj_id)
+                        logger.info("Tried to save immutable object with id '%s' again",
+                                    record.obj_id)
                         return record
 
                     # Check if our record is up to date
@@ -598,15 +606,17 @@ class Historian:
     def _saving(self, obj):
         obj_id = id(obj)
         if obj_id in self._saving_set:
-            raise RuntimeError("The object is already being saved, this cannot be called twice and suggests "
-                               "a circular reference is being made")
+            raise RuntimeError(
+                "The object is already being saved, this cannot be called twice and suggests "
+                "a circular reference is being made")
         self._saving_set.add(obj_id)
         try:
             yield
         finally:
             self._saving_set.remove(obj_id)
 
-    def _record_builder_created(self, builder: records.DataRecordBuilder) -> records.DataRecordBuilder:
+    def _record_builder_created(self,
+                                builder: records.DataRecordBuilder) -> records.DataRecordBuilder:
         """Update a data record builder with standard information."""
         builder.extras.update(self.get_user_info())
         return builder
