@@ -105,3 +105,23 @@ def test_live_dicts(historian: mincepy.Historian):
         assert len(dict2_loaded) == 1
         assert isinstance(dict1_loaded['car'], Car)
         assert dict1_loaded['car'] == dict2_loaded['car']
+
+
+def test_file_from_disk(tmp_path, historian: mincepy.Historian):
+    disk_file_path = tmp_path / 'test.txt'
+    disk_file_path.write_text('TEST')
+    file = historian.create_file('test.txt')
+    file.from_disk(disk_file_path)
+    contents = file.read_text()
+    assert contents == 'TEST'
+
+
+def test_file_to_disk(tmp_path, historian: mincepy.Historian):
+    disk_file_path = tmp_path / 'test.txt'
+
+    file = historian.create_file('test.txt')
+    file.write_text('TEST')
+
+    file.to_disk(tmp_path)
+
+    assert disk_file_path.read_text() == 'TEST'

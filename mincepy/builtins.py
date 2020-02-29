@@ -255,16 +255,26 @@ class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):
 
     def from_disk(self, path):
         """Copy the contents of a disk file to this file"""
-        with open(path, 'r', encoding=self.encoding) as disk_file:
+        with open(str(path), 'r', encoding=self.encoding) as disk_file:
             with self.open('w') as this:
                 shutil.copyfileobj(disk_file, this)
 
-    def to_disk(self, folder):
+    def to_disk(self, folder: [str, Path]):
         """Copy the contents of this file to a file on disk in the given folder"""
-        file_path = folder / Path(self.filename)
-        with open(file_path, 'r', encoding=self._encoding) as disk_file:
+        file_path = Path(str(folder)) / self.filename
+        with open(str(file_path), 'w', encoding=self._encoding) as disk_file:
             with self.open('r') as this:
-                shutil.copyfileobj(disk_file, this)
+                shutil.copyfileobj(this, disk_file)
+
+    def write_text(self, text, encoding=None):
+        encoding = encoding or self._encoding
+        with self.open('w', encoding=encoding) as fileobj:
+            fileobj.write(text)
+
+    def read_text(self, encoding=None) -> str:
+        encoding = encoding or self._encoding
+        with self.open('r', encoding=encoding) as fileobj:
+            return fileobj.read()
 
     def __str__(self):
         contents = [str(self._filename)]
@@ -314,4 +324,5 @@ class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):
             yield from hasher.yield_hashables(None)
 
 
-HISTORIAN_TYPES = Str, List, RefList, LiveList, LiveRefList, Dict, RefDict, LiveDict, LiveRefDict, ObjProxy
+HISTORIAN_TYPES = (Str, List, RefList, LiveList, LiveRefList, Dict, RefDict, LiveDict, LiveRefDict,
+                   ObjProxy)
