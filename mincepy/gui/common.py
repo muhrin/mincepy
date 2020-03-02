@@ -17,7 +17,7 @@ def default_executor(func, msg=None, blocking=False):
 
 
 def default_create_historian(uri) -> mincepy.Historian:
-    historian = mincepy.create_historian(uri)
+    historian = mincepy.historian(uri)
     mincepy.set_historian(historian)
     return historian
 

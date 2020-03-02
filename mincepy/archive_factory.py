@@ -1,13 +1,13 @@
 import pymongo
 import pymongo.uri_parser
 
-from . import historian
+from . import historians
 from . import mongo
 
-__all__ = 'create_archive', 'create_historian'
+__all__ = 'archive', 'historian'
 
 
-def create_archive(uri: str):
+def archive(uri: str):
     """Create an archive type based on a uri string"""
     if uri.startswith('mongodb'):
         # Format is:
@@ -22,6 +22,6 @@ def create_archive(uri: str):
     raise ValueError("Unknown archive string: {}".format(uri))
 
 
-def create_historian(archive_uri: str):
+def historian(archive_uri: str):
     """Convenience function to create a standard historian directly from an archive URI"""
-    return historian.Historian(create_archive(archive_uri))
+    return historians.Historian(archive(archive_uri))

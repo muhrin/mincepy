@@ -3,7 +3,7 @@ from typing import MutableMapping, Any, List, Sequence
 import weakref
 
 import mincepy.records
-from . import archive
+from . import archives
 from . import exceptions
 from . import utils
 
@@ -12,7 +12,7 @@ class LiveObjects:
 
     def __init__(self):
         # Live object -> data records
-        self._records = utils.WeakObjectIdDict()  # type: MutableMapping[Any, archive.DataRecord]
+        self._records = utils.WeakObjectIdDict()  # type: MutableMapping[Any, archives.DataRecord]
         # Obj id -> object
         self._objects = weakref.WeakValueDictionary()  # type: MutableMapping[Any, Any]
 
@@ -58,14 +58,14 @@ class Transaction:
 
     def __init__(self):
         # Records staged for saving to the archive
-        self._staged = []  # type: List[archive.DataRecord]
+        self._staged = []  # type: List[archives.DataRecord]
 
         self._live_objects = LiveObjects()
         # Ref -> obj
         self._live_object_references = {}
 
         # Snapshots: ref -> obj
-        self._snapshots = {}  # type: MutableMapping[archive.Ref, Any]
+        self._snapshots = {}  # type: MutableMapping[archives.Ref, Any]
 
     def __str__(self):
         return "{}, {} live ref(s), {} snapshots, {} staged".format(

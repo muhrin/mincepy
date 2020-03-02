@@ -10,7 +10,7 @@ import pymongo
 import pymongo.database
 import pymongo.errors
 
-from . import archive
+from . import archives
 from . import builtins
 from . import depositors
 from . import exceptions
@@ -47,7 +47,7 @@ class ObjectIdHelper(helpers.TypeHelper):
         return obj.__init__(saved_state)
 
 
-class MongoArchive(archive.BaseArchive[bson.ObjectId]):
+class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     ID_TYPE = bson.ObjectId
 
     DATA_COLLECTION = 'data'

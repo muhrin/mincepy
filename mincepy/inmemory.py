@@ -1,10 +1,10 @@
 import uuid
 
 import mincepy.records
-from . import archive
+from . import archives
 
 
-class InMemory(archive.BaseArchive):
+class InMemory(archives.BaseArchive):
     """An archive that keeps things in memory"""
 
     def __init__(self, codecs=tuple()):

@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Optional, MutableMapping, Any
 
-from . import archive
+from . import archives
 from . import exceptions
 from . import records
 from . import utils
@@ -15,7 +15,7 @@ class Base(metaclass=ABCMeta):
     def __init__(self, historian):
         self._historian = historian
 
-    def get_archive(self) -> archive.Archive:
+    def get_archive(self) -> archives.Archive:
         return self._historian.get_archive()
 
     def get_historian(self):
@@ -175,7 +175,7 @@ class SnapshotLoader(Loader):
 
     def __init__(self, historian):
         super().__init__(historian)
-        self._snapshots = {}  # type: MutableMapping[archive.Ref, Any]
+        self._snapshots = {}  # type: MutableMapping[archives.Ref, Any]
 
     def load(self, ref: records.Ref):
         if not isinstance(ref, records.Ref):

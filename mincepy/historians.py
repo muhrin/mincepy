@@ -8,7 +8,7 @@ import typing
 from typing import MutableMapping, Any, Optional, Mapping
 import weakref
 
-from . import archive
+from . import archives
 from . import builtins
 from . import defaults
 from . import depositors
@@ -30,7 +30,7 @@ ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
 
 class Historian:
 
-    def __init__(self, archive: archive.Archive, equators=()):
+    def __init__(self, archive: archives.Archive, equators=()):
         self._archive = archive
         self._equator = types.Equator(defaults.get_default_equators() + equators)
         # Register default types
