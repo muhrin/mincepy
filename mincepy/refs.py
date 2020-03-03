@@ -81,6 +81,7 @@ class ObjRef(types.SavableObject):
         return ref.to_list()
 
     def load_instance_state(self, saved_state, loader):
+        super(ObjRef, self).load_instance_state(saved_state, loader)
         if saved_state is None:
             self._obj = None
         else:

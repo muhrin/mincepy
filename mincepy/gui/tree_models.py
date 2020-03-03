@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 import collections
 import operator
 import typing
+from typing import Sequence
 
 import PySide2
 from PySide2 import QtCore
@@ -15,7 +16,7 @@ from .models import pretty_type_string
 
 class BaseTreeItem(metaclass=ABCMeta):
 
-    def __init__(self, column_data: collections.Sequence, parent=None):
+    def __init__(self, column_data: Sequence, parent=None):
         self._data = column_data
         self._parent = parent
 
@@ -183,14 +184,18 @@ class RecordTree(QtCore.QAbstractItemModel):
         if role == common.DataRole:
             return index.internalPointer().data(index.column())
 
+        return None
+
     def flags(self, index: PySide2.QtCore.QModelIndex) -> PySide2.QtCore.Qt.ItemFlags:
         if not index.isValid():
             return Qt.NoItemFlags
 
         return super(RecordTree, self).flags(index)
 
-    def headerData(self, section: int, orientation: PySide2.QtCore.Qt.Orientation, role: int = ...) -> \
-            typing.Any:
+    def headerData(self,
+                   section: int,
+                   orientation: PySide2.QtCore.Qt.Orientation,
+                   role: int = ...) -> typing.Any:
         if orientation == Qt.Horizontal and role == Qt.DisplayRole:
             return self._root_item.data(section)
 

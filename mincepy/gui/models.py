@@ -12,7 +12,7 @@ from . import common
 
 __all__ = 'DbModel', 'SnapshotRecord'
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 UNSET = ''  # The value printed for records that don't have a particular attribute
 
@@ -235,7 +235,8 @@ class EntriesTable(QtCore.QAbstractTableModel):
             historian = self._query_model.db_model.historian
             try:
                 self._snapshots_cache[ref] = historian.load_snapshot(ref)
-            except TypeError:
+            except TypeError as exc:
+                logger.exception("Failed to load snapshot for reference '%s'", ref)
                 self._snapshots_cache[ref] = None
 
         return self._snapshots_cache[ref]
