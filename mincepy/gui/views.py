@@ -28,7 +28,7 @@ class UUIDDecoder(json.JSONDecoder):
     def decode(self, s):
         decoded = super(UUIDDecoder, self).decode(s)
 
-        def to_uuid(entry, path):
+        def to_uuid(entry, path):  # pylint: disable=unused-argument
             if isinstance(entry, str) and entry.startswith('UUID('):
                 try:
                     return uuid.UUID(entry[6:-2])
@@ -73,7 +73,6 @@ class TypeDropDown(QtWidgets.QComboBox):
         self._types.extend(list(set(result.type_id for result in results)))
 
         type_names = self._get_type_names(self._types)
-        type_names.sort()
 
         self.addItems(type_names)
         completer = QtWidgets.QCompleter(type_names)
@@ -374,5 +373,5 @@ class MainWindow(QtWidgets.QMainWindow):
             new_msg = future.result()
             if new_msg is not None:
                 self.statusBar().showMessage(new_msg, 1000)
-        except Exception as exc:
+        except Exception as exc:  # pylint: disable=broad-except
             QtWidgets.QErrorMessage(self).showMessage(str(exc))
