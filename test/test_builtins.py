@@ -107,6 +107,75 @@ def test_live_dicts(historian: mincepy.Historian):
         assert dict1_loaded['car'] == dict2_loaded['car']
 
 
+def test_live_ref_dict(historian: mincepy.Historian):
+    dict1 = builtins.LiveRefDict()
+    dict2 = builtins.LiveRefDict()
+    car = Car('mini', 'green')
+    dict1['car'] = car
+    dict2['car'] = car
+
+    # Reference condition satisfied
+    assert dict1['car'] is dict2['car']
+
+    # Now delete everything, reload, and make sure the condition is still satisfied
+    dict1_id, dict2_id = historian.save(dict1, dict2)
+    del dict1, dict2, car
+
+    dict1_loaded = historian.load(dict1_id)
+    dict2_loaded = historian.load(dict2_id)
+    assert len(dict1_loaded) == 1
+    assert len(dict2_loaded) == 1
+    assert isinstance(dict1_loaded['car'], Car)
+    # Check they are the same object
+    assert dict1_loaded['car'] is dict2_loaded['car']
+
+
+def test_live_ref_create(historian: mincepy.Historian):
+    car = Car('mini', 'green')
+    lrdict = builtins.LiveRefDict({'car': car})
+    lrdict['car'] = car
+
+    # Now delete everything, reload, and make sure the condition is still satisfied
+    dict1_id = historian.save(lrdict)
+    car_id = lrdict['car'].obj_id
+    assert car_id is not None
+    del lrdict, car
+
+    rldict_loaded = historian.load(dict1_id)
+    assert len(rldict_loaded) == 1
+    assert isinstance(rldict_loaded['car'], Car)
+    # Check they are the same object
+    assert rldict_loaded['car'].obj_id == car_id
+
+
+def test_live_ref_lists(historian: mincepy.Historian):
+    """Basic tests on live list. It's difficult to test the 'syncing' aspects
+    of this container without another process"""
+    live_list = builtins.LiveRefList()
+
+    car = Car()
+
+    live_list.append(car)
+    wrapper_id = live_list.save()
+    car_id = car.obj_id
+    assert car_id is not None
+    del live_list
+
+    live_list = historian.load(wrapper_id)
+    assert len(live_list) == 1
+
+    # Test getitem
+    live_list.append(Car('honda'))
+    live_list.append(Car('fiat'))
+    assert live_list[2].make == 'fiat'
+
+    assert car.obj_id == car_id
+
+    # Test delete
+    del live_list[2]
+    assert len(live_list) == 2
+
+
 def test_file_from_disk(tmp_path, historian: mincepy.Historian):
     disk_file_path = tmp_path / 'test.txt'
     disk_file_path.write_text('TEST')

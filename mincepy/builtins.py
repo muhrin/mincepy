@@ -182,30 +182,30 @@ class LiveDict(RefDict):
         historian = kwargs.pop('historian', None)
         initial = dict(*args, **kwargs)
         if initial:
-            initial = {key: ObjProxy(value) for key, value in initial.items()}
+            initial = {key: self._create_proxy(value, historian) for key, value in initial.items()}
         super().__init__(initial, historian=historian)
 
     def __getitem__(self, item):
         self.sync()
-        proxy = super().__getitem__(item)  # type: ObjProxy
+        proxy = super().__getitem__(item)
         proxy.sync()
         return proxy()
 
     def __setitem__(self, key, value):
         self.sync()
         if key in self:
-            proxy = super().__getitem__(key)  # type: ObjProxy
+            proxy = super().__getitem__(key)
             proxy.assign(value)
             proxy.save()
         else:
-            proxy = ObjProxy(value)
+            proxy = self._create_proxy(value, self._historian)
             super().__setitem__(key, proxy)
             self.save()
             proxy.save()
 
     def __delitem__(self, key):
         self.sync()
-        proxy = super(LiveDict, self).__getitem__(key)  # type: ObjProxy
+        proxy = super(LiveDict, self).__getitem__(key)
         super(LiveDict, self).__delitem__(key)
         self.save()
         self._historian.delete(proxy)
