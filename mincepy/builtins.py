@@ -8,7 +8,8 @@ import uuid
 from . import base_savable
 from . import refs
 
-__all__ = 'List', 'LiveList', 'Str', 'Dict', 'LiveDict', 'BaseFile'
+__all__ = ('List', 'LiveList', 'LiveRefList', 'Str', 'Dict', 'LiveDict', 'LiveRefDict',
+           'BaseFile', 'File')
 
 
 class _UserType(base_savable.BaseSavableObject):
@@ -232,7 +233,7 @@ class LiveRefDict(LiveDict):
         return refs.ObjRef(value, historian)
 
 
-class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):
+class File(base_savable.BaseSavableObject, metaclass=ABCMeta):
     ATTRS = ('_filename', '_encoding')
     READ_SIZE = 256  # The number of bytes to read at a time
 
@@ -266,12 +267,14 @@ class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):
             with self.open('r') as this:
                 shutil.copyfileobj(this, disk_file)
 
-    def write_text(self, text, encoding=None):
+    def write_text(self, text: str, encoding=None):
         encoding = encoding or self._encoding
         with self.open('w', encoding=encoding) as fileobj:
             fileobj.write(text)
 
     def read_text(self, encoding=None) -> str:
+        """Read the contents of the file as text.
+        This function is named as to mirror pathlib.Path"""
         encoding = encoding or self._encoding
         with self.open('r', encoding=encoding) as fileobj:
             return fileobj.read()
@@ -323,6 +326,8 @@ class BaseFile(base_savable.BaseSavableObject, metaclass=ABCMeta):
         except FileNotFoundError:
             yield from hasher.yield_hashables(None)
 
+
+BaseFile = File
 
 HISTORIAN_TYPES = (Str, List, RefList, LiveList, LiveRefList, Dict, RefDict, LiveDict, LiveRefDict,
                    ObjProxy)
