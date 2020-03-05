@@ -11,6 +11,7 @@ __all__ = ('ObjRef',)
 class ObjRef(types.SavableObject):
     """A reference to an object instance"""
     TYPE_ID = uuid.UUID('633c7035-64fe-4d87-a91e-3b7abd8a6a28')
+    IMMUTABLE = True
 
     _obj = None
     _ref = None
@@ -18,6 +19,8 @@ class ObjRef(types.SavableObject):
 
     def __init__(self, obj=None, historian=None):
         super().__init__(historian)
+        assert not (obj is not None and self._historian.is_primitive(obj)), \
+            "Can't create a reference to a primitive type"
         self._obj = obj
 
     def __str__(self):
@@ -56,12 +59,6 @@ class ObjRef(types.SavableObject):
             return id(self._obj) == id(other._obj)
 
         return self._ref == other._ref
-
-    def assign(self, obj):
-        """Assign this reference to point to the given object"""
-        self._obj = obj
-        self._ref = None
-        self._loader = None
 
     def yield_hashables(self, hasher):
         if self._obj is not None:

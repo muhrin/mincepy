@@ -1,3 +1,5 @@
+"""Module for all the built in container and other types"""
+
 from abc import ABCMeta, abstractmethod
 import collections
 from pathlib import Path
@@ -8,13 +10,14 @@ import uuid
 from . import base_savable
 from . import refs
 
-__all__ = ('List', 'LiveList', 'LiveRefList', 'Str', 'Dict', 'LiveDict', 'LiveRefDict',
-           'BaseFile', 'File')
+__all__ = ('List', 'LiveList', 'LiveRefList', 'RefList', 'Str', 'Dict', 'RefDict', 'LiveDict',
+           'LiveRefDict', 'BaseFile', 'File')
 
 
-class _UserType(base_savable.BaseSavableObject):
+class _UserType(base_savable.BaseSavableObject, metaclass=ABCMeta):
     """Mixin for helping user types to be compatible with the historian.
     These typically have a .data member that stores the actual data (list, dict, str, etc)"""
+    # pylint: disable=too-few-public-methods
     ATTRS = ('data',)
     data = None  # placeholder
 
@@ -34,12 +37,139 @@ class ObjProxy(_UserType):
         self.data = value
 
 
+class Str(collections.UserString, _UserType):
+    TYPE_ID = uuid.UUID('350f3634-4a6f-4d35-b229-71238ce9727d')
+
+    def __init__(self, seq, historian=None):
+        collections.UserString.__init__(self, seq)
+        _UserType.__init__(self, historian)
+
+
+class Reffer:
+    """Mixin for types that want to be able to create references non-primitive types"""
+
+    # pylint: disable=no-member, too-few-public-methods
+
+    def _ref(self, obj):
+        """Create a reference for a non-primitive, otherwise use the value"""
+        if self._historian.is_primitive(obj):
+            return obj
+
+        return self._create_ref(obj)
+
+    def _deref(self, obj):
+        """Dereference a non-primitive, otherwise return the value"""
+        if self._historian.is_primitive(obj):
+            return obj
+
+        return obj()
+
+    def _create_ref(self, obj):
+        """Create a reference for a given object"""
+        return refs.ObjRef(obj, self._historian)
+
+
+# region lists
+
+
 class List(collections.UserList, _UserType):
     TYPE_ID = uuid.UUID('2b033f70-168f-4412-99ea-d1f131e3a25a')
 
     def __init__(self, initlist=None, historian=None):
         collections.UserList.__init__(self, initlist)
         _UserType.__init__(self, historian)
+
+
+class RefList(collections.abc.MutableSequence, Reffer, _UserType):
+    """A list that stores all entries as references in the database except primitives"""
+    TYPE_ID = uuid.UUID('091efff5-136d-4ac2-bd59-28f50f151263')
+    CONTAINER = list
+
+    def __init__(self, init_list=None, historian=None):
+        super().__init__(historian)
+        self.data = []
+        if init_list is not None:
+            self.data = self.CONTAINER(self._ref(item) for item in init_list)
+
+    def __str__(self):
+        return str(self.data)
+
+    def __repr__(self):
+        return repr(self.data)
+
+    def __getitem__(self, item):
+        return self._deref(self.data[item])
+
+    def __setitem__(self, key, value):
+        self.data[key] = self._ref(value)
+
+    def __delitem__(self, key):
+        self.data.__delitem__(key)
+
+    def __len__(self):
+        return self.data.__len__()
+
+    def insert(self, index, value):
+        self.data.insert(index, self._ref(value))
+
+
+class LiveList(collections.abc.MutableSequence, _UserType):
+    """A list that is always in sync with the database"""
+    TYPE_ID = uuid.UUID('c83e6206-cd29-4fda-bf76-11fce1681cd9')
+
+    def __init__(self, init_list=None, historian=None):
+        super(LiveList, self).__init__(historian)
+        init_list = init_list or []
+        self.data = RefList(init_list)
+
+    def __getitem__(self, item):
+        self.sync()
+        proxy = self.data[item]  # type: ObjProxy
+        proxy.sync()
+        return proxy()
+
+    def __setitem__(self, key, value):
+        self.sync()
+        proxy = self.data[key]  # type: ObjProxy
+        proxy.assign(value)
+        proxy.save()
+
+    def __delitem__(self, key):
+        self.sync()
+        proxy = self.data[key]  # type: ObjProxy
+        del self.data[key]
+        self.save()
+        self._historian.delete(proxy)
+
+    def __len__(self):
+        self.sync()
+        return len(self.data)
+
+    def insert(self, index, value):
+        proxy = self._create_proxy(value)
+        self.sync()
+        self.data.insert(index, proxy)
+        self.save()
+
+    def append(self, value):
+        proxy = self._create_proxy(value)
+        self.sync()
+        self.data.append(proxy)
+        self.save()
+
+    def _create_proxy(self, obj):
+        return ObjProxy(obj, self._historian)
+
+
+class LiveRefList(RefList):
+    """A live list that uses references to store objects"""
+    TYPE_ID = uuid.UUID('98454806-c587-4fcc-a514-65fdefb0180d')
+    CONTAINER = LiveList
+
+
+# endregion
+
+# region Dicts
 
 
 class Dict(collections.UserDict, _UserType):
@@ -50,109 +180,18 @@ class Dict(collections.UserDict, _UserType):
         _UserType.__init__(self, historian)
 
 
-class Str(collections.UserString, _UserType):
-    TYPE_ID = uuid.UUID('350f3634-4a6f-4d35-b229-71238ce9727d')
-
-    def __init__(self, seq, historian=None):
-        collections.UserString.__init__(self, seq)
-        _UserType.__init__(self, historian)
-
-
-class RefList(collections.abc.MutableSequence, _UserType):
-    """A list that stores all entries as references in the database"""
-    TYPE_ID = uuid.UUID('091efff5-136d-4ac2-bd59-28f50f151263')
-
-    def __init__(self, init_list=None, historian=None):
-        super().__init__(historian)
-        self.data = []
-        if init_list is not None:
-            self.data = [refs.ObjRef(item) for item in init_list]
-
-    def __str__(self):
-        return str(self.data)
-
-    def __repr__(self):
-        return repr(self.data)
-
-    def __getitem__(self, item):
-        return self.data[item]()
-
-    def __setitem__(self, key, value):
-        self.data[key] = refs.ObjRef(value)
-
-    def __delitem__(self, key):
-        self.data.__delitem__(key)
-
-    def __len__(self):
-        return self.data.__len__()
-
-    def insert(self, index, value):
-        self.data.insert(index, refs.ObjRef(value))
-
-
-class LiveList(RefList):
-    """A list that is always in sync with the database"""
-    TYPE_ID = uuid.UUID('c83e6206-cd29-4fda-bf76-11fce1681cd9')
-
-    def __init__(self, init_list=None, historian=None):
-        init_list = init_list or []
-        self._ref_list = RefList([self._create_proxy(value, historian) for value in init_list])
-        super().__init__(historian)
-
-    def __getitem__(self, item):
-        self.sync()
-        proxy = super(LiveList, self).__getitem__(item)  # type: ObjProxy
-        proxy.sync()
-        return proxy()
-
-    def __setitem__(self, key, value):
-        self.sync()
-        proxy = super(LiveList, self).__getitem__(key)  # type: ObjProxy
-        proxy.assign(value)
-        proxy.save()
-
-    def __delitem__(self, key):
-        self.sync()
-        proxy = super(LiveList, self).__getitem__(key)  # type: ObjProxy
-        super(LiveList, self).__delitem__(key)
-        self.save()
-        self._historian.delete(proxy)
-
-    def __len__(self):
-        self.sync()
-        return super(LiveList, self).__len__()
-
-    def insert(self, index, value):
-        proxy = self._create_proxy(value, self._historian)
-        self.sync()
-        super(LiveList, self).insert(index, proxy)
-        self.save()
-
-    @staticmethod
-    def _create_proxy(value, historian):
-        return ObjProxy(value, historian)
-
-
-class LiveRefList(LiveList):
-    """A live list that uses references to store objects"""
-    TYPE_ID = uuid.UUID('98454806-c587-4fcc-a514-65fdefb0180d')
-
-    @staticmethod
-    def _create_proxy(value, historian):
-        return refs.ObjRef(value, historian)
-
-
-class RefDict(collections.MutableMapping, _UserType):
-    """A dictionary that stores all values as references in the database"""
+class RefDict(collections.MutableMapping, Reffer, _UserType):
+    """A dictionary that stores all values as references in the database."""
     TYPE_ID = uuid.UUID('c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0')
+    CONTAINER = dict
 
     def __init__(self, *args, **kwargs):
         super().__init__(kwargs.pop('historian', None))
         initial = dict(*args, **kwargs)
         if initial:
-            self.data = {key: refs.ObjRef(value) for key, value in initial.items()}
+            self.data = self.CONTAINER({key: self._ref(value) for key, value in initial.items()})
         else:
-            self.data = {}
+            self.data = self.CONTAINER()
 
     def __str__(self):
         return str(self.data)
@@ -161,10 +200,10 @@ class RefDict(collections.MutableMapping, _UserType):
         return repr(self.data)
 
     def __getitem__(self, item):
-        return self.data[item]()
+        return self._deref(self.data[item])
 
     def __setitem__(self, key, value):
-        self.data[key] = refs.ObjRef(value)
+        self.data[key] = self._ref(value)
 
     def __delitem__(self, key):
         self.data.__delitem__(key)
@@ -176,61 +215,62 @@ class RefDict(collections.MutableMapping, _UserType):
         return self.data.__len__()
 
 
-class LiveDict(RefDict):
+class LiveDict(collections.MutableMapping, _UserType):
     TYPE_ID = uuid.UUID('740cc832-721c-4f85-9628-706257eb55b9')
 
     def __init__(self, *args, **kwargs):
         historian = kwargs.pop('historian', None)
+        super().__init__(historian=historian)
+
         initial = dict(*args, **kwargs)
-        if initial:
-            initial = {key: self._create_proxy(value, historian) for key, value in initial.items()}
-        super().__init__(initial, historian=historian)
+        self.data = RefDict({key: self._create_proxy(value) for key, value in initial.items()})
 
     def __getitem__(self, item):
         self.sync()
-        proxy = super().__getitem__(item)
+        proxy = self.data[item]  # type: ObjProxy
         proxy.sync()
         return proxy()
 
     def __setitem__(self, key, value):
         self.sync()
-        if key in self:
-            proxy = super().__getitem__(key)
+        if key in self.data:
+            # Can simply update the proxy
+            proxy = self.data[key]  # type: ObjProxy
             proxy.assign(value)
             proxy.save()
         else:
-            proxy = self._create_proxy(value, self._historian)
-            super().__setitem__(key, proxy)
+            proxy = self._create_proxy(value)
+            self.data[key] = proxy
             self.save()
             proxy.save()
 
     def __delitem__(self, key):
         self.sync()
-        proxy = super(LiveDict, self).__getitem__(key)
-        super(LiveDict, self).__delitem__(key)
+        proxy = self.data[key]
+        del self.data[key]
         self.save()
         self._historian.delete(proxy)
 
     def __iter__(self):
         self.sync()
-        return super(LiveDict, self).__iter__()
+        return self.data.__iter__()
 
     def __len__(self):
         self.sync()
-        return super(LiveDict, self).__len__()
+        return len(self.data)
 
-    @staticmethod
-    def _create_proxy(value, historian):
-        return ObjProxy(value, historian)
+    def _create_proxy(self, value):
+        return ObjProxy(value, self._historian)
 
 
-class LiveRefDict(LiveDict):
+class LiveRefDict(RefDict):
     """A live dictionary that uses references to refer to contained objects"""
+    # pylint: disable=too-few-public-methods
     TYPE_ID = uuid.UUID('16e7e814-8268-46e0-8d8e-6f34132366b9')
+    CONTAINER = LiveDict
 
-    @staticmethod
-    def _create_proxy(value, historian):
-        return refs.ObjRef(value, historian)
+
+# endregion
 
 
 class File(base_savable.BaseSavableObject, metaclass=ABCMeta):

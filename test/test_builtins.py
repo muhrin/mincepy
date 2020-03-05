@@ -2,11 +2,13 @@ import mincepy
 from mincepy.testing import *
 from mincepy import builtins
 
+# region lists
+
 
 def test_ref_list(historian: mincepy.Historian):
     """Test references list"""
-    list1 = mincepy.builtins.RefList()
-    list2 = mincepy.builtins.RefList()
+    list1 = mincepy.RefList()
+    list2 = mincepy.RefList()
     car = Car()
     list1.append(car)
     list2.append(car)
@@ -28,6 +30,52 @@ def test_ref_list(historian: mincepy.Historian):
     assert len(list2_loaded) == 1
     assert isinstance(list1_loaded[0], Car)
     assert list1_loaded[0] is list2_loaded[0]
+
+
+def test_ref_list_primitives(historian: mincepy.Historian):
+    """Test that we can store primitives in a ref list also"""
+    reflist = mincepy.RefList()
+    reflist.append(5)
+    reflist.append('hello')
+    reflist.append(10.8)
+
+    reflist_id = reflist.save()
+    del reflist
+
+    loaded = historian.load(reflist_id)
+    assert loaded[0] == 5
+    assert loaded[1] == 'hello'
+    assert loaded[2] == 10.8
+
+
+def test_live_lists(historian: mincepy.Historian):
+    """Basic tests on live list. It's difficult to test the 'syncing' aspects
+    of this container without another process"""
+    for list_type in (builtins.LiveList, builtins.LiveRefList):
+        live_list = list_type()
+
+        car = Car()
+
+        live_list.append(car)
+        wrapper_id = live_list.save()
+        del live_list
+
+        live_list = historian.load(wrapper_id)
+        assert len(live_list) == 1
+
+        # Test getitem
+        live_list.append(Car('honda'))
+        live_list.append(Car('fiat'))
+        assert live_list[2].make == 'fiat'
+
+        # Test delete
+        del live_list[2]
+        assert len(live_list) == 2
+
+
+# endregion
+
+# region dict
 
 
 def test_ref_dict(historian: mincepy.Historian):
@@ -58,29 +106,20 @@ def test_ref_dict(historian: mincepy.Historian):
     assert dict1_loaded['car'] is dict2_loaded['car']
 
 
-def test_live_lists(historian: mincepy.Historian):
-    """Basic tests on live list. It's difficult to test the 'syncing' aspects
-    of this container without another process"""
-    for list_type in (builtins.LiveList, builtins.LiveRefList):
-        live_list = list_type()
+def test_ref_dict_primitives(historian: mincepy.Historian):
+    """Test that we can store primitives in a ref list also"""
+    refdict = mincepy.RefDict()
+    refdict['0'] = 5
+    refdict['1'] = 'hello'
+    refdict['2'] = 10.8
 
-        car = Car()
+    reflist_id = refdict.save()
+    del refdict
 
-        live_list.append(car)
-        wrapper_id = live_list.save()
-        del live_list
-
-        live_list = historian.load(wrapper_id)
-        assert len(live_list) == 1
-
-        # Test getitem
-        live_list.append(Car('honda'))
-        live_list.append(Car('fiat'))
-        assert live_list[2].make == 'fiat'
-
-        # Test delete
-        del live_list[2]
-        assert len(live_list) == 2
+    loaded = historian.load(reflist_id)
+    assert loaded['0'] == 5
+    assert loaded['1'] == 'hello'
+    assert loaded['2'] == 10.8
 
 
 def test_live_dicts(historian: mincepy.Historian):
@@ -128,6 +167,9 @@ def test_live_ref_dict(historian: mincepy.Historian):
     assert isinstance(dict1_loaded['car'], Car)
     # Check they are the same object
     assert dict1_loaded['car'] is dict2_loaded['car']
+
+
+# endregion
 
 
 def test_live_ref_create(historian: mincepy.Historian):
