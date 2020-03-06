@@ -11,6 +11,7 @@ from PySide2.QtCore import QModelIndex, Qt, Signal, Slot
 
 import mincepy
 from . import common
+from . import utils
 from .models import pretty_type_string
 
 
@@ -234,13 +235,14 @@ class RecordTree(QtCore.QAbstractItemModel):
 
         # Is the child nested?
         nested_child_data = None
-        if not isinstance(child, str) and \
-                (isinstance(child, (collections.Sequence, collections.Mapping))):
+        if isinstance(child, str):
+            pass
+        elif isinstance(child, (collections.Sequence, collections.Mapping)):
             # We have a sequence or mapping
             nested_child_data = child
         else:
             try:
-                nested_child_data = vars(child)
+                nested_child_data = utils.obj_dict(child)
             except TypeError:
                 pass
 

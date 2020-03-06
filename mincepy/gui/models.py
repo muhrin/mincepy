@@ -9,6 +9,7 @@ from PySide2.QtCore import QObject, Signal, Slot, Qt, QModelIndex
 
 import mincepy
 from . import common
+from . import utils
 
 __all__ = 'DbModel', 'SnapshotRecord'
 
@@ -354,7 +355,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
         if self.get_show_as_objects():
             obj = self.get_snapshot(row)
             try:
-                return tuple(vars(obj).keys())
+                return utils.obj_dict(obj).keys()
             except TypeError:
                 pass
         else:
@@ -392,7 +393,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
         if self.get_show_as_objects():
             snapshot = self.get_snapshot(row)
             try:
-                return vars(snapshot).get(column_name, UNSET)
+                return utils.obj_dict(snapshot).get(column_name, UNSET)
             except TypeError:
                 pass
 
