@@ -73,6 +73,18 @@ def test_live_lists(historian: mincepy.Historian):
         assert len(live_list) == 2
 
 
+def test_ref_list_none(historian: mincepy.Historian):
+    """Test that we can store None in a ref list."""
+    lrlist = mincepy.RefList()
+    lrlist.append(None)
+    assert lrlist[-1] is None
+    lrdict_id = lrlist.save()
+    del lrlist
+
+    loaded = historian.load(lrdict_id)  # type: mincepy.RefList
+    assert loaded[-1] is None
+
+
 # endregion
 
 # region dict
@@ -167,6 +179,18 @@ def test_live_ref_dict(historian: mincepy.Historian):
     assert isinstance(dict1_loaded['car'], Car)
     # Check they are the same object
     assert dict1_loaded['car'] is dict2_loaded['car']
+
+
+def test_ref_dict_none(historian: mincepy.Historian):
+    """Test that we can store None in a ref dict."""
+    lrdict = mincepy.LiveRefDict()
+    lrdict['test'] = None
+    assert lrdict['test'] is None
+    lrdict_id = lrdict.save()
+    del lrdict
+
+    loaded = historian.load(lrdict_id)  # type: mincepy.RefDict
+    assert loaded['test'] is None
 
 
 # endregion

@@ -209,9 +209,10 @@ class RecordTree(QtCore.QAbstractItemModel):
         if self._data_record is None:
             self._root_item = DataTreeItem(self.COLUMN_HEDARES)
         else:
-            tree_dict = record._asdict()
+            tree_dict = {'record': record._asdict()}
             if obj is not None:
                 tree_dict['obj'] = obj
+
             self._root_item = LazyMappingItem(self.COLUMN_HEDARES, tree_dict, self._item_builder,
                                               len(tree_dict))
         self.endResetModel()
