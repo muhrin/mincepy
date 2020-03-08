@@ -1,6 +1,6 @@
 import collections
 import collections.abc
-from functools import reduce
+from functools import reduce, wraps
 import operator
 import typing
 from typing import TypeVar, Generic
@@ -183,3 +183,31 @@ def transform(visitor, root, path: tuple = (), **kwargs):
         return [visitor(value, path=path + (idx,), **kwargs) for idx, value in enumerate(root)]
 
     return root
+
+
+def sync(save=False):
+    """Decorator that will call sync before the method is invoked to make sure the object is up
+    to date what what's in the database."""
+
+    def inner(obj_method):
+
+        @wraps(obj_method)
+        def wrapper(self, *args, **kwargs):
+            # pylint: disable=protected-access
+            try:
+                self.__sync += 1
+            except AttributeError:
+                self.__sync = 1
+            if self.is_saved():
+                self.sync()
+            try:
+                retval = obj_method(self, *args, **kwargs)
+                if save:
+                    self.save()
+                return retval
+            finally:
+                self.__sync -= 1
+
+        return wrapper
+
+    return inner

@@ -2,6 +2,7 @@
 
 from abc import ABCMeta, abstractmethod
 import collections
+from contextlib import contextmanager
 from pathlib import Path
 import shutil
 from typing import BinaryIO, Optional
@@ -9,6 +10,7 @@ import uuid
 
 from . import base_savable
 from . import refs
+from .utils import sync
 
 __all__ = ('List', 'LiveList', 'LiveRefList', 'RefList', 'Str', 'Dict', 'RefDict', 'LiveDict',
            'LiveRefDict', 'BaseFile', 'File')
@@ -122,40 +124,36 @@ class LiveList(collections.abc.MutableSequence, _UserType):
         init_list = init_list or []
         self.data = RefList(init_list)
 
+    @sync()
     def __getitem__(self, item):
-        self.sync()
         proxy = self.data[item]  # type: ObjProxy
         proxy.sync()
         return proxy()
 
+    @sync(save=True)
     def __setitem__(self, key, value):
-        self.sync()
         proxy = self.data[key]  # type: ObjProxy
         proxy.assign(value)
-        proxy.save()
 
+    @sync(save=True)
     def __delitem__(self, key):
-        self.sync()
         proxy = self.data[key]  # type: ObjProxy
         del self.data[key]
-        self.save()
         self._historian.delete(proxy)
 
+    @sync()
     def __len__(self):
-        self.sync()
         return len(self.data)
 
+    @sync(save=True)
     def insert(self, index, value):
         proxy = self._create_proxy(value)
-        self.sync()
         self.data.insert(index, proxy)
-        self.save()
 
+    @sync(save=True)
     def append(self, value):
         proxy = self._create_proxy(value)
-        self.sync()
         self.data.append(proxy)
-        self.save()
 
     def _create_proxy(self, obj):
         return ObjProxy(obj, self._historian)
@@ -225,38 +223,38 @@ class LiveDict(collections.MutableMapping, _UserType):
         initial = dict(*args, **kwargs)
         self.data = RefDict({key: self._create_proxy(value) for key, value in initial.items()})
 
+    @sync()
     def __getitem__(self, item):
-        self.sync()
         proxy = self.data[item]  # type: ObjProxy
         proxy.sync()
         return proxy()
 
+    @sync()
     def __setitem__(self, key, value):
-        self.sync()
         if key in self.data:
             # Can simply update the proxy
             proxy = self.data[key]  # type: ObjProxy
             proxy.assign(value)
-            proxy.save()
+            if proxy.is_saved():
+                proxy.save()
         else:
             proxy = self._create_proxy(value)
             self.data[key] = proxy
-            self.save()
-            proxy.save()
+            if self.is_saved():
+                self.save()  # This will cause the proxy to be saved as well
 
+    @sync(save=True)
     def __delitem__(self, key):
-        self.sync()
         proxy = self.data[key]
         del self.data[key]
-        self.save()
         self._historian.delete(proxy)
 
+    @sync()
     def __iter__(self):
-        self.sync()
         return self.data.__iter__()
 
+    @sync()
     def __len__(self):
-        self.sync()
         return len(self.data)
 
     def _create_proxy(self, value):

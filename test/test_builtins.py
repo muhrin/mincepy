@@ -22,6 +22,7 @@ def test_ref_list(historian: mincepy.Historian):
 
     # Now delete everything, reload, and make sure the condition is still satisfied
     list1_id, list2_id = historian.save(list1, list2)
+    assert car.is_saved(), "The container should automatically save all it's entries saved"
     del list1, list2, car
 
     list1_loaded = historian.load(list1_id)

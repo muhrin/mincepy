@@ -87,3 +87,25 @@ def test_null_ref(historian: mincepy.Historian):
     del null
     loaded = historian.load(nid1)
     assert loaded == null2
+
+
+def test_ref_load_save_load(historian: mincepy.Historian):
+    """This is here to catch a bug that manifested when a reference was saved, loaded and then
+    re-saved without being dereferenced in-between.  This would result in the second saved state
+    being that of a null reference.  This can only be tested if the reference is stored by value
+    as otherwise the historian will not re-save a reference that has not been mutated."""
+    ref_list = mincepy.List((mincepy.ObjRef(Car()),))
+    assert isinstance(ref_list[0](), Car)
+
+    list_id = ref_list.save()
+    del ref_list
+
+    loaded = historian.load(list_id)
+    # Re-save
+    loaded.save()
+    del loaded
+
+    # Re-load
+    reloaded = historian.load(list_id)
+    # Should still be our car but because of a bug this was a None reference
+    assert isinstance(reloaded[0](), Car)

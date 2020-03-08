@@ -68,20 +68,20 @@ class ObjRef(types.SavableObject):
             yield from hasher.yield_hashables(self._ref)
 
     def save_instance_state(self, saver):
-        if self._obj is None:
-            return None
-
-        ref = self._ref
-        if ref is None:
+        if self._obj is not None:
             ref = saver.ref(self._obj)
+        else:
+            ref = self._ref
 
-        return ref.to_list()
+        if ref is not None:
+            return ref.to_list()
+
+        return None
 
     def load_instance_state(self, saved_state, loader):
         super(ObjRef, self).load_instance_state(saved_state, loader)
-        if saved_state is None:
-            self._obj = None
-        else:
+        # Rely on class default values for members
+        if saved_state is not None:
             self._ref = records.Ref(*saved_state)
             self._loader = loader
 

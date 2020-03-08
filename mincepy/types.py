@@ -82,6 +82,9 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
         """Update the metadata dictionary for this object"""
         self._historian.update_meta(self, meta)
 
+    def is_saved(self) -> bool:
+        return self.obj_id is not None
+
     def save(self, with_meta=None, return_sref=False):
         """Save the object"""
         return self._historian.save(self, with_meta=with_meta, return_sref=return_sref)
