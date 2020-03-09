@@ -1,9 +1,8 @@
 """Module for tree model related methods and classes"""
 from abc import ABCMeta, abstractmethod
-import collections
 import operator
 import typing
-from typing import Sequence
+from typing import Sequence, Mapping
 
 import PySide2
 from PySide2 import QtCore
@@ -59,7 +58,7 @@ class BaseTreeItem(metaclass=ABCMeta):
 class DataTreeItem(BaseTreeItem):
     """Tree item that directly sores the required data internally"""
 
-    def __init__(self, column_data: collections.Sequence, parent=None):
+    def __init__(self, column_data: Sequence, parent=None):
         super().__init__(column_data, parent)
         self._children = []
 
@@ -81,12 +80,7 @@ class DataTreeItem(BaseTreeItem):
 
 class LazyMappingItem(BaseTreeItem):
 
-    def __init__(self,
-                 column_data: collections.Sequence,
-                 raw_data,
-                 child_builder,
-                 num_children,
-                 parent=None):
+    def __init__(self, column_data: Sequence, raw_data, child_builder, num_children, parent=None):
         super(LazyMappingItem, self).__init__(column_data, parent)
         self._raw_data = raw_data
         self._child_builder = child_builder
@@ -219,13 +213,13 @@ class RecordTree(QtCore.QAbstractItemModel):
         self.endResetModel()
 
     def _item_builder(self, build_from, row, parent=None):
-        if isinstance(build_from, collections.Sequence):
+        if isinstance(build_from, Sequence):
             key = str(row)
             try:
                 child = build_from[row]
-            except Exception as exc:
+            except Exception as exc:  # pylint: disable=broad-except
                 child = "Error getting child: {}".format(exc)
-        elif isinstance(build_from, collections.Mapping):
+        elif isinstance(build_from, Mapping):
             entry = sorted(build_from.items(), key=operator.itemgetter(0))[row]
             key, child = str(entry[0]), entry[1]
         else:
@@ -237,7 +231,7 @@ class RecordTree(QtCore.QAbstractItemModel):
         nested_child_data = None
         if isinstance(child, str):
             pass
-        elif isinstance(child, (collections.Sequence, collections.Mapping)):
+        elif isinstance(child, (Sequence, Mapping)):
             # We have a sequence or mapping
             nested_child_data = child
         else:
