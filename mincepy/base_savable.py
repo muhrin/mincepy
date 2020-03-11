@@ -63,7 +63,10 @@ class BaseSavableObject(types.SavableObject):
             try:
                 obj = saved_state[attr.name]
             except KeyError:
-                if not self.IGNORE_MISSING:
+                if self.IGNORE_MISSING:
+                    # Set any missing attributes to None
+                    setattr(self, attr.name, None)
+                else:
                     raise
             else:
                 if attr.as_ref:

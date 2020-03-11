@@ -31,6 +31,7 @@ setup(name='mincepy',
           'pytray>=0.2.1',
           'stevedore',
           'click',
+          'tabulate',
       ],
       extras_require={
           'cli': ['click', 'tabulate'],
