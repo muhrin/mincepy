@@ -266,7 +266,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
                         predicates.append({key: value})
                     else:
                         mfilter.update({"{}.{}".format(STATE, key): value})
-                mfilter.update({'$and': [{'state': predicate} for predicate in predicates]})
+                if predicates:
+                    mfilter.update({'$and': [{'state': predicate} for predicate in predicates]})
             else:
                 mfilter[STATE] = state
         if snapshot_hash is not None:

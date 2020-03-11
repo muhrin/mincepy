@@ -19,7 +19,6 @@ setup(name='mincepy',
       classifiers=[
           'License :: OSI Approved :: MIT License',
           'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-          'Programming Language :: Python :: 3.4',
           'Programming Language :: Python :: 3.5',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
@@ -35,7 +34,7 @@ setup(name='mincepy',
       ],
       extras_require={
           'cli': ['click', 'tabulate'],
-          'gui': ['PySide2'],
+          'gui': ['mincepy-gui'],
           'dev': [
               'pip',
               'pytest>4',
@@ -47,11 +46,11 @@ setup(name='mincepy',
               'twine',
           ],
       },
-      packages=['mincepy', 'mincepy.gui', 'mincepy.cli'],
+      packages=['mincepy', 'mincepy.cli'],
       include_package_data=True,
       test_suite='test',
       provides=['mincepy.plugins'],
       entry_points={
           'console_scripts': ['mince = mincepy.cli.main:mince'],
-          'mincepy.plugins.types': ['native_types = mincepy.provides:get_types',]
+          'mincepy.plugins.types': ['native_types = mincepy.provides:get_types', ]
       })
