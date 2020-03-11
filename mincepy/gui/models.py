@@ -6,6 +6,7 @@ import typing
 import PySide2
 from PySide2 import QtCore, QtGui
 from PySide2.QtCore import QObject, Signal, Slot, Qt, QModelIndex
+from pytray import tree
 
 import mincepy
 from . import common
@@ -192,7 +193,8 @@ class DataRecordQueryModel(QtCore.QAbstractTableModel):
 
     @QtCore.Slot(list)
     def _inject_results(self, batch: list):
-        """As a query is executed batches of results as emitted and passed to this callback for insertion"""
+        """As a query is executed batches of results as emitted and passed to this callback for
+        insertion"""
         first = len(self._results)
         last = first + len(batch) - 1
         self.beginInsertRows(QModelIndex(), first, last)
@@ -237,7 +239,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
             try:
                 self._snapshots_cache[ref] = historian.load_snapshot(ref)
             except TypeError as exc:
-                logger.exception("Failed to load snapshot for reference '%s'", ref)
+                logger.info("Failed to load snapshot for reference '%s'\n%s", ref, exc)
                 self._snapshots_cache[ref] = None
 
         return self._snapshots_cache[ref]
@@ -375,7 +377,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
 
         if column_path[0] in record._fields:
             try:
-                record_value = mincepy.utils.get_by_path(record._asdict(), column_path)
+                record_value = tree.get_by_path(record._asdict(), column_path)
             except (KeyError, IndexError, TypeError):
                 # Probably trying to access the state using path from a different object type
                 return UNSET
@@ -434,7 +436,7 @@ class EntriesTable(QtCore.QAbstractTableModel):
         self.endInsertColumns()
 
     def _reset_columns(self):
-        """Reset the columns back to the default internally.  This should only be done between either
-        an model invalidation or appropriate removeColumns call
+        """Reset the columns back to the default internally.  This should only be done between
+        either an model invalidation or appropriate removeColumns call
         """
         self._columns = list(self.DEFAULT_COLUMNS)

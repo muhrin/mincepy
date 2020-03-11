@@ -260,7 +260,13 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         if state is not None:
             # If we are given a dict then expand as nested search criteria, e.g. {'state.colour': 'red'}
             if isinstance(state, dict):
-                mfilter.update({"{}.{}".format(STATE, key): item for key, item in state.items()})
+                predicates = []
+                for key, value in state.items():
+                    if key.startswith('$'):
+                        predicates.append({key: value})
+                    else:
+                        mfilter.update({"{}.{}".format(STATE, key): value})
+                mfilter.update({'$and': [{'state': predicate} for predicate in predicates]})
             else:
                 mfilter[STATE] = state
         if snapshot_hash is not None:

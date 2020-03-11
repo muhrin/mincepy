@@ -1,7 +1,6 @@
 import collections
 import collections.abc
-from functools import reduce, wraps
-import operator
+from functools import wraps
 import typing
 from typing import TypeVar, Generic
 import weakref
@@ -145,44 +144,6 @@ def to_slice(specifier) -> slice:
         return slice(None)
 
     raise ValueError("Unknown slice specifier: {}".format(specifier))
-
-
-def path_assign(path: typing.Sequence, container: dict, value):
-    current = container
-    for part in path[:-1]:
-        current = current.setdefault(part, {})
-    # Set the leaf to a value
-    current[path[-1]] = value
-    return container
-
-
-def get_by_path(root, items):
-    """Access a nested object in root by item sequence.  Taken from:
-    https://stackoverflow.com/questions/14692690/access-nested-dictionary-items-via-a-list-of-keys"""
-    if not items:
-        # Support either empty items or None items meaning give back root
-        return root
-    return reduce(operator.getitem, items, root)
-
-
-def set_by_path(root, items, value):
-    """Set a value in a nested object in root by item sequence.  Taken from:
-    https://stackoverflow.com/questions/14692690/access-nested-dictionary-items-via-a-list-of-keys"""
-    get_by_path(root, items[:-1])[items[-1]] = value
-
-
-def transform(visitor, root, path: tuple = (), **kwargs):
-    """Given a list or a dict call create a new container of that type calling
-    `visitor` for each entry to get the transformed value.  kwargs will be passed
-    to the visitor.
-    """
-
-    if isinstance(root, dict):
-        return {key: visitor(value, path=path + (key,), **kwargs) for key, value in root.items()}
-    if isinstance(root, list):
-        return [visitor(value, path=path + (idx,), **kwargs) for idx, value in enumerate(root)]
-
-    return root
 
 
 def sync(save=False):

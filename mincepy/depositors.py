@@ -1,10 +1,11 @@
 from abc import ABCMeta, abstractmethod
 from typing import Optional, MutableMapping, Any
 
+from pytray import tree
+
 from . import archives
 from . import exceptions
 from . import records
-from . import utils
 
 __all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor'
 
@@ -37,7 +38,7 @@ class Saver(Base, metaclass=ABCMeta):
 
         if historian.is_primitive(obj):
             # Deal with the special containers by encoding their values if need be
-            return utils.transform(self.encode, obj, path, types_schema=types_schema)
+            return tree.transform(self.encode, obj, path, types_schema=types_schema)
 
         # Store by value
         helper = historian.get_helper(type(obj), auto_register=True)
@@ -47,7 +48,8 @@ class Saver(Base, metaclass=ABCMeta):
         return self.encode(save_state, types_schema, path)
 
     def save_state(self, obj):
-        """Save the state of an object and return the encoded state ready to be archived in a record"""
+        """Save the state of an object and return the encoded state ready to be archived in a
+        record"""
         state_types = []
         saved_state = self.encode(obj, state_types)
         return {records.STATE: saved_state, records.STATE_TYPES: state_types}
@@ -67,8 +69,9 @@ class Loader(Base, metaclass=ABCMeta):
                 saved_state = self._unpack(encoded, type_schema, path, created_callback)
 
             new_obj = helper.new(saved_state)
-            assert new_obj is not None, "Helper '{}' failed to create a class given state '{}'".format(
-                helper.__class__, saved_state)
+            assert new_obj is not None, \
+                "Helper '{}' failed to create a class given state '{}'".format(
+                    helper.__class__, saved_state)
             if created_callback is not None:
                 created_callback(path, new_obj)
 
@@ -84,11 +87,11 @@ class Loader(Base, metaclass=ABCMeta):
                 path=(),
                 created_callback=None):
         """Unpack a saved state expanding any contained objects"""
-        return utils.transform(self.decode,
-                               encoded_saved_state,
-                               path,
-                               type_schema=type_schema,
-                               created_callback=created_callback)
+        return tree.transform(self.decode,
+                              encoded_saved_state,
+                              path,
+                              type_schema=type_schema,
+                              created_callback=created_callback)
 
 
 class LiveDepositor(Saver, Loader):
@@ -100,8 +103,8 @@ class LiveDepositor(Saver, Loader):
 
         try:
             # Try getting it from the transaction as there may be one from an in-progress save.
-            # We can't use historian.get_ref here because we _only_ want one that's currently being saved
-            # or we should try saving it as below to ensure it's up to date
+            # We can't use historian.get_ref here because we _only_ want one that's currently
+            # being saved or we should try saving it as below to ensure it's up to date
             return self._historian.current_transaction().get_reference_for_live_object(obj)
         except exceptions.NotFound:
             # Then we have to save it and get the resulting reference
@@ -139,7 +142,8 @@ class LiveDepositor(Saver, Loader):
 
     def save_from_builder(self, obj, builder):
         """Save a live object"""
-        assert builder.snapshot_hash is not None, "The snapshot hash must be set on the builder before saving"
+        assert builder.snapshot_hash is not None, \
+            "The snapshot hash must be set on the builder before saving"
         historian = self.get_historian()
 
         with historian.transaction() as trans:

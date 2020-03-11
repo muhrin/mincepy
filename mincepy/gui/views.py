@@ -5,6 +5,7 @@ import uuid
 
 from PySide2 import QtCore, QtWidgets, QtGui
 from PySide2.QtCore import Signal
+from pytray import tree
 
 import mincepy
 from . import common
@@ -36,7 +37,7 @@ class UUIDDecoder(json.JSONDecoder):
                     pass
             return entry
 
-        return mincepy.utils.transform(to_uuid, decoded)
+        return tree.transform(to_uuid, decoded)
 
 
 class TypeDropDown(QtWidgets.QComboBox):
