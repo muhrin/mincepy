@@ -1,5 +1,5 @@
 """Classes and function useful for trying out mincepy functionality"""
-
+import random
 import uuid
 
 import bson
@@ -80,6 +80,41 @@ class Cycle(mincepy.BaseSavableObject):
 
     def yield_hashables(self, hasher):
         yield from hasher.yield_hashables(id(self.ref))
+
+
+def populate(historian=None):
+    historian = historian or mincepy.get_historian()
+
+    colours = ('red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet')
+    makes = ('honda', 'ferrari', 'zonda', 'fiat')
+
+    cars = []
+
+    for make in makes:
+        for colour in colours:
+            # Make some cars
+            car = Car(make, colour)
+            historian.save(car)
+            cars.append(car)
+
+    # Now randomly change some of them
+    for _ in range(int(len(cars) / 4)):
+        car = random.choice(cars)
+        car.colour = random.choice(colours)
+        car.save()
+
+    # Now change one a number of times
+    car = random.choice(cars)
+    for colour in colours:
+        car.colour = colour
+        car.save()
+
+    people = mincepy.RefList()
+    for name in ('martin', 'sonia', 'gavin', 'upul', 'sebastiaan', 'irene'):
+        person = Person(name, random.randint(20, 40))
+        historian.save(person)
+        people.append(person)
+    historian.save(people)
 
 
 HISTORIAN_TYPES = Car, Garage, Person, Cycle

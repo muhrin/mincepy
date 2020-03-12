@@ -267,6 +267,19 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
         pipeline = [{'$match': mfilter}]
 
+        if meta:
+            pipeline.append({
+                '$lookup': {
+                    'from': self._meta_collection.name,
+                    'localField': OBJ_ID,
+                    'foreignField': '_id',
+                    'as': '_meta'
+                }
+            })
+            # _meta should only contain at most one entry per document i.e. the metadata for
+            # that object.  So check that for the search criteria
+            pipeline.append({'$match': flatten_filter('_meta.0', meta)})
+
         if version == -1:
             # Join with a collection that is grouped to get the maximum version for each object ID
             # then only take the the matching documents
@@ -308,19 +321,6 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             })
             # Finally select those from our collection that have a 'max_version' array entry
             pipeline.append({"$match": {"max_version": {"$ne": []}}},)
-
-        if meta:
-            pipeline.append({
-                '$lookup': {
-                    'from': self._meta_collection.name,
-                    'localField': OBJ_ID,
-                    'foreignField': '_id',
-                    'as': '_meta'
-                }
-            })
-            # _meta should only contain at most one entry per document i.e. the metadata for
-            # that object.  So check that for the search criteria
-            pipeline.append({'$match': flatten_filter('_meta.0', meta)})
 
         return pipeline
 

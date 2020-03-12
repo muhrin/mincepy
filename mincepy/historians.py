@@ -332,7 +332,7 @@ class Historian:
             return None
 
     def get_obj(self, obj_id):
-        """Get an object known to the historian"""
+        """Get a currently live object"""
         trans = self.current_transaction()
         if trans:
             try:
