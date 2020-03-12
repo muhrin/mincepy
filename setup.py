@@ -53,5 +53,5 @@ setup(name='mincepy',
       provides=['mincepy.plugins'],
       entry_points={
           'console_scripts': ['mince = mincepy.cli.main:mince'],
-          'mincepy.plugins.types': ['native_types = mincepy.provides:get_types', ]
+          'mincepy.plugins.types': ['native_types = mincepy.provides:get_types',]
       })

@@ -7,7 +7,6 @@ import mincepy.plugins
 
 __all__ = ('mince',)
 
-
 # pylint: disable=import-outside-toplevel
 
 
