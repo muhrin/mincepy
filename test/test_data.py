@@ -238,8 +238,7 @@ def test_replace_simple(historian: mincepy.Historian):
 
     # Now we know that this is a 'continuation' of the history of the original honda, so replace
     historian.replace(honda, new_honda)
-    with pytest.raises(mincepy.NotFound):
-        historian.get_obj_id(honda)
+    assert historian.get_obj_id(honda) is None
 
     assert historian.get_obj_id(new_honda) == honda_id
     historian.save(new_honda)

@@ -4,6 +4,8 @@ import pytest
 import mincepy
 from mincepy.testing import Car
 
+# pylint: disable=invalid-name
+
 
 def test_metadata_simple(historian: mincepy.Historian):
     car = Car()
@@ -76,3 +78,35 @@ def test_metadata_find(historian: mincepy.Historian):
 
     results = list(historian.find(Car, meta={'reg': 'H123'}))
     assert len(results) == 1
+
+
+def test_stick_meta(historian: mincepy.Historian):
+    car1 = Car()
+    historian.sticky_meta['owner'] = 'martin'
+    car2 = Car()
+    car3 = Car()
+
+    car1_id = car1.save()
+    car2_id = car2.save(with_meta={'for_sale': True})
+    car3_id = car3.save(with_meta={'owner': 'james'})
+    del car1, car2, car3
+
+    assert historian.get_meta(car1_id) == {'owner': 'martin'}
+    assert historian.get_meta(car2_id) == {'owner': 'martin', 'for_sale': True}
+    assert historian.get_meta(car3_id) == {'owner': 'james'}
+
+
+def test_metadata_find_regex(historian: mincepy.Historian):
+    car1 = Car('honda', 'white')
+    car2 = Car('honda', 'white')
+    car3 = Car('honda', 'white')
+
+    car1.save(with_meta={'reg': 'VD395'})
+    car2.save(with_meta={'reg': 'VD574'})
+    car3.save(with_meta={'reg': 'BE368'})
+
+    # Find all cars with a reg starting in VD
+    results = tuple(historian.find(Car, meta={'reg': {'$regex': '^VD'}}))
+    assert len(results) == 2
+    assert results[0] in [car1, car2]
+    assert results[1] in [car1, car2]

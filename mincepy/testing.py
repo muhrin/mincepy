@@ -3,9 +3,10 @@
 import uuid
 
 import bson
-import mincepy
 import pymongo
 import pytest
+
+import mincepy
 
 
 @pytest.fixture
@@ -17,7 +18,7 @@ def mongodb_archive():
     client.drop_database(db)
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def historian(mongodb_archive):
     hist = mincepy.Historian(mongodb_archive)
     hist.register_types(mincepy.testing.HISTORIAN_TYPES)

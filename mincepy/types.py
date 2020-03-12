@@ -65,10 +65,7 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
 
     @property
     def obj_id(self):
-        try:
-            return self._historian.get_obj_id(self)
-        except exceptions.NotFound:
-            return None
+        return self._historian.get_obj_id(self)
 
     def get_meta(self) -> dict:
         """Get the metadata dictionary for this object"""

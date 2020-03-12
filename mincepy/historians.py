@@ -5,7 +5,7 @@ import getpass
 import logging
 import socket
 import typing
-from typing import MutableMapping, Any, Optional, Mapping
+from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union
 import weakref
 
 from . import archives
@@ -24,8 +24,10 @@ from .transactions import RollbackTransaction, Transaction, LiveObjects
 
 __all__ = 'Historian', 'ObjectEntry'
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+
 ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
+HistorianType = Union[helpers.TypeHelper, typing.Type[types.SavableObject]]
 
 
 class Historian:
@@ -53,6 +55,20 @@ class Historian:
 
         self._user = getpass.getuser()
         self._hostname = socket.gethostname()
+
+        # Metadata applied to any object saved for the first time
+        self._sticky_meta = {}
+
+    @property
+    def sticky_meta(self) -> dict:
+        """Sticky metadata that is set on any object being saved for the first time.
+        If the user supplies metadata at save time this will take priority but in the following
+        way: the stick meta will be used as a base but updated with the user supplied meta i.e.
+
+            meta = deepcopy(stick_meta.copy)
+            meta.update(user_meta)
+        """
+        return self._sticky_meta
 
     def get_archive(self):
         return self._archive
@@ -99,6 +115,17 @@ class Historian:
             raise exceptions.ModificationError(
                 "Cannot save a snapshot object, that would rewrite history!")
 
+        if with_meta and not isinstance(with_meta, dict):
+            raise TypeError("Metadata must be a dictionary, got type '{}'".format(type(with_meta)))
+
+        if not self.is_known(obj):
+            # This is the first time being saved, so apply the stick meta
+            meta = copy.deepcopy(self._sticky_meta)
+            if with_meta:
+                meta.update(with_meta)
+            with_meta = meta
+
+        # Save the object and metadata
         record = self.save_object(obj)
         if with_meta is not None:
             self._archive.set_meta(record.obj_id, with_meta)
@@ -107,6 +134,13 @@ class Historian:
             return record.get_reference()
 
         return record.obj_id
+
+    def is_known(self, obj) -> bool:
+        """Check if an object has ever been saved and is therefore known to the historian
+
+        :return: True if ever saved, False otherwise
+        """
+        return self.get_obj_id(obj) is not None
 
     def replace(self, old, new):
         """Replace a live object with a new version.
@@ -159,10 +193,9 @@ class Historian:
 
         :return: True if the object was updated, False otherwise
         """
-        try:
-            obj_id = self.get_obj_id(obj)
-        except exceptions.NotFound:
-            # Not found, so the object is as up to date as can be i.e. never saved!
+        obj_id = self.get_obj_id(obj)
+        if obj_id is None:
+            # Never saved so the object is as up to date as can be!
             return False
 
         ref = self._get_latest_snapshot_reference(obj_id)
@@ -253,11 +286,7 @@ class Historian:
 
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         """
-        if isinstance(obj_or_identifier, self._archive.get_id_type()):
-            obj_id = obj_or_identifier
-        else:
-            obj_id = self.get_obj_id(obj_or_identifier)
-
+        obj_id = self._ensure_obj_id(obj_or_identifier)
         return self._archive.get_meta(obj_id)
 
     def set_meta(self, obj_or_identifier, meta: Optional[Mapping]):
@@ -266,11 +295,7 @@ class Historian:
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         :param meta: the metadata dictionary
         """
-        if isinstance(obj_or_identifier, self._archive.get_id_type()):
-            obj_id = obj_or_identifier
-        else:
-            obj_id = self.get_obj_id(obj_or_identifier)
-
+        obj_id = self._ensure_obj_id(obj_or_identifier)
         self._archive.set_meta(obj_id, meta)
 
     def update_meta(self, obj_or_identifier, meta: Mapping):
@@ -297,8 +322,14 @@ class Historian:
         return self._live_objects.get_record(obj)
 
     def get_obj_id(self, obj):
-        """Get the object ID for a live object"""
-        return self.get_current_record(obj).obj_id
+        """Get the object ID for a live object.
+
+        :return: the object id or None if never saved
+        """
+        try:
+            return self.get_current_record(obj).obj_id
+        except exceptions.NotFound:
+            return None
 
     def get_obj(self, obj_id):
         """Get an object known to the historian"""
@@ -351,14 +382,12 @@ class Historian:
     def is_obj_id(self, obj_id):
         return isinstance(obj_id, self._archive.get_id_type())
 
-    def register_type(
-        self, obj_class_or_helper: [helpers.TypeHelper, typing.Type[types.SavableObject]]
-    ) -> helpers.TypeHelper:
+    def register_type(self, obj_class_or_helper: HistorianType) -> helpers.TypeHelper:
         helper = self._type_registry.register_type(obj_class_or_helper)
         self._equator.add_equator(helper)
         return helper
 
-    def register_types(self, obj_clases_or_helpers):
+    def register_types(self, obj_clases_or_helpers: Iterable[HistorianType]):
         for item in obj_clases_or_helpers:
             self.register_type(item)
 
@@ -579,22 +608,31 @@ class Historian:
 
     def _ensure_obj_id(self, obj_or_identifier):
         """
-        This call will try and get an object id from the passed parameter.  There are three possibilities:
-            1) It is passed an object ID in which case it will be returned directly
-            2) It is passed an object instance, in which case it will try and get the id from memory
-            3) It is passed a type that can be used as a constructor argument to the object id type in which
-                case it will construct it and return the result
+        This call will try and get an object id from the passed parameter.  There are three
+        possibilities:
+            1. It is passed an object ID in which case it will be returned directly
+            2. It is passed an object instance, in which case it will try and get the id from
+               memory
+            3. It is passed a type that can be used as a constructor argument to the object id type
+               in which case it will construct it and return the result
         """
         if self.is_obj_id(obj_or_identifier):
-            return obj_or_identifier
+            obj_id = obj_or_identifier
 
-        try:
-            # Try creating it for the user by calling the constructor with the argument passed.
-            # This helps for common obj id types which can be constructed from a string
-            return self._archive.construct_archive_id(obj_or_identifier)
-        except (ValueError, TypeError):
-            # Maybe we've been passed an object
-            return self.get_obj_id(obj_or_identifier)
+        else:
+            try:
+                # Try creating it for the user by calling the constructor with the argument passed.
+                # This helps for common obj id types which can be constructed from a string
+                obj_id = self._archive.construct_archive_id(obj_or_identifier)
+            except (ValueError, TypeError):
+                # Maybe we've been passed an object
+                obj_id = self.get_obj_id(obj_or_identifier)
+
+        if obj_id is None:
+            raise exceptions.NotFound(
+                "Could not get an object id from '{}'".format(obj_or_identifier))
+
+        return obj_id
 
     def _ensure_compatible(self, obj_type) -> helpers.TypeHelper:
         if obj_type not in self._type_registry:

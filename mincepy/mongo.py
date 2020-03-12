@@ -259,17 +259,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             mfilter['type_id'] = type_id
         if state is not None:
             # If we are given a dict then expand as nested search criteria, e.g. {'state.colour': 'red'}
-            if isinstance(state, dict):
-                predicates = []
-                for key, value in state.items():
-                    if key.startswith('$'):
-                        predicates.append({key: value})
-                    else:
-                        mfilter.update({"{}.{}".format(STATE, key): value})
-                if predicates:
-                    mfilter.update({'$and': [{'state': predicate} for predicate in predicates]})
-            else:
-                mfilter[STATE] = state
+            mfilter.update(flatten_filter(STATE, state))
         if snapshot_hash is not None:
             mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
         if version is not None and version != -1:
@@ -330,8 +320,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             })
             # _meta should only contain at most one entry per document i.e. the metadata for
             # that object.  So check that for the search criteria
-            pipeline.append(
-                {'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
+            pipeline.append({'$match': flatten_filter('_meta.0', meta)})
 
         return pipeline
 
@@ -440,3 +429,23 @@ class GridFsFile(builtins.BaseFile):
         tmp_path = tmp_file.name
         tmp_file.close()
         return tmp_path
+
+
+def flatten_filter(entry_name: str, query) -> dict:
+    """Expand nested search criteria, e.g. state={'color': 'red'} -> {'state.colour': 'red'}"""
+    filter = {}
+
+    if isinstance(query, dict):
+        predicates = []
+        # Sort out entries containing operators and those without
+        for key, value in query.items():
+            if key.startswith('$'):
+                predicates.append({key: value})
+            else:
+                filter.update({"{}.{}".format(entry_name, key): value})
+        if predicates:
+            filter.update({'$and': [{entry_name: predicate} for predicate in predicates]})
+    else:
+        filter[entry_name] = query
+
+    return filter
