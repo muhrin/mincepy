@@ -69,15 +69,15 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
 
     def get_meta(self) -> dict:
         """Get the metadata dictionary for this object"""
-        return self._historian.get_meta(self)
+        return self._historian.meta.get(self)
 
     def set_meta(self, meta: typing.Optional[dict]):
         """Set the metadata dictionary for this object"""
-        self._historian.set_meta(self, meta)
+        self._historian.meta.set(self, meta)
 
     def update_meta(self, meta: dict):
         """Update the metadata dictionary for this object"""
-        self._historian.update_meta(self, meta)
+        self._historian.meta.update(self, meta)
 
     def is_saved(self) -> bool:
         return self.obj_id is not None

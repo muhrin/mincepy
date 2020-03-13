@@ -8,6 +8,8 @@ import typing
 from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union
 import weakref
 
+import deprecation
+
 from . import archives
 from . import builtins
 from . import defaults
@@ -19,6 +21,7 @@ from . import process
 from . import records
 from . import types
 from . import type_registry
+from . import version
 from . import utils
 from .transactions import RollbackTransaction, Transaction, LiveObjects
 
@@ -28,6 +31,55 @@ logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
 HistorianType = Union[helpers.TypeHelper, typing.Type[types.SavableObject]]
+
+
+class Meta:
+    """A class for grouping metadata related methods"""
+
+    def __init__(self, historian):
+        self._historian = historian
+        self._sticky = {}
+
+    @property
+    def sticky(self) -> dict:
+        return self._sticky
+
+    def get(self, obj_or_identifier) -> Optional[dict]:
+        """Get the metadata for an object
+
+        :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
+        """
+        obj_id = self._historian._ensure_obj_id(obj_or_identifier)
+        return self._historian.archive.get_meta(obj_id)
+
+    def set(self, obj_or_identifier, meta: Optional[Mapping]):
+        """Set the metadata for an object
+
+        :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
+        :param meta: the metadata dictionary
+        """
+        obj_id = self._historian._ensure_obj_id(obj_or_identifier)
+        self._historian.archive.set_meta(obj_id, meta)
+
+    def update(self, obj_or_identifier, meta: Mapping):
+        """Update the metadata for an object
+
+        :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
+        :param meta: the metadata dictionary
+        """
+        obj_id = self._historian._ensure_obj_id(obj_or_identifier)
+        self._historian.archive.update_meta(obj_id, meta)
+
+    def find(self, filter):
+        """Find metadata matching the given criteria.  Ever returned metadata dictionary will contain
+        an 'obj_id' key which identifies the object it belongs to"""
+        return self._historian.archive.find_meta(filter=filter)
+
+    def efind(self, **filter):
+        """Easy find.  Doesn't have any of the more complete options that find() has but allows
+        the filter to be specified as keyword value pairs which is often more convenient if the
+        user is happy to get all results"""
+        return self.find(filter=filter)
 
 
 class Historian:
@@ -56,20 +108,16 @@ class Historian:
         self._user = getpass.getuser()
         self._hostname = socket.gethostname()
 
-        # Metadata applied to any object saved for the first time
-        self._sticky_meta = {}
+        self._meta = Meta(self)
 
     @property
-    def sticky_meta(self) -> dict:
-        """Sticky metadata that is set on any object being saved for the first time.
-        If the user supplies metadata at save time this will take priority but in the following
-        way: the stick meta will be used as a base but updated with the user supplied meta i.e.
+    def archive(self):
+        return self._archive
 
-            meta = deepcopy(stick_meta.copy)
-            meta.update(user_meta)
-        """
-        return self._sticky_meta
-
+    @deprecation.deprecated(deprecated_in="0.10.3",
+                            removed_in="1.0",
+                            current_version=version.__version__,
+                            details="Use .archive property instead")
     def get_archive(self):
         return self._archive
 
@@ -120,7 +168,7 @@ class Historian:
 
         if not self.is_known(obj):
             # This is the first time being saved, so apply the stick meta
-            meta = copy.deepcopy(self._sticky_meta)
+            meta = copy.deepcopy(self.meta.sticky)
             if with_meta:
                 meta.update(with_meta)
             with_meta = meta
@@ -281,13 +329,31 @@ class Historian:
 
     # region Metadata
 
+    @property
+    def meta(self):
+        return self._meta
+
+    @property
+    @deprecation.deprecated(deprecated_in="0.10.3",
+                            removed_in="0.11.0",
+                            current_version=version.__version__,
+                            details="Use .meta.sticky instead")
+    def sticky_meta(self) -> dict:
+        """Sticky metadata that is set on any object being saved for the first time.
+        If the user supplies metadata at save time this will take priority but in the following
+        way: the stick meta will be used as a base but updated with the user supplied meta i.e.
+
+            meta = deepcopy(stick_meta.copy)
+            meta.update(user_meta)
+        """
+        return self.meta.sticky
+
     def get_meta(self, obj_or_identifier) -> dict:
         """Get the metadata for an object
 
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         """
-        obj_id = self._ensure_obj_id(obj_or_identifier)
-        return self._archive.get_meta(obj_id)
+        return self.meta.get(obj_or_identifier)
 
     def set_meta(self, obj_or_identifier, meta: Optional[Mapping]):
         """Set the metadata for an object
@@ -295,8 +361,7 @@ class Historian:
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         :param meta: the metadata dictionary
         """
-        obj_id = self._ensure_obj_id(obj_or_identifier)
-        self._archive.set_meta(obj_id, meta)
+        return self.meta.set(obj_or_identifier, meta)
 
     def update_meta(self, obj_or_identifier, meta: Mapping):
         """Update the metadata for an object
@@ -304,8 +369,7 @@ class Historian:
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         :param meta: the metadata dictionary
         """
-        obj_id = self._ensure_obj_id(obj_or_identifier)
-        self._archive.update_meta(obj_id, meta)
+        self.meta.update(obj_or_identifier, meta)
 
     # endregion
 

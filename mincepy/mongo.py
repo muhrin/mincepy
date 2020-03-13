@@ -135,17 +135,40 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
         return [records.Ref(obj_id, result[VERSION]) for result in results]
 
+    # region Meta
+
     def get_meta(self, obj_id):
         assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
-        return self._meta_collection.find_one({'_id': obj_id}, projection={'_id': False})
+        return self._meta_collection.find_one({'_id': obj_id},
+                                              projection={
+                                                  'obj_id': False,
+                                                  '_id': False
+                                              })
 
     def set_meta(self, obj_id, meta):
-        found = self._meta_collection.replace_one({'_id': obj_id}, meta, upsert=True)
-        if not found:
-            raise exceptions.NotFound("No record with snapshot id '{}' found".format(obj_id))
+        if meta:
+            # Make sure the obj id is in the record
+            meta['_id'] = obj_id
+            meta['obj_id'] = obj_id
+            found = self._meta_collection.replace_one({'_id': obj_id}, meta, upsert=True)
+            if not found:
+                raise exceptions.NotFound("No record with snapshot id '{}' found".format(obj_id))
+        else:
+            # Just remove the meta entry outright
+            self._meta_collection.delete_one({'_id': obj_id})
 
     def update_meta(self, obj_id, meta):
+        assert meta.get('obj_id',
+                        obj_id) == obj_id, "Can't use the 'obj_id' key in metadata, it is reserved"
         self._meta_collection.update_one({'_id': obj_id}, {'$set': meta}, upsert=True)
+
+    def find_meta(self, filter: dict):
+        # Make sure to project away the _id but leave obj_id as there may be multiple and this is
+        # what the user is probably looking for
+        for result in self._meta_collection.find(filter, projection={'_id': False}):
+            yield result
+
+    # endregion
 
     # pylint: disable=too-many-arguments
     def find(self,
@@ -433,7 +456,7 @@ class GridFsFile(builtins.BaseFile):
 
 def flatten_filter(entry_name: str, query) -> dict:
     """Expand nested search criteria, e.g. state={'color': 'red'} -> {'state.colour': 'red'}"""
-    filter = {}
+    flattened = {}
 
     if isinstance(query, dict):
         predicates = []
@@ -442,10 +465,10 @@ def flatten_filter(entry_name: str, query) -> dict:
             if key.startswith('$'):
                 predicates.append({key: value})
             else:
-                filter.update({"{}.{}".format(entry_name, key): value})
+                flattened.update({"{}.{}".format(entry_name, key): value})
         if predicates:
-            filter.update({'$and': [{entry_name: predicate} for predicate in predicates]})
+            flattened.update({'$and': [{entry_name: predicate} for predicate in predicates]})
     else:
-        filter[entry_name] = query
+        flattened[entry_name] = query
 
-    return filter
+    return flattened

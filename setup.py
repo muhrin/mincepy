@@ -25,6 +25,7 @@ setup(name='mincepy',
       ],
       keywords='database schemaless nosql object-store concurrent optimistic-locking',
       install_requires=[
+          'deprecation',
           'pymongo',
           'bidict',
           'pyblake2; python_version<"3.6"',

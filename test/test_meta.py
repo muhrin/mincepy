@@ -11,32 +11,32 @@ def test_metadata_simple(historian: mincepy.Historian):
     car = Car()
     ferrari_id = historian.save(car, with_meta={'reg': 'VD395'})
     # Check that we get back what we just set
-    assert historian.get_meta(ferrari_id) == {'reg': 'VD395'}
+    assert historian.meta.get(ferrari_id) == {'reg': 'VD395'}
 
     car.make = 'fiat'
     red_fiat_id = historian.save(car)
     # Check that the metadata is shared
-    assert historian.get_meta(red_fiat_id) == {'reg': 'VD395'}
+    assert historian.meta.get(red_fiat_id) == {'reg': 'VD395'}
 
-    historian.set_meta(ferrari_id, {'reg': 'N317'})
+    historian.meta.set(ferrari_id, {'reg': 'N317'})
     # Check that this saves the metadata on the object level i.e. both are changed
-    assert historian.get_meta(ferrari_id) == {'reg': 'N317'}
-    assert historian.get_meta(red_fiat_id) == {'reg': 'N317'}
+    assert historian.meta.get(ferrari_id) == {'reg': 'N317'}
+    assert historian.meta.get(red_fiat_id) == {'reg': 'N317'}
 
 
 def test_metadata_using_object_instance(historian: mincepy.Historian):
     car = Car()
     historian.save(car, with_meta={'reg': 'VD395'})
     # Check that we get back what we just set
-    assert historian.get_meta(car) == {'reg': 'VD395'}
+    assert historian.meta.get(car) == {'reg': 'VD395'}
 
     car.make = 'fiat'
     historian.save(car)
     # Check that the metadata is shared
-    assert historian.get_meta(car) == {'reg': 'VD395'}
+    assert historian.meta.get(car) == {'reg': 'VD395'}
 
-    historian.set_meta(car, {'reg': 'N317'})
-    assert historian.get_meta(car) == {'reg': 'N317'}
+    historian.meta.set(car, {'reg': 'N317'})
+    assert historian.meta.get(car) == {'reg': 'N317'}
 
 
 def test_metadata_multiple(historian: mincepy.Historian):
@@ -45,8 +45,8 @@ def test_metadata_multiple(historian: mincepy.Historian):
 
     historian.save(honda, zonda, with_meta=({'reg': 'H123'}, {'reg': 'Z456'}))
 
-    assert historian.get_meta(honda) == {'reg': 'H123'}
-    assert historian.get_meta(zonda) == {'reg': 'Z456'}
+    assert historian.meta.get(honda) == {'reg': 'H123'}
+    assert historian.meta.get(zonda) == {'reg': 'Z456'}
 
 
 def test_metadata_wrong_type(historian: mincepy.Historian):
@@ -58,19 +58,19 @@ def test_metadata_wrong_type(historian: mincepy.Historian):
 def test_metadata_update(historian: mincepy.Historian):
     honda = Car('honda', 'white')
     historian.save(honda, with_meta={'reg': 'H123', 'vin': 1234, 'owner': 'Mike'})
-    historian.update_meta(honda, {'vin': 5678, 'owner': 'Mart'})
-    assert historian.get_meta(honda) == {'reg': 'H123', 'vin': 5678, 'owner': 'Mart'}
+    historian.meta.update(honda, {'vin': 5678, 'owner': 'Mart'})
+    assert historian.meta.get(honda) == {'reg': 'H123', 'vin': 5678, 'owner': 'Mart'}
 
 
 def test_metadata_update_inexistant(historian: mincepy.Historian):
     honda = Car('honda', 'white')
     historian.save(honda)
     # If the data doesn't exist in the metadata already we expect an update to simply insert
-    historian.update_meta(honda, {'reg': 'H123', 'vin': 1234})
-    assert historian.get_meta(honda) == {'reg': 'H123', 'vin': 1234}
+    historian.meta.update(honda, {'reg': 'H123', 'vin': 1234})
+    assert historian.meta.get(honda) == {'reg': 'H123', 'vin': 1234}
 
 
-def test_metadata_find(historian: mincepy.Historian):
+def test_metadata_find_objects(historian: mincepy.Historian):
     honda = Car('honda', 'white')
     honda2 = Car('honda', 'white')
     historian.save(honda, with_meta={'reg': 'H123', 'vin': 1234})
@@ -82,7 +82,7 @@ def test_metadata_find(historian: mincepy.Historian):
 
 def test_stick_meta(historian: mincepy.Historian):
     car1 = Car()
-    historian.sticky_meta['owner'] = 'martin'
+    historian.meta.sticky['owner'] = 'martin'
     car2 = Car()
     car3 = Car()
 
@@ -91,12 +91,12 @@ def test_stick_meta(historian: mincepy.Historian):
     car3_id = car3.save(with_meta={'owner': 'james'})
     del car1, car2, car3
 
-    assert historian.get_meta(car1_id) == {'owner': 'martin'}
-    assert historian.get_meta(car2_id) == {'owner': 'martin', 'for_sale': True}
-    assert historian.get_meta(car3_id) == {'owner': 'james'}
+    assert historian.meta.get(car1_id) == {'owner': 'martin'}
+    assert historian.meta.get(car2_id) == {'owner': 'martin', 'for_sale': True}
+    assert historian.meta.get(car3_id) == {'owner': 'james'}
 
 
-def test_metadata_find_regex(historian: mincepy.Historian):
+def test_metadata_find_object_regex(historian: mincepy.Historian):
     car1 = Car('honda', 'white')
     car2 = Car('honda', 'white')
     car3 = Car('honda', 'white')
@@ -110,3 +110,20 @@ def test_metadata_find_regex(historian: mincepy.Historian):
     assert len(results) == 2
     assert results[0] in [car1, car2]
     assert results[1] in [car1, car2]
+
+
+def test_metadata_find(historian: mincepy.Historian):
+    """Test querying for metadata directly"""
+    car1 = Car('honda', 'white')
+    car2 = Car('honda', 'white')
+    car3 = Car('honda', 'white')
+
+    car1.save(with_meta={'reg': 'VD395'})
+    car2.save(with_meta={'reg': 'VD574'})
+    car3.save(with_meta={'reg': 'BE368'})
+
+    results = tuple(historian.meta.efind(reg={'$regex': '^VD'}))
+    assert len(results) == 2
+    ids = (meta['obj_id'] for meta in results)
+    assert car1.obj_id in ids
+    assert car2.obj_id in ids

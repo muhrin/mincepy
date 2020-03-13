@@ -23,8 +23,8 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
 
     @classmethod
     def get_extra_primitives(cls) -> tuple:
-        """Can optionally return a list of types that are treated as primitives i.e. considered to be
-        storable and retrievable directly without encoding."""
+        """Can optionally return a list of types that are treated as primitives i.e. considered to
+         be storable and retrievable directly without encoding."""
         return tuple()
 
     @classmethod
@@ -70,6 +70,10 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
     def update_meta(self, obj_id: IdT, meta):
         """Update the metadata on the object with the corresponding id"""
 
+    @abstractmethod
+    def find_meta(self, filter: dict):  # pylint: disable=redefined-builtin
+        """Yield metadata satisfying the given filter"""
+
     # endregion
 
     @abstractmethod
@@ -78,7 +82,8 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
 
     @abstractmethod
     def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
-        """Load the snapshot records for a particular object, can return a single or multiple records"""
+        """Load the snapshot records for a particular object, can return a single or multiple
+        records"""
 
     @abstractmethod
     def get_snapshot_refs(self, obj_id: IdT) -> typing.Sequence[Ref[IdT]]:
@@ -138,5 +143,5 @@ class BaseArchive(Archive[IdT]):
         # Single one
         return self.load(refs[0])
 
-    def construct_archive_id(self, value) -> IdT:
+    def construct_archive_id(self, value) -> IdT:  # pylint: disable=no-self-use
         raise TypeError("Not possible to construct an archive id from '{}'".format(type(value)))
