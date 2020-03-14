@@ -91,7 +91,10 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def construct_archive_id(self, value) -> bson.ObjectId:
         if not isinstance(value, str):
             raise TypeError("Cannot construct an ObjectID from a '{}'".format(type(value)))
-        return bson.ObjectId(value)
+        try:
+            return bson.ObjectId(value)
+        except bson.errors.InvalidId as exc:
+            raise ValueError(str(exc))
 
     def create_file(self, filename: str = None, encoding: str = None):
         return GridFsFile(self._file_bucket, filename, encoding)
