@@ -10,7 +10,7 @@ with open('mincepy/version.py') as f:
 
 setup(name='mincepy',
       version=about['__version__'],
-      description="Object storage with versioning made simple",
+      description="Python bject storage with versioning made simple",
       long_description=open('README.rst').read(),
       url='https://github.com/muhrin/mincepy.git',
       author='Martin Uhrin',
