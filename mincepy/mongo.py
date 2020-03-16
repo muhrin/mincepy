@@ -30,6 +30,19 @@ SNAPSHOT_TIME = 'stime'
 EXTRAS = records.EXTRAS
 
 
+def and_(*conditions) -> dict:
+    """Helper that produces mongo query dict for AND of multiple conditions"""
+    if len(conditions) > 1:
+        return {'$and': list(conditions)}
+
+    return conditions[0]
+
+
+def eq_(one, other) -> dict:
+    """Helper that produces mongo query dict for to items being equal"""
+    return {'$eq': [one, other]}
+
+
 class ObjectIdHelper(helpers.TypeHelper):
     TYPE = bson.ObjectId
     TYPE_ID = uuid.UUID('bdde0765-36d2-4f06-bb8b-536a429f32ab')
@@ -230,7 +243,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         if type_id is not None:
             mfilter['type_id'] = type_id
         if state is not None:
-            # If we are given a dict then expand as nested search criteria, e.g. {'state.colour': 'red'}
+            # If we are given a dict then expand as nested search criteria, e.g.
+            # {'state.colour': 'red'}
             if isinstance(state, dict):
                 mfilter.update({"{}.{}".format(STATE, key): item for key, item in state.items()})
             else:
@@ -277,14 +291,16 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
                       state=None,
                       snapshot_hash=None,
                       meta=None):
-        """Get a pipeline that would perform the given search.  Can be used directly in an aggregate call"""
+        """Get a pipeline that would perform the given search.  Can be used directly in an aggregate
+         call"""
         mfilter = {}
         if obj_id is not None:
             mfilter['obj_id'] = obj_id
         if type_id is not None:
             mfilter['type_id'] = type_id
         if state is not None:
-            # If we are given a dict then expand as nested search criteria, e.g. {'state.colour': 'red'}
+            # If we are given a dict then expand as nested search criteria, e.g.
+            # {'state.colour': 'red'}
             mfilter.update(flatten_filter(STATE, state))
         if snapshot_hash is not None:
             mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
@@ -304,6 +320,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             })
             # _meta should only contain at most one entry per document i.e. the metadata for
             # that object.  So check that for the search criteria
+            # pipeline.append({'$match': flatten_filter('_meta.0', meta)})
             pipeline.append({'$match': flatten_filter('_meta.0', meta)})
 
         if version == -1:
@@ -329,16 +346,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
                         # Then match these with the obj id and version in our collection
                         {
                             '$match': {
-                                '$expr': {
-                                    '$and': [
-                                        {
-                                            '$eq': ['$_id', '$$obj_id']
-                                        },
-                                        {
-                                            '$eq': ['$ver', '$$ver']
-                                        },
-                                    ]
-                                }
+                                '$expr': and_(eq_('$_id', '$$obj_id'), eq_('$ver', '$$ver')),
                             }
                         }
                     ],
@@ -354,7 +362,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         """Convert a MongoDB data collection entry to a DataRecord"""
         record_dict = records.DataRecord.defaults()
 
-        # Invert our mapping of keys back to the data record property names and update over any defaults
+        # Invert our mapping of keys back to the data record property names and update over any
+        # defaults
         record_dict.update({
             recordkey: entry[dbkey] for recordkey, dbkey in self.KEY_MAP.items() if dbkey in entry
         })
@@ -470,7 +479,8 @@ def flatten_filter(entry_name: str, query) -> dict:
             else:
                 flattened.update({"{}.{}".format(entry_name, key): value})
         if predicates:
-            flattened.update({'$and': [{entry_name: predicate} for predicate in predicates]})
+            flattened.update(and_(*[{entry_name: predicate} for predicate in predicates]))
+
     else:
         flattened[entry_name] = query
 

@@ -72,7 +72,7 @@ def test_update(historian: mincepy.Historian):
     historian.save(honda)
     honda_record = historian.get_current_record(honda)
 
-    archive = historian.get_archive()
+    archive = historian.archive
     record = historian.get_current_record(car)
     builder = record.child_builder(obj_id=historian.get_obj_id(car),
                                    snapshot_hash=honda_record.snapshot_hash,

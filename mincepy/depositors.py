@@ -17,7 +17,7 @@ class Base(metaclass=ABCMeta):
         self._historian = historian
 
     def get_archive(self) -> archives.Archive:
-        return self._historian.get_archive()
+        return self._historian.archive
 
     def get_historian(self):
         return self._historian
