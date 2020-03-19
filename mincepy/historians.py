@@ -71,8 +71,8 @@ class Meta:
         self._historian.archive.update_meta(obj_id, meta)
 
     def find(self, filter):
-        """Find metadata matching the given criteria.  Ever returned metadata dictionary will contain
-        an 'obj_id' key which identifies the object it belongs to"""
+        """Find metadata matching the given criteria.  Ever returned metadata dictionary will
+        contain an 'obj_id' key which identifies the object it belongs to"""
         return self._historian.archive.find_meta(filter=filter)
 
     def efind(self, **filter):
@@ -621,7 +621,10 @@ class Historian:
 
     def _save_object(self, obj, depositor) -> records.DataRecord:
         with self.transaction() as trans:
-            helper = self._ensure_compatible(type(obj))
+            try:
+                helper = self._ensure_compatible(type(obj))
+            except TypeError:
+                raise TypeError("Object is incompatible with the historian: {}".format(obj))
 
             # Check if an object is already being saved in the transaction
             try:
