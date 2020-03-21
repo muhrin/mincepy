@@ -1,7 +1,9 @@
-.. image:: https://github.com/muhrin/mincepy/raw/develop/docs/source/img/mincepy.svg
-   :height: 64px
-   :width: 64px
-   :alt: mincePy
+
+
+.. image:: docs/source/img/mincepy.svg
+    :height: 64px
+    :width: 64px
+    :alt: mincePy
 
 .. image:: https://codecov.io/gh/muhrin/mincepy/branch/develop/graph/badge.svg
     :target: https://codecov.io/gh/muhrin/mincepy
