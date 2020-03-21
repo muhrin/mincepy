@@ -1,10 +1,11 @@
 import contextlib
-from typing import MutableMapping, Any, List, Sequence
+import copy
+from typing import MutableMapping, Any, List, Sequence, Optional, Mapping
 import weakref
 
-import mincepy.records
 from . import archives
 from . import exceptions
+from . import records
 from . import utils
 
 
@@ -66,6 +67,8 @@ class Transaction:
 
         # Snapshots: ref -> obj
         self._snapshots = {}  # type: MutableMapping[archives.Ref, Any]
+        # Maps from the object id to a metadata dictionary
+        self._metas = {}  # type: MutableMapping[Any, dict]
 
     def __str__(self):
         return "{}, {} live ref(s), {} snapshots, {} staged".format(
@@ -80,9 +83,14 @@ class Transaction:
     def snapshots(self):
         return self._snapshots
 
+    @property
+    def metas(self) -> dict:
+        return self._metas
+
     # region LiveObjects
 
-    def insert_live_object(self, obj, record):
+    def insert_live_object(self, obj, record: records.DataRecord):
+        """Insert a live object along with an up-to-date record into the transaction"""
         ref = record.get_reference()
         if ref not in self._live_object_references:
             self._live_object_references[ref] = obj
@@ -93,13 +101,14 @@ class Transaction:
     def get_live_object(self, obj_id):
         return self._live_objects.get_object(obj_id)
 
-    def get_record_for_live_object(self, obj):
+    def get_record_for_live_object(self, obj) -> records.DataRecord:
         return self._live_objects.get_record(obj)
 
-    def insert_live_object_reference(self, ref, obj):
+    def insert_live_object_reference(self, ref: records.Ref, obj):
+        """Insert a snapshot reference for an object into the transaction"""
         self._live_object_references[ref] = obj
 
-    def get_live_object_from_reference(self, ref):
+    def get_live_object_from_reference(self, ref: records.Ref):
         try:
             return self._live_object_references[ref]
         except KeyError:
@@ -123,6 +132,26 @@ class Transaction:
 
     # endregion LiveObjects
 
+    # region meta
+
+    def set_meta(self, obj_id, meta: Optional[dict]):
+        """Set an object's metadata.  Can pass None to unset."""
+        self._metas[obj_id] = copy.deepcopy(meta)
+
+    def get_meta(self, obj_id) -> dict:
+        """Get an object's metadata.
+        If the returned metadata is None then it means the user has set this metadata to be removed.
+
+        :raise exceptions.NotFound: if not metadata information for the object is contained in this
+            transaction.
+        """
+        try:
+            return self._metas[obj_id]
+        except KeyError:
+            raise exceptions.NotFound
+
+    # endregion
+
     def insert_snapshot(self, obj, ref):
         self._snapshots[ref] = obj
 
@@ -132,12 +161,12 @@ class Transaction:
         except KeyError:
             raise exceptions.NotFound("No snapshot with reference '{}' found".format(ref))
 
-    def stage(self, record: mincepy.records.DataRecord):
+    def stage(self, record: records.DataRecord):
         """Stage a record to be saved once on completion of this transaction"""
         self._staged.append(record)
 
     @property
-    def staged(self) -> Sequence[mincepy.records.DataRecord]:
+    def staged(self) -> Sequence[records.DataRecord]:
         """The list of records that were staged during this transaction"""
         return self._staged
 
@@ -153,10 +182,12 @@ class Transaction:
             self._update(nested)
 
     def _update(self, transaction):
+        """Absorb a nested transaction into this one, done at the end of a nested context"""
         self._live_objects.update(transaction.live_objects)
         self._snapshots.update(transaction.snapshots)
         self._live_object_references.update(transaction._live_object_references)
         self._staged.extend(transaction.staged)
+        self._metas.update(transaction.metas)
 
     @staticmethod
     def rollback():
@@ -201,3 +232,9 @@ class NestedTransaction(Transaction):
             return super(NestedTransaction, self).get_snapshot(ref)
         except exceptions.NotFound:
             return self._parent.get_snapshot(ref)
+
+    def get_meta(self, obj_id) -> dict:
+        try:
+            return super(NestedTransaction, self).get_meta(obj_id)
+        except exceptions.NotFound:
+            return self._parent.get_meta(obj_id)

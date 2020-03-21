@@ -116,7 +116,8 @@ class LiveDepositor(Saver, Loader):
         except exceptions.NotFound:
             return self._historian._load_object(reference.obj_id, self)
 
-    def load_from_record(self, record):
+    def load_from_record(self, record: records.DataRecord):
+        """Load an object from a record"""
         with self._historian.transaction() as trans:
 
             def created(path, new_obj):
@@ -128,7 +129,8 @@ class LiveDepositor(Saver, Loader):
             norm_schema = {tuple(path): type_id for path, type_id in record.state_types}
             return self.decode(record.state, norm_schema, created_callback=created)
 
-    def update_from_record(self, obj, record) -> bool:
+    def update_from_record(self, obj, record: records.DataRecord) -> bool:
+        """Do an in-place update of a object from a record"""
         historian = self.get_historian()
         helper = historian.get_helper(type(obj))
         with historian.transaction() as trans:
@@ -167,7 +169,7 @@ class LiveDepositor(Saver, Loader):
 
             # Insert the record into the transaction
             trans.insert_live_object(obj, record)
-            trans.stage(record)
+            trans.stage(record)  # Stage it for being saved
 
         return record
 

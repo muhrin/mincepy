@@ -96,6 +96,37 @@ def test_stick_meta(historian: mincepy.Historian):
     assert historian.meta.get(car3_id) == {'owner': 'james'}
 
 
+def test_meta_sticky_children(historian: mincepy.Historian):
+    """Catch bug where metadata was not being set on being references by other objects"""
+    garage = mincepy.RefList()
+    garage.append(Car())
+    garage.append(Car())
+    historian.meta.sticky['owner'] = 'martin'
+
+    garage_id = garage.save()
+    car0_id = garage[0].save(with_meta={'for_sale': True})
+    car1_id = garage[1].save(with_meta={'owner': 'james'})
+    del garage
+
+    assert historian.meta.get(garage_id) == {'owner': 'martin'}
+    assert historian.meta.get(car0_id) == {'owner': 'martin', 'for_sale': True}
+    assert historian.meta.get(car1_id) == {'owner': 'james'}
+
+
+def test_meta_transaction(historian: mincepy.Historian):
+    """Check that metadata respects transaction boundaries"""
+    car1 = Car()
+
+    with historian.transaction():
+        car1.save()
+        with historian.transaction() as trans:
+            historian.set_meta(car1.obj_id, {'spurious': True})
+            assert historian.get_meta(car1.obj_id) == {'spurious': True}
+            trans.rollback()
+        assert not historian.get_meta(car1)
+    assert not historian.get_meta(car1)
+
+
 def test_metadata_find_object_regex(historian: mincepy.Historian):
     car1 = Car('honda', 'white')
     car2 = Car('honda', 'white')

@@ -49,8 +49,7 @@ class Meta:
 
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         """
-        obj_id = self._historian._ensure_obj_id(obj_or_identifier)
-        return self._historian.archive.get_meta(obj_id)
+        return self._historian.get_meta(obj_or_identifier)
 
     def set(self, obj_or_identifier, meta: Optional[Mapping]):
         """Set the metadata for an object
@@ -58,8 +57,7 @@ class Meta:
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         :param meta: the metadata dictionary
         """
-        obj_id = self._historian._ensure_obj_id(obj_or_identifier)
-        self._historian.archive.set_meta(obj_id, meta)
+        return self._historian.set_meta(obj_or_identifier, meta)
 
     def update(self, obj_or_identifier, meta: Mapping):
         """Update the metadata for an object
@@ -67,8 +65,7 @@ class Meta:
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         :param meta: the metadata dictionary
         """
-        obj_id = self._historian._ensure_obj_id(obj_or_identifier)
-        self._historian.archive.update_meta(obj_id, meta)
+        return self._historian.update_meta(obj_or_identifier, meta)
 
     def find(self, filter):
         """Find metadata matching the given criteria.  Ever returned metadata dictionary will
@@ -110,15 +107,44 @@ class Historian:
 
         self._meta = Meta(self)
 
-    @property
-    def archive(self):
-        return self._archive
+    @deprecation.deprecated(deprecated_in="0.10.3",
+                            removed_in="0.11.0",
+                            current_version=version.__version__,
+                            details="Use .load or .load_one instead")
+    def load_object(self, obj_id):
+        return self._load_object(obj_id, depositors.LiveDepositor(self))
+
+    @deprecation.deprecated(deprecated_in="0.10.3",
+                            removed_in="0.11.0",
+                            current_version=version.__version__,
+                            details="Use .save or .saved_one instead")
+    def save_object(self, obj) -> records.DataRecord:
+        return self._save_object(obj, depositors.LiveDepositor(self))
 
     @deprecation.deprecated(deprecated_in="0.10.3",
                             removed_in="1.0",
                             current_version=version.__version__,
                             details="Use .archive property instead")
     def get_archive(self):
+        return self._archive
+
+    @property
+    @deprecation.deprecated(deprecated_in="0.10.3",
+                            removed_in="0.11.0",
+                            current_version=version.__version__,
+                            details="Use .meta.sticky instead")
+    def sticky_meta(self) -> dict:
+        """Sticky metadata that is set on any object being saved for the first time.
+        If the user supplies metadata at save time this will take priority but in the following
+        way: the stick meta will be used as a base but updated with the user supplied meta i.e.
+
+            meta = deepcopy(stick_meta.copy)
+            meta.update(user_meta)
+        """
+        return self.meta.sticky
+
+    @property
+    def archive(self):
         return self._archive
 
     def created(self, obj):
@@ -129,7 +155,8 @@ class Historian:
             self._creators[obj] = creator
 
     def create_file(self, filename: str = None, encoding: str = None) -> builtins.BaseFile:
-        """Create a new file.  The historian will supply file type compatible with the archive in use."""
+        """Create a new file.  The historian will supply file type compatible with the archive in
+         use."""
         return self._archive.create_file(filename, encoding)
 
     def save(self, *objs, with_meta=None, return_sref=False):
@@ -144,7 +171,8 @@ class Historian:
                 with_meta = (with_meta,)
             else:
                 assert len(objs) == len(with_meta), \
-                    "The metadata should be a sequence with the same number of entries as the number of objects"
+                    "The metadata should be a sequence with the same number of entries as the " \
+                    "number of objects"
         else:
             with_meta = [None] * len(objs)
 
@@ -158,7 +186,12 @@ class Historian:
             return ids
 
     def save_one(self, obj, with_meta=None, return_sref=False):
-        """Save the object in the history producing a unique id"""
+        """Save the object in the history producing a unique id.
+
+        Developer note: this is the front end point-of-entry for a user/client code saving an object
+        however subsequent objects being saved in this transaction will only go through _save_object
+        and therefore any code common to all objects being saved should possibly go there.
+        """
         if obj in self._snapshots_objects:
             raise exceptions.ModificationError(
                 "Cannot save a snapshot object, that would rewrite history!")
@@ -166,17 +199,11 @@ class Historian:
         if with_meta and not isinstance(with_meta, dict):
             raise TypeError("Metadata must be a dictionary, got type '{}'".format(type(with_meta)))
 
-        if not self.is_known(obj):
-            # This is the first time being saved, so apply the stick meta
-            meta = copy.deepcopy(self.meta.sticky)
-            if with_meta:
-                meta.update(with_meta)
-            with_meta = meta
-
         # Save the object and metadata
-        record = self.save_object(obj)
-        if with_meta is not None:
-            self._archive.set_meta(record.obj_id, with_meta)
+        with self.transaction():
+            record = self._save_object(obj, depositors.LiveDepositor(self))
+            if with_meta:
+                self.meta.update(record.obj_id, with_meta)
 
         if return_sref:
             return record.get_reference()
@@ -232,7 +259,7 @@ class Historian:
         if isinstance(obj_id_or_ref, records.Ref):
             return self.load_snapshot(obj_id_or_ref)
 
-        return self.load_object(obj_id_or_ref)
+        return self._load_object(obj_id_or_ref, depositors.LiveDepositor(self))
 
     def sync(self, obj) -> bool:
         """Update an object with the latest state in the database.
@@ -321,39 +348,30 @@ class Historian:
 
         return [self._archive.load(ref) for ref in to_get]
 
-    def load_object(self, obj_id):
-        return self._load_object(obj_id, depositors.LiveDepositor(self))
-
-    def save_object(self, obj) -> records.DataRecord:
-        return self._save_object(obj, depositors.LiveDepositor(self))
-
     # region Metadata
 
     @property
     def meta(self):
         return self._meta
 
-    @property
-    @deprecation.deprecated(deprecated_in="0.10.3",
-                            removed_in="0.11.0",
-                            current_version=version.__version__,
-                            details="Use .meta.sticky instead")
-    def sticky_meta(self) -> dict:
-        """Sticky metadata that is set on any object being saved for the first time.
-        If the user supplies metadata at save time this will take priority but in the following
-        way: the stick meta will be used as a base but updated with the user supplied meta i.e.
-
-            meta = deepcopy(stick_meta.copy)
-            meta.update(user_meta)
-        """
-        return self.meta.sticky
-
     def get_meta(self, obj_or_identifier) -> dict:
         """Get the metadata for an object
 
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         """
-        return self.meta.get(obj_or_identifier)
+        obj_id = self._ensure_obj_id(obj_or_identifier)
+        trans = self.current_transaction()
+        if trans:
+            try:
+                return trans.get_meta(obj_id)
+            except exceptions.NotFound:
+                current = self._archive.get_meta(obj_id)  # Try the archive
+                if current is None:
+                    current = {}  # Ok, no meta
+                trans.set_meta(obj_id, current)  # Cache the meta in the transaction
+                return current
+        else:
+            return self.archive.get_meta(obj_id)
 
     def set_meta(self, obj_or_identifier, meta: Optional[Mapping]):
         """Set the metadata for an object
@@ -361,7 +379,12 @@ class Historian:
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         :param meta: the metadata dictionary
         """
-        return self.meta.set(obj_or_identifier, meta)
+        obj_id = self._ensure_obj_id(obj_or_identifier)
+        trans = self.current_transaction()
+        if trans:
+            return trans.set_meta(obj_id, meta)
+        else:
+            return self.archive.set_meta(obj_id, meta)
 
     def update_meta(self, obj_or_identifier, meta: Mapping):
         """Update the metadata for an object
@@ -369,7 +392,21 @@ class Historian:
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         :param meta: the metadata dictionary
         """
-        self.meta.update(obj_or_identifier, meta)
+        obj_id = self._ensure_obj_id(obj_or_identifier)
+        trans = self.current_transaction()
+        if trans:
+            # Update the metadata in the transaction
+            try:
+                current = trans.get_meta(obj_id)
+            except exceptions.NotFound:
+                current = self._archive.get_meta(obj_id)  # Try the archive
+                if current is None:
+                    current = {}  # Ok, no meta
+
+            current.update(meta)
+            trans.set_meta(obj_id, current)
+        else:
+            self.archive.update_meta(obj_id, meta)
 
     # endregion
 
@@ -379,7 +416,7 @@ class Historian:
         # Try the transaction first
         if trans:
             try:
-                return trans.live_objects.get_record(obj)
+                return trans.get_record_for_live_object(obj)
             except exceptions.NotFound:
                 pass
 
@@ -427,9 +464,9 @@ class Historian:
 
     @classmethod
     def is_trackable(cls, obj):
-        """Determine if an object is trackable i.e. we can treat these as live objects and automatically
-        keep track of their history when saving.  Ultimately this is determined by whether the type is
-        weak referencable or not.
+        """Determine if an object is trackable i.e. we can treat these as live objects and
+        automatically keep track of their history when saving.  Ultimately this is determined by
+        whether the type is weak referencable or not.
         """
         try:
             weakref.ref(obj)
@@ -437,13 +474,15 @@ class Historian:
         except TypeError:
             return False
 
-    def is_primitive(self, obj):
-        """Check if the object is one of the primitives and should be saved by value in the archive"""
+    def is_primitive(self, obj) -> bool:
+        """Check if the object is one of the primitives and should be saved by value in the
+        archive"""
         primitives = types.PRIMITIVE_TYPES + (
             self._archive.get_id_type(),) + self._archive.get_extra_primitives()
         return isinstance(obj, primitives)
 
-    def is_obj_id(self, obj_id):
+    def is_obj_id(self, obj_id) -> bool:
+        """Check if an object is of the object id type"""
         return isinstance(obj_id, self._archive.get_id_type())
 
     def register_type(self, obj_class_or_helper: HistorianType) -> helpers.TypeHelper:
@@ -518,7 +557,7 @@ class Historian:
                 pass
 
         creator_id = self.created_by(obj_or_identifier)
-        return self.load_object(creator_id)
+        return self.load_one(creator_id)
 
     def created_by(self, obj_or_identifier):
         """Return the id of the object that created the passed object"""
@@ -549,6 +588,7 @@ class Historian:
                 try:
                     yield nested
                 finally:
+                    self._closing_transaction(nested)
                     popped = self._transactions.pop()
                     assert popped is nested
         else:
@@ -561,17 +601,8 @@ class Historian:
             except RollbackTransaction:
                 pass
             else:
-                # Commit the transaction
-                # Live objects
-                self._live_objects.update(trans.live_objects)
-
-                # Snapshots
-                for ref, obj in trans.snapshots.items():
-                    self._snapshots_objects[obj] = ref
-
-                # Save any records that were staged for archiving
-                if trans.staged:
-                    self._archive.save_many(trans.staged)
+                self._closing_transaction(trans)
+                self._commit_transaction(trans)
             finally:
                 assert len(self._transactions) == 1
                 assert self._transactions[0] is trans
@@ -582,6 +613,26 @@ class Historian:
         if not self._transactions:
             return None
         return self._transactions[-1]
+
+    def _closing_transaction(self, trans: Transaction):
+        pass
+
+    def _commit_transaction(self, trans: Transaction):
+        """Commit a transaction that is finishing"""
+        # Live objects
+        self._live_objects.update(trans.live_objects)
+
+        # Snapshots
+        for ref, obj in trans.snapshots.items():
+            self._snapshots_objects[obj] = ref
+
+        # Save any records that were staged for archiving
+        if trans.staged:
+            self._archive.save_many(trans.staged)
+
+        # Metas
+        for obj_id, meta in trans.metas.items():
+            self._archive.set_meta(obj_id, meta)
 
     def _get_latest_snapshot_reference(self, obj_id) -> records.Ref:
         """Given an object id this will return a reference to the latest snapshot"""
@@ -641,8 +692,13 @@ class Historian:
                     # Let's see if we have a record at all
                     record = self._live_objects.get_record(obj)
                 except exceptions.NotFound:
+                    # Object being saved for the first time
                     builder = self._create_builder(obj, dict(snapshot_hash=current_hash))
-                    return depositor.save_from_builder(obj, builder)
+                    record = depositor.save_from_builder(obj, builder)
+                    if self.meta.sticky:
+                        # Apply the sticky meta
+                        trans.set_meta(record.obj_id, self.meta.sticky)
+                    return record
                 else:
                     if helper.IMMUTABLE:
                         logger.info("Tried to save immutable object with id '%s' again",

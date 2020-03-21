@@ -176,6 +176,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def update_meta(self, obj_id, meta):
         assert meta.get('obj_id',
                         obj_id) == obj_id, "Can't use the 'obj_id' key in metadata, it is reserved"
+
+        meta['obj_id'] = obj_id
         self._meta_collection.update_one({'_id': obj_id}, {'$set': meta}, upsert=True)
 
     def find_meta(self, filter: dict):
