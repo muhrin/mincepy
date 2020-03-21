@@ -1,7 +1,4 @@
-mincePy
-=======
-
-.. image:: docs/source/img/mincepy.svg
+.. image:: https://github.com/muhrin/mincepy/raw/develop/docs/source/img/mincepy.svg
    :height: 64px
    :width: 64px
    :alt: mincePy
@@ -26,3 +23,9 @@ mincePy
 
 .. image:: https://img.shields.io/pypi/l/mincepy.svg
     :target: https://pypi.python.org/pypi/mincepy/
+
+
+mincePy
+=======
+
+MincePy: move the database to one and let your objects take centre stage.
