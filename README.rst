@@ -30,4 +30,4 @@
 mincePy
 =======
 
-MincePy: move the database to one and let your objects take centre stage.
+MincePy: move the database to one side and let your objects take centre stage.

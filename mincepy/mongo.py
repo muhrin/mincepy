@@ -155,11 +155,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
     def get_meta(self, obj_id):
         assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
-        return self._meta_collection.find_one({'_id': obj_id},
-                                              projection={
-                                                  'obj_id': False,
-                                                  '_id': False
-                                              })
+        return self._meta_collection.find_one({'_id': obj_id}, projection={'_id': False})
 
     def set_meta(self, obj_id, meta):
         if meta:
@@ -322,7 +318,6 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             })
             # _meta should only contain at most one entry per document i.e. the metadata for
             # that object.  So check that for the search criteria
-            # pipeline.append({'$match': flatten_filter('_meta.0', meta)})
             pipeline.append({'$match': flatten_filter('_meta.0', meta)})
 
         if version == -1:
