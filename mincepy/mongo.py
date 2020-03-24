@@ -155,7 +155,11 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
     def get_meta(self, obj_id):
         assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
-        return self._meta_collection.find_one({'_id': obj_id}, projection={'_id': False})
+        return self._meta_collection.find_one({'_id': obj_id},
+                                              projection={
+                                                  '_id': False,
+                                                  'obj_id': False
+                                              })
 
     def set_meta(self, obj_id, meta):
         if meta:
@@ -176,7 +180,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         meta['obj_id'] = obj_id
         self._meta_collection.update_one({'_id': obj_id}, {'$set': meta}, upsert=True)
 
-    def find_meta(self, filter: dict):
+    def find_meta(self, filter: dict):  # pylint: disable=redefined-builtin
         # Make sure to project away the _id but leave obj_id as there may be multiple and this is
         # what the user is probably looking for
         for result in self._meta_collection.find(filter, projection={'_id': False}):
