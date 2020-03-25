@@ -75,12 +75,13 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         """Yield metadata satisfying the given filter"""
 
     @abstractmethod
-    def meta_create_index(self, keys, unique=False):
+    def meta_create_index(self, keys, unique=False, where_exist=False):
         """Create an index on the metadata.  Takes either a single key or list of (key, direction)
          pairs
 
          :param keys: the key or keys to create the index on
          :param unique: if True, create a uniqueness constraint on this index
+         :param where_exist: if True the index only applies for documents where the key(s) exist
          """
 
     # endregion

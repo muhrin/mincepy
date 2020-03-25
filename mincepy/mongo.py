@@ -56,6 +56,11 @@ def ne_(value) -> dict:
     return {'$ne': value}
 
 
+def exists_(key) -> dict:
+    """Return condition for the existence of a key"""
+    return {key: {'$exists': True}}
+
+
 class ObjectIdHelper(helpers.TypeHelper):
     TYPE = bson.ObjectId
     TYPE_ID = uuid.UUID('bdde0765-36d2-4f06-bb8b-536a429f32ab')
@@ -207,8 +212,15 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         for result in self._meta_collection.find(filter, projection={'_id': False}):
             yield result
 
-    def meta_create_index(self, keys, unique=True):
-        self._meta_collection.create_index(keys, unique=unique)
+    def meta_create_index(self, keys, unique=True, where_exist=False):
+        kwargs = {}
+        if where_exist:
+            if not isinstance(keys, str) and isinstance(keys, Iterable):
+                key_names = tuple(entry[0] for entry in keys)
+            else:
+                key_names = (keys,)
+            kwargs['partialFilterExpression'] = and_(*tuple(exists_(name) for name in key_names))
+        self._meta_collection.create_index(keys, unique=unique, **kwargs)
 
     # endregion
 

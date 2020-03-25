@@ -72,14 +72,15 @@ class Meta:
         contain an 'obj_id' key which identifies the object it belongs to"""
         return self._historian.archive.find_meta(filter=filter)
 
-    def create_index(self, keys, unique=False):
+    def create_index(self, keys, unique=False, where_exist=False):
         """Create an index on the metadata.  Takes either a single key or list of (key, direction)
          pairs
 
          :param keys: the key or keys to create the index on
          :param unique: if True, create a uniqueness constraint on this index
+         :param where_exist: if True, only apply this index on documents that contain the key(s)
          """
-        self._historian.archive.meta_create_index(keys, unique=unique)
+        self._historian.archive.meta_create_index(keys, unique=unique, where_exist=where_exist)
 
     def efind(self, **filter):
         """Easy find.  Doesn't have any of the more complete options that find() has but allows
