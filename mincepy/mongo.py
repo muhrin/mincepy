@@ -1,6 +1,6 @@
 import tempfile
 import typing
-from typing import Optional, Sequence, Union, Iterable
+from typing import Optional, Sequence, Union, Iterable, Mapping
 import uuid
 
 from bidict import bidict
@@ -196,13 +196,14 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             # Just remove the meta entry outright
             self._meta_collection.delete_one({'_id': obj_id})
 
-    def update_meta(self, obj_id, meta):
+    def update_meta(self, obj_id, meta: Mapping):
         assert meta.get('obj_id',
                         obj_id) == obj_id, "Can't use the 'obj_id' key in metadata, it is reserved"
 
-        meta['obj_id'] = obj_id
+        # Make a copy before modification
+        set_to = {'obj_id': obj_id, **meta}
         try:
-            self._meta_collection.update_one({'_id': obj_id}, {'$set': meta}, upsert=True)
+            self._meta_collection.update_one({'_id': obj_id}, {'$set': set_to}, upsert=True)
         except pymongo.errors.DuplicateKeyError as exc:
             raise exceptions.DuplicateKeyError(str(exc))
 

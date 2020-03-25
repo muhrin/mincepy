@@ -31,3 +31,13 @@ def test_meta_index_unique_joint_index_where_exist(historian: mincepy.Historian)
 
     with pytest.raises(mincepy.DuplicateKeyError):
         Car().save(with_meta=dict(reg='VD395', colour='red'))
+
+
+def test_meta_on_delete(historian: mincepy.Historian):
+    """Test that metadata gets deleted when the object does"""
+    car = Car()
+    car_id = car.save(with_meta={'reg': '1234'})
+
+    assert historian.meta.get(car_id) == {'reg': '1234'}
+    historian.delete(car_id)
+    assert historian.meta.get(car_id) is None

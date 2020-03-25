@@ -145,6 +145,7 @@ class Transaction:
                     break
             del self._live_object_references[found_ref]
 
+        self.set_meta(obj_id, None)
         self._deleted.add(obj_id)
 
     def is_deleted(self, obj_id):
