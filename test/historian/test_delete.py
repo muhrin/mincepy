@@ -58,3 +58,18 @@ def test_delete_in_transaction(historian: mincepy.Historian):
         historian.load(inside_id)
     with pytest.raises(mincepy.ObjectDeleted):
         historian.load(outside_id)
+
+
+def test_delete_find(historian: mincepy.Historian):
+    car = Car('trabant')
+    car_id = car.save()
+
+    historian.delete(car_id)
+    with pytest.raises(mincepy.ObjectDeleted):
+        # Have to evaluate find because it returns a generator that won't actually
+        # do anything unless we iterate it
+        tuple(historian.find(obj_id=car_id))
+
+    # Now check the archive
+    assert len(tuple(historian.archive.find(obj_id=car_id))) == 1
+    assert len(tuple(historian.archive.find(obj_id=car_id, deleted=False))) == 0

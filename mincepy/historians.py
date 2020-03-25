@@ -310,7 +310,7 @@ class Historian:
         try:
             record = self.get_current_record(self.get_obj(obj_id))
         except exceptions.NotFound:
-            record = tuple(self.archive.find(obj_id))[0]
+            record = tuple(self.archive.find(obj_id=obj_id))[0]
 
         with self.transaction() as trans:
             builder = records.make_deleted_builder(record)
@@ -516,6 +516,7 @@ class Historian:
 
     def find(self,
              obj_type=None,
+             obj_id=None,
              version: int = -1,
              state: dict = None,
              meta: dict = None,
@@ -523,9 +524,10 @@ class Historian:
              limit=0,
              skip=0,
              as_objects=True):
-        """Find entries in the archive
+        """Find objects
 
         :param obj_type: the object type to look for
+        :param obj_id: an object or list of object ids to look for
         :param version: the version of the object to retrieve, -1 means latest
         :param state: the criteria on the state of the object to apply
         :param meta: the search criteria to apply on the metadata of the object
@@ -540,7 +542,8 @@ class Historian:
                 type_id = self.get_obj_type_id(obj_type)
             except TypeError:
                 pass
-        results = self._archive.find(type_id=type_id,
+        results = self._archive.find(obj_id=obj_id,
+                                     type_id=type_id,
                                      state=state,
                                      version=version,
                                      meta=meta,

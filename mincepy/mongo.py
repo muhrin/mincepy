@@ -1,6 +1,6 @@
 import tempfile
 import typing
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Union, Iterable
 import uuid
 
 from bidict import bidict
@@ -41,6 +41,19 @@ def and_(*conditions) -> dict:
 def eq_(one, other) -> dict:
     """Helper that produces mongo query dict for to items being equal"""
     return {'$eq': [one, other]}
+
+
+def in_(*possibilities) -> dict:
+    """Helper that produces mongo query dict for items being one of"""
+    if len(possibilities) == 1:
+        return possibilities[0]
+
+    return {'$in': list(possibilities)}
+
+
+def ne_(value) -> dict:
+    """Not equal to value"""
+    return {'$ne': value}
 
 
 class ObjectIdHelper(helpers.TypeHelper):
@@ -191,11 +204,12 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     # pylint: disable=too-many-arguments
     def find(self,
              obj_id: Optional[bson.ObjectId] = None,
-             type_id=None,
+             type_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
              _created_by=None,
              _copied_from=None,
              version=-1,
              state=None,
+             deleted=True,
              snapshot_hash=None,
              meta=None,
              limit=0,
@@ -207,6 +221,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
                                       _copied_from=_copied_from,
                                       version=version,
                                       state=state,
+                                      deleted=deleted,
                                       snapshot_hash=snapshot_hash,
                                       meta=meta)
 
@@ -236,6 +251,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
               _copied_from=None,
               version=-1,
               state=None,
+              deleted=True,
               snapshot_hash=None,
               meta=None,
               limit=0):
@@ -244,13 +260,13 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             mfilter['obj_id'] = obj_id
         if type_id is not None:
             mfilter['type_id'] = type_id
+
         if state is not None:
-            # If we are given a dict then expand as nested search criteria, e.g.
-            # {'state.colour': 'red'}
-            if isinstance(state, dict):
-                mfilter.update({"{}.{}".format(STATE, key): item for key, item in state.items()})
-            else:
-                mfilter[STATE] = state
+            mfilter.update(flatten_filter(STATE, state))
+        if not deleted:
+            mfilter.update(flatten_filter(STATE, and_(mfilter.get(STATE, {}),
+                                                      ne_(records.DELETED))))
+
         if snapshot_hash is not None:
             mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
         if version == -1:
@@ -285,25 +301,35 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         return result['total']
 
     def _get_pipeline(self,
-                      obj_id: Optional[bson.ObjectId] = None,
+                      obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
                       type_id=None,
                       _created_by=None,
                       _copied_from=None,
                       version=-1,
                       state=None,
+                      deleted=True,
                       snapshot_hash=None,
                       meta=None):
         """Get a pipeline that would perform the given search.  Can be used directly in an aggregate
          call"""
         mfilter = {}
         if obj_id is not None:
-            mfilter['obj_id'] = obj_id
+            if isinstance(obj_id, Iterable):
+                mfilter['obj_id'] = in_(*tuple(obj_id))
+            else:
+                mfilter['obj_id'] = obj_id
         if type_id is not None:
             mfilter['type_id'] = type_id
+
         if state is not None:
-            # If we are given a dict then expand as nested search criteria, e.g.
-            # {'state.colour': 'red'}
             mfilter.update(flatten_filter(STATE, state))
+        if not deleted:
+            condition = [ne_(records.DELETED)]
+            if STATE in mfilter:
+                condition.append(mfilter[STATE])
+
+            mfilter.update(flatten_filter(STATE, and_(*condition)))
+
         if snapshot_hash is not None:
             mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
         if version is not None and version != -1:

@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import typing
-from typing import Sequence
+from typing import Sequence, Iterable, Union
 
 from .records import DataRecord, Ref
 
@@ -92,18 +92,23 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
     # pylint: disable=too-many-arguments
     @abstractmethod
     def find(self,
-             obj_id=None,
+             obj_id: Union[IdT, Iterable[IdT]] = None,
              type_id=None,
              created_by=None,
              copied_from=None,
              version=-1,
              state=None,
+             deleted=True,
              snapshot_hash=None,
              meta=None,
              limit=0,
              sort=None,
              skip=0):
-        """Find records matching the given criteria"""
+        """Find records matching the given criteria
+
+        :param obj_id: an obj or or an iterable of obj ids to look for
+        :param deleted: if True, find deleted records too
+        """
 
     @abstractmethod
     def count(self,
