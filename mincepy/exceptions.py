@@ -1,4 +1,4 @@
-__all__ = ('NotFound', 'ModificationError', 'ObjectDeleted')
+__all__ = 'NotFound', 'ModificationError', 'ObjectDeleted', 'DuplicateKeyError'
 
 
 class NotFound(Exception):
@@ -11,3 +11,7 @@ class ModificationError(Exception):
 
 class ObjectDeleted(Exception):
     """Raise when the user tries to interact with a deleted object"""
+
+
+class DuplicateKeyError(Exception):
+    """Indicates that a uniqueness constraint was violated"""

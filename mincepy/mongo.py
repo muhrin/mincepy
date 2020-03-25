@@ -179,9 +179,14 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             # Make sure the obj id is in the record
             meta['_id'] = obj_id
             meta['obj_id'] = obj_id
-            found = self._meta_collection.replace_one({'_id': obj_id}, meta, upsert=True)
-            if not found:
-                raise exceptions.NotFound("No record with snapshot id '{}' found".format(obj_id))
+            try:
+                found = self._meta_collection.replace_one({'_id': obj_id}, meta, upsert=True)
+            except pymongo.errors.DuplicateKeyError as exc:
+                raise exceptions.DuplicateKeyError(str(exc))
+            else:
+                if not found:
+                    raise exceptions.NotFound(
+                        "No record with snapshot id '{}' found".format(obj_id))
         else:
             # Just remove the meta entry outright
             self._meta_collection.delete_one({'_id': obj_id})
@@ -191,13 +196,19 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
                         obj_id) == obj_id, "Can't use the 'obj_id' key in metadata, it is reserved"
 
         meta['obj_id'] = obj_id
-        self._meta_collection.update_one({'_id': obj_id}, {'$set': meta}, upsert=True)
+        try:
+            self._meta_collection.update_one({'_id': obj_id}, {'$set': meta}, upsert=True)
+        except pymongo.errors.DuplicateKeyError as exc:
+            raise exceptions.DuplicateKeyError(str(exc))
 
     def find_meta(self, filter: dict):  # pylint: disable=redefined-builtin
         # Make sure to project away the _id but leave obj_id as there may be multiple and this is
         # what the user is probably looking for
         for result in self._meta_collection.find(filter, projection={'_id': False}):
             yield result
+
+    def meta_create_index(self, keys, unique=True):
+        self._meta_collection.create_index(keys, unique=unique)
 
     # endregion
 
@@ -264,8 +275,10 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         if state is not None:
             mfilter.update(flatten_filter(STATE, state))
         if not deleted:
-            mfilter.update(flatten_filter(STATE, and_(mfilter.get(STATE, {}),
-                                                      ne_(records.DELETED))))
+            condition = [ne_(records.DELETED)]
+            if STATE in mfilter:
+                condition.append(mfilter[STATE])
+            mfilter.update(flatten_filter(STATE, and_(*condition)))
 
         if snapshot_hash is not None:
             mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
@@ -327,7 +340,6 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             condition = [ne_(records.DELETED)]
             if STATE in mfilter:
                 condition.append(mfilter[STATE])
-
             mfilter.update(flatten_filter(STATE, and_(*condition)))
 
         if snapshot_hash is not None:
