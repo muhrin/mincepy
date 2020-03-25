@@ -1,6 +1,6 @@
 import contextlib
 import copy
-from typing import MutableMapping, Any, List, Sequence, Optional, Mapping
+from typing import MutableMapping, Any, List, Sequence, Optional, Dict, Set
 import weakref
 
 from . import archives
@@ -14,7 +14,7 @@ class LiveObjects:
     def __init__(self):
         # Live object -> data records
         self._records = utils.WeakObjectIdDict()  # type: MutableMapping[Any, archives.DataRecord]
-        # Obj id -> object
+        # Obj id -> (weak) object
         self._objects = weakref.WeakValueDictionary()  # type: MutableMapping[Any, Any]
 
     def __str__(self):
@@ -29,14 +29,17 @@ class LiveObjects:
         self._objects[record.obj_id] = obj
 
     def update(self, live_objects):
-        """Like a dictionary update, take the given live objects container and absorb it into ourselves
-        overwriting any existing values and incorporating any new"""
+        """Like a dictionary update, take the given live objects container and absorb it into
+        ourselves overwriting any existing values and incorporating any new"""
         self._records.update(live_objects._records)
         self._objects.update(live_objects._objects)
 
-    def delete(self, obj):
-        del self._objects[self.get_record(obj).obj_id]
-        del self._records[obj]
+    def remove(self, obj_id):
+        """Remove an object from the collection"""
+        try:
+            self._records.pop(self._objects.pop(obj_id))
+        except KeyError:
+            raise exceptions.NotFound(obj_id)
 
     def get_record(self, obj):
         try:
@@ -61,14 +64,16 @@ class Transaction:
         # Records staged for saving to the archive
         self._staged = []  # type: List[archives.DataRecord]
 
+        self._deleted = set()  # A set of deleted obj ids
+
         self._live_objects = LiveObjects()
         # Ref -> obj
         self._live_object_references = {}
 
         # Snapshots: ref -> obj
-        self._snapshots = {}  # type: MutableMapping[archives.Ref, Any]
-        # Maps from the object id to a metadata dictionary
-        self._metas = {}  # type: MutableMapping[Any, dict]
+        self._snapshots = {}  # type: Dict[archives.Ref, Any]
+        # Maps from object id -> metadata dictionary
+        self._metas = {}  # type: Dict[Any, dict]
 
     def __str__(self):
         return "{}, {} live ref(s), {} snapshots, {} staged".format(
@@ -78,6 +83,10 @@ class Transaction:
     @property
     def live_objects(self) -> LiveObjects:
         return self._live_objects
+
+    @property
+    def deleted(self) -> Set:
+        return self._deleted
 
     @property
     def snapshots(self):
@@ -98,17 +107,19 @@ class Transaction:
             assert self._live_object_references[ref] is obj
         self._live_objects.insert(obj, record)
 
+    def insert_live_object_reference(self, ref: records.Ref, obj):
+        """Insert a snapshot reference for an object into the transaction"""
+        self._live_object_references[ref] = obj
+
     def get_live_object(self, obj_id):
         return self._live_objects.get_object(obj_id)
 
     def get_record_for_live_object(self, obj) -> records.DataRecord:
         return self._live_objects.get_record(obj)
 
-    def insert_live_object_reference(self, ref: records.Ref, obj):
-        """Insert a snapshot reference for an object into the transaction"""
-        self._live_object_references[ref] = obj
-
     def get_live_object_from_reference(self, ref: records.Ref):
+        if ref.obj_id in self._deleted:
+            raise exceptions.ObjectDeleted(ref.obj_id)
         try:
             return self._live_object_references[ref]
         except KeyError:
@@ -120,15 +131,24 @@ class Transaction:
                 return ref
         raise exceptions.NotFound("Live object '{} not found".format(obj))
 
-    def delete(self, obj):
-        """Delete an object form the transaction"""
-        self._live_objects.delete(obj)
-        found_ref = None
-        for ref, referenced in self._live_object_references.items():
-            if referenced is obj:
-                found_ref = ref
-                break
-        del self._live_object_references[found_ref]
+    def delete(self, obj_id):
+        """Mark an object as deleted"""
+        try:
+            self._live_objects.remove(obj_id)
+        except exceptions.NotFound:
+            pass
+        else:
+            found_ref = None
+            for ref in self._live_object_references:
+                if ref.obj_id == obj_id:
+                    found_ref = ref
+                    break
+            del self._live_object_references[found_ref]
+
+        self._deleted.add(obj_id)
+
+    def is_deleted(self, obj_id):
+        return obj_id in self.deleted
 
     # endregion LiveObjects
 
@@ -188,6 +208,8 @@ class Transaction:
         self._live_object_references.update(transaction._live_object_references)
         self._staged.extend(transaction.staged)
         self._metas.update(transaction.metas)
+        for deleted in transaction._deleted:
+            self.delete(deleted)
 
     @staticmethod
     def rollback():
@@ -238,3 +260,9 @@ class NestedTransaction(Transaction):
             return super(NestedTransaction, self).get_meta(obj_id)
         except exceptions.NotFound:
             return self._parent.get_meta(obj_id)
+
+    def is_deleted(self, obj_id):
+        if obj_id in self.deleted:
+            return True
+
+        return self._parent.is_deleted(obj_id)

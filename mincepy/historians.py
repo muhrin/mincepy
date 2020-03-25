@@ -231,7 +231,7 @@ class Historian:
 
         # Get the current record and replace the object with the new one
         record = self._live_objects.get_record(old)
-        self._live_objects.delete(old)
+        self._live_objects.remove(record.obj_id)
         self._live_objects.insert(new, record)
 
         # Make sure creators is correct as well
@@ -303,14 +303,20 @@ class Historian:
 
         return obj_copy
 
-    def delete(self, obj):
-        """Delete a live object"""
-        record = self.get_current_record(obj)
+    def delete(self, obj_or_identifier):
+        """Delete an object"""
+        obj_id = self._ensure_obj_id(obj_or_identifier)
+        # We need a record to be able to build the delete record
+        try:
+            record = self.get_current_record(self.get_obj(obj_id))
+        except exceptions.NotFound:
+            record = tuple(self.archive.find(obj_id))[0]
+
         with self.transaction() as trans:
             builder = records.make_deleted_builder(record)
             deleted_record = self._record_builder_created(builder).build()
+            trans.delete(obj_id)
             trans.stage(deleted_record)
-        self._live_objects.delete(obj)
 
     def history(
             self,
@@ -383,8 +389,8 @@ class Historian:
         trans = self.current_transaction()
         if trans:
             return trans.set_meta(obj_id, meta)
-        else:
-            return self.archive.set_meta(obj_id, meta)
+
+        return self.archive.set_meta(obj_id, meta)
 
     def update_meta(self, obj_or_identifier, meta: Mapping):
         """Update the metadata for an object
@@ -621,6 +627,12 @@ class Historian:
         """Commit a transaction that is finishing"""
         # Live objects
         self._live_objects.update(trans.live_objects)
+        # Deleted objects
+        for deleted in trans.deleted:
+            try:
+                self._live_objects.remove(deleted)
+            except exceptions.NotFound:
+                pass
 
         # Snapshots
         for ref, obj in trans.snapshots.items():
@@ -651,12 +663,14 @@ class Historian:
             except exceptions.NotFound:
                 pass
 
+            if trans.is_deleted(obj_id):
+                raise exceptions.ObjectDeleted(obj_id)
+
             # Couldn't find it, so let's check if we have one and check if it is up to date
             ref = self._get_latest_snapshot_reference(obj_id)
             record = self._archive.load(ref)
             if record.is_deleted_record():
-                raise exceptions.ObjectDeleted(
-                    "Object with id '{}' has been deleted".format(obj_id))
+                raise exceptions.ObjectDeleted(obj_id)
 
             try:
                 obj = self._live_objects.get_object(obj_id)
@@ -733,10 +747,10 @@ class Historian:
         """
         This call will try and get an object id from the passed parameter.  There are three
         possibilities:
-            1. It is passed an object ID in which case it will be returned directly
-            2. It is passed an object instance, in which case it will try and get the id from
+            1. Passed an object ID in which case it will be returned directly
+            2. Passed an object instance, in which case it will try and get the id from
                memory
-            3. It is passed a type that can be used as a constructor argument to the object id type
+            3. Passed a type that can be used as a constructor argument to the object id type
                in which case it will construct it and return the result
         """
         if self.is_obj_id(obj_or_identifier):

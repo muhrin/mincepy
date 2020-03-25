@@ -12,6 +12,7 @@ import mincepy
 @pytest.fixture
 def mongodb_archive():
     client = pymongo.MongoClient()
+    client.drop_database('test_database')
     db = client.test_database
     mongo_archive = mincepy.mongo.MongoArchive(db)
     yield mongo_archive
