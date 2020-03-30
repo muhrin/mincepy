@@ -63,11 +63,11 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         """Get the metadata for the given object snapshot."""
 
     @abstractmethod
-    def set_meta(self, obj_id: IdT, meta):
+    def set_meta(self, obj_id: IdT, meta: dict):
         """Set the metadata on on the object with the corresponding id"""
 
     @abstractmethod
-    def update_meta(self, obj_id: IdT, meta):
+    def update_meta(self, obj_id: IdT, meta: dict):
         """Update the metadata on the object with the corresponding id"""
 
     @abstractmethod
@@ -116,8 +116,18 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
              skip=0):
         """Find records matching the given criteria
 
-        :param obj_id: an obj or or an iterable of obj ids to look for
+        :param type_id: the type id to look for
+        :param created_by: find records with the given type id
+        :param copied_from: find records copied from the record with the given id
+        :param version: find records with this version, -1 for latest
+        :param state: find objects with this state filter
         :param deleted: if True, find deleted records too
+        :param snapshot_hash: find objects with this snapshot hash
+        :param meta: find objects with this meta filter
+        :param limit: limit the results to this many records
+        :param obj_id: an obj or or an iterable of obj ids to look for
+        :param sort: sort the results by the given criteria
+        :param skip: skip the this many entries
         """
 
     @abstractmethod

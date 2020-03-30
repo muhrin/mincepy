@@ -103,7 +103,6 @@ html_theme = 'alabaster'
 html_theme_options = {
     'codecov_button': True,
     'description': 'Python object storage with versioning made simple',
-    'github_banner': True,
     'github_button': True,
     'github_repo': 'mincepy',
     'github_type': 'star',
