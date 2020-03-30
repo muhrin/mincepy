@@ -2,7 +2,6 @@
 
 from abc import ABCMeta, abstractmethod
 import collections
-from contextlib import contextmanager
 from pathlib import Path
 import shutil
 from typing import BinaryIO, Optional

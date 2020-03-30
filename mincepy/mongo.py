@@ -282,11 +282,13 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         mfilter = {}
         if obj_id is not None:
             mfilter['obj_id'] = obj_id
+
         if type_id is not None:
             mfilter['type_id'] = type_id
 
         if state is not None:
             mfilter.update(flatten_filter(STATE, state))
+
         if not deleted:
             condition = [ne_(records.DELETED)]
             if STATE in mfilter:
@@ -295,6 +297,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
         if snapshot_hash is not None:
             mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
+
         if version == -1:
             # For counting we don't care which version we get we just want there to be only 1
             # counted per obj_id so select the first
@@ -340,15 +343,17 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
          call"""
         mfilter = {}
         if obj_id is not None:
-            if isinstance(obj_id, Iterable):
-                mfilter['obj_id'] = in_(*tuple(obj_id))
-            else:
+            if isinstance(obj_id, bson.ObjectId):
                 mfilter['obj_id'] = obj_id
+            else:
+                mfilter['obj_id'] = in_(*tuple(obj_id))
+
         if type_id is not None:
             mfilter['type_id'] = type_id
 
         if state is not None:
             mfilter.update(flatten_filter(STATE, state))
+
         if not deleted:
             condition = [ne_(records.DELETED)]
             if STATE in mfilter:
@@ -357,6 +362,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
         if snapshot_hash is not None:
             mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
+
         if version is not None and version != -1:
             mfilter[VERSION] = version
 

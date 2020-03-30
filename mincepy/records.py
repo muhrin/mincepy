@@ -126,14 +126,18 @@ class DataRecord(
         return Ref(*obj_ref)
 
     def get_extra(self, name):
-        """Convenience function to get an extra from the record, returns None if the extra doesn't exist"""
+        """Convenience function to get an extra from the record, returns None if the extra doesn't
+        exist"""
         return self.extras.get(name, None)
 
     def copy_builder(self, **kwargs) -> utils.NamedTupleBuilder:
-        """Get a copy builder from this DataRecord instance.  The following attributes will be copied over:
-            * type_id
-            * state [deepcopy]
-            * snapshot_hash
+        """Get a copy builder from this DataRecord instance. The following attributes will be
+        copied over:
+
+        * type_id
+        * state [deepcopy]
+        * snapshot_hash
+
         the version will be set to 0 and the creation time to now
         """
         defaults = self.defaults()
@@ -152,11 +156,14 @@ class DataRecord(
 
     def child_builder(self, **kwargs) -> utils.NamedTupleBuilder:
         """
-        Get a child builder from this DataRecord instance.  The following attributes will be copied over:
-            * obj_id
-            * type_id
-            * creation_time
-            * created_by
+        Get a child builder from this DataRecord instance.  The following attributes will be copied
+        over:
+
+        * obj_id
+        * type_id
+        * creation_time
+        * created_by
+
         and version will be incremented by one.
         """
         defaults = self.defaults()
