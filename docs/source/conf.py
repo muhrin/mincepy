@@ -187,7 +187,7 @@ epub_copyright = copyright
 epub_exclude_files = ['search.html']
 
 #
-html_logo = 'logo.svg'
+# html_logo = 'logo.svg'
 # html_favicon = 'icon.png'
 #
 html_sidebars = {
