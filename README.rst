@@ -1,4 +1,4 @@
-
+.. _documentation: https://mincepy.readthedocs.org/
 
 .. image:: docs/source/img/mincepy.svg
     :height: 64px
@@ -30,4 +30,6 @@
 mincePy
 =======
 
-MincePy: move the database to one side and let your objects take centre stage.
+mincePy: move the database to one side and let your objects take centre stage.
+
+See `documentation`_ for more information.

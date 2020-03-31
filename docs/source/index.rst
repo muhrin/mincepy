@@ -31,7 +31,7 @@ Welcome to mincePy's documentation!
     :target: https://pypi.python.org/pypi/mincepy/
 
 
-`mincePy`_ is to python objects as git is to files only everything is stored in a database!
+`mincePy`_: move the database to one side and let your objects take centre stage.
 
 
 Features
