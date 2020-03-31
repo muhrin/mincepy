@@ -18,8 +18,6 @@ set -x
 ver_info=`python -c "print(tuple(int(entry) for entry in '$version'.split('.')))"`
 sed -i "/^version_info/c version_info = ${ver_info}" $VERSION_FILE
 
-exit
-
 current_branch=`git rev-parse --abbrev-ref HEAD`
 
 tag="v${version}"
