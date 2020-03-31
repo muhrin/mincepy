@@ -1,6 +1,6 @@
 import tempfile
 import typing
-from typing import Optional, Sequence, Union, Iterable, Mapping
+from typing import Optional, Sequence, Union, Iterable, Mapping, Tuple
 import uuid
 
 from bidict import bidict
@@ -10,65 +10,32 @@ import pymongo
 import pymongo.database
 import pymongo.errors
 
-from . import archives
-from . import builtins
-from . import depositors
-from . import exceptions
-from . import helpers
-from . import records
+import mincepy
+import mincepy.records
+
+from . import queries
 
 __all__ = 'MongoArchive', 'GridFsFile'
 
-OBJ_ID = records.OBJ_ID
-TYPE_ID = records.TYPE_ID
+OBJ_ID = mincepy.records.OBJ_ID
+TYPE_ID = mincepy.records.TYPE_ID
 CREATION_TIME = 'ctime'
 VERSION = 'ver'
 STATE = 'state'
 STATE_TYPES = 'state_type'
 SNAPSHOT_HASH = 'hash'
 SNAPSHOT_TIME = 'stime'
-EXTRAS = records.EXTRAS
+EXTRAS = mincepy.records.EXTRAS
 
 
-def and_(*conditions) -> dict:
-    """Helper that produces mongo query dict for AND of multiple conditions"""
-    if len(conditions) > 1:
-        return {'$and': list(conditions)}
-
-    return conditions[0]
-
-
-def eq_(one, other) -> dict:
-    """Helper that produces mongo query dict for to items being equal"""
-    return {'$eq': [one, other]}
-
-
-def in_(*possibilities) -> dict:
-    """Helper that produces mongo query dict for items being one of"""
-    if len(possibilities) == 1:
-        return possibilities[0]
-
-    return {'$in': list(possibilities)}
-
-
-def ne_(value) -> dict:
-    """Not equal to value"""
-    return {'$ne': value}
-
-
-def exists_(key) -> dict:
-    """Return condition for the existence of a key"""
-    return {key: {'$exists': True}}
-
-
-class ObjectIdHelper(helpers.TypeHelper):
+class ObjectIdHelper(mincepy.TypeHelper):
     TYPE = bson.ObjectId
     TYPE_ID = uuid.UUID('bdde0765-36d2-4f06-bb8b-536a429f32ab')
 
     def yield_hashables(self, obj, hasher):
         yield obj.binary
 
-    def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
+    def eq(self, one, other) -> bool:
         return one.__eq__(other)
 
     def save_instance_state(self, obj, _depositor):
@@ -78,7 +45,7 @@ class ObjectIdHelper(helpers.TypeHelper):
         return obj.__init__(saved_state)
 
 
-class MongoArchive(archives.BaseArchive[bson.ObjectId]):
+class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     ID_TYPE = bson.ObjectId
 
     DATA_COLLECTION = 'data'
@@ -87,15 +54,15 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     # Here we map the data record property names onto ones in our entry format.
     # If a record property doesn't appear here it means the name says the same
     KEY_MAP = bidict({
-        records.OBJ_ID: OBJ_ID,
-        records.TYPE_ID: TYPE_ID,
-        records.CREATION_TIME: CREATION_TIME,
-        records.VERSION: VERSION,
-        records.STATE: STATE,
-        records.STATE_TYPES: STATE_TYPES,
-        records.SNAPSHOT_HASH: SNAPSHOT_HASH,
-        records.SNAPSHOT_TIME: SNAPSHOT_TIME,
-        records.EXTRAS: EXTRAS,
+        mincepy.records.OBJ_ID: OBJ_ID,
+        mincepy.records.TYPE_ID: TYPE_ID,
+        mincepy.records.CREATION_TIME: CREATION_TIME,
+        mincepy.records.VERSION: VERSION,
+        mincepy.records.STATE: STATE,
+        mincepy.records.STATE_TYPES: STATE_TYPES,
+        mincepy.records.SNAPSHOT_HASH: SNAPSHOT_HASH,
+        mincepy.records.SNAPSHOT_TIME: SNAPSHOT_TIME,
+        mincepy.records.EXTRAS: EXTRAS,
     })
 
     META = 'meta'
@@ -112,8 +79,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
     def _create_indices(self):
         # Make sure that no two entries can share the same object id and version
-        self._data_collection.create_index([(self.KEY_MAP[records.OBJ_ID], pymongo.ASCENDING),
-                                            (self.KEY_MAP[records.VERSION], pymongo.ASCENDING)],
+        self._data_collection.create_index([(self.KEY_MAP[mincepy.OBJ_ID], pymongo.ASCENDING),
+                                            (self.KEY_MAP[mincepy.VERSION], pymongo.ASCENDING)],
                                            unique=True)
 
     def create_archive_id(self):  # pylint: disable=no-self-use
@@ -133,11 +100,11 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def get_gridfs_bucket(self) -> gridfs.GridFSBucket:
         return self._file_bucket
 
-    def save(self, record: records.DataRecord):
+    def save(self, record: mincepy.DataRecord):
         self.save_many([record])
         return record
 
-    def save_many(self, records: typing.List[records.DataRecord]):
+    def save_many(self, records: typing.List[mincepy.DataRecord]):
         # Generate the entries for our collection collecting the metadata that we gathered
         entries = [self._to_entry(record) for record in records]
         try:
@@ -145,29 +112,34 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         except pymongo.errors.BulkWriteError as exc:
             write_errors = exc.details['writeErrors']
             if write_errors:
-                raise exceptions.ModificationError(
+                raise mincepy.ModificationError(
                     "You're trying to rewrite history, that's not allowed!")
             raise  # Otherwise just raise what we got
 
-    def load(self, reference: records.Ref) -> records.DataRecord:
-        if not isinstance(reference, records.Ref):
+    def load(self, reference: mincepy.Ref) -> mincepy.DataRecord:
+        if not isinstance(reference, mincepy.Ref):
             raise TypeError(reference)
 
         results = list(
             self._data_collection.find({
-                self.KEY_MAP[records.OBJ_ID]: reference.obj_id,
-                self.KEY_MAP[records.VERSION]: reference.version,
+                self.KEY_MAP[mincepy.OBJ_ID]: reference.obj_id,
+                self.KEY_MAP[mincepy.VERSION]: reference.version,
             }))
         if not results:
-            raise exceptions.NotFound("Snapshot id '{}' not found".format(reference))
+            raise mincepy.NotFound("Snapshot id '{}' not found".format(reference))
         return self._to_record(results[0])
 
     def get_snapshot_refs(self, obj_id):
-        results = self._data_collection.find({OBJ_ID: obj_id}, sort=[(VERSION, pymongo.ASCENDING)])
+        results = self._data_collection.find({OBJ_ID: obj_id},
+                                             projection={
+                                                 VERSION: 1,
+                                                 OBJ_ID: 1
+                                             },
+                                             sort=[(VERSION, pymongo.ASCENDING)])
         if not results:
             return []
 
-        return [records.Ref(obj_id, result[VERSION]) for result in results]
+        return [mincepy.Ref(obj_id, result[VERSION]) for result in results]
 
     # region Meta
 
@@ -187,11 +159,10 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             try:
                 found = self._meta_collection.replace_one({'_id': obj_id}, meta, upsert=True)
             except pymongo.errors.DuplicateKeyError as exc:
-                raise exceptions.DuplicateKeyError(str(exc))
+                raise mincepy.DuplicateKeyError(str(exc))
             else:
                 if not found:
-                    raise exceptions.NotFound(
-                        "No record with snapshot id '{}' found".format(obj_id))
+                    raise mincepy.NotFound("No record with snapshot id '{}' found".format(obj_id))
         else:
             # Just remove the meta entry outright
             self._meta_collection.delete_one({'_id': obj_id})
@@ -205,7 +176,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         try:
             self._meta_collection.update_one({'_id': obj_id}, {'$set': set_to}, upsert=True)
         except pymongo.errors.DuplicateKeyError as exc:
-            raise exceptions.DuplicateKeyError(str(exc))
+            raise mincepy.DuplicateKeyError(str(exc))
 
     def find_meta(self, filter: dict):  # pylint: disable=redefined-builtin
         # Make sure to project away the _id but leave obj_id as there may be multiple and this is
@@ -220,7 +191,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
                 key_names = tuple(entry[0] for entry in keys)
             else:
                 key_names = (keys,)
-            kwargs['partialFilterExpression'] = and_(*tuple(exists_(name) for name in key_names))
+            kwargs['partialFilterExpression'] = \
+                queries.and_(*tuple(queries.exists_(name) for name in key_names))
         self._meta_collection.create_index(keys, unique=unique, **kwargs)
 
     # endregion
@@ -290,13 +262,13 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             mfilter.update(flatten_filter(STATE, state))
 
         if not deleted:
-            condition = [ne_(records.DELETED)]
+            condition = [queries.ne_(mincepy.DELETED)]
             if STATE in mfilter:
                 condition.append(mfilter[STATE])
-            mfilter.update(flatten_filter(STATE, and_(*condition)))
+            mfilter.update(flatten_filter(STATE, queries.and_(*condition)))
 
         if snapshot_hash is not None:
-            mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
+            mfilter[self.KEY_MAP[mincepy.SNAPSHOT_HASH]] = snapshot_hash
 
         if version == -1:
             # For counting we don't care which version we get we just want there to be only 1
@@ -308,18 +280,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         pipeline = [{'$match': mfilter}]
 
         if meta:
-            pipeline.append({
-                '$lookup': {
-                    'from': self._meta_collection.name,
-                    'localField': OBJ_ID,
-                    'foreignField': '_id',
-                    'as': '_meta'
-                }
-            })
-            # _meta should only contain at most one entry per document i.e. the metadata for
-            # that object.  So check that for the search criteria
-            pipeline.append(
-                {'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
+            pipeline.extend(
+                queries.pipeline_match_metadata(meta, self._meta_collection.name, OBJ_ID))
 
         if limit:
             pipeline.append({'$limit': limit})
@@ -328,6 +290,19 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         result = next(self._data_collection.aggregate(pipeline))
 
         return result['total']
+
+    def get_references(self,
+                       obj_id: bson.ObjectId,
+                       version=-1) -> Iterable[Tuple[bson.ObjectId, bson.ObjectId]]:
+        pipeline = []
+
+        if version == -1:
+            pipeline.append({'$match': {'obj_id': obj_id}})
+            pipeline.extend(queries.pipeline_latest_version(self._data_collection.name))
+        else:
+            pipeline.append({'$match': {OBJ_ID: obj_id, VERSION: version}})
+
+        pipeline.append({'$graphLookup': {'from': self._data_collection.name,}})
 
     def _get_pipeline(self,
                       obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
@@ -346,7 +321,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             if isinstance(obj_id, bson.ObjectId):
                 mfilter['obj_id'] = obj_id
             else:
-                mfilter['obj_id'] = in_(*tuple(obj_id))
+                mfilter['obj_id'] = queries.in_(*tuple(obj_id))
 
         if type_id is not None:
             mfilter['type_id'] = type_id
@@ -355,13 +330,13 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             mfilter.update(flatten_filter(STATE, state))
 
         if not deleted:
-            condition = [ne_(records.DELETED)]
+            condition = [queries.ne_(mincepy.DELETED)]
             if STATE in mfilter:
                 condition.append(mfilter[STATE])
-            mfilter.update(flatten_filter(STATE, and_(*condition)))
+            mfilter.update(flatten_filter(STATE, queries.and_(*condition)))
 
         if snapshot_hash is not None:
-            mfilter[self.KEY_MAP[records.SNAPSHOT_HASH]] = snapshot_hash
+            mfilter[self.KEY_MAP[mincepy.SNAPSHOT_HASH]] = snapshot_hash
 
         if version is not None and version != -1:
             mfilter[VERSION] = version
@@ -369,96 +344,40 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         pipeline = [{'$match': mfilter}]
 
         if meta:
-            pipeline.append({
-                '$lookup': {
-                    'from': self._meta_collection.name,
-                    'localField': OBJ_ID,
-                    'foreignField': '_id',
-                    'as': '_meta'
-                }
-            })
-            # _meta should only contain at most one entry per document i.e. the metadata for
-            # that object.  So check that for the search criteria
-            pipeline.append({'$match': flatten_filter('_meta.0', meta)})
+            pipeline.extend(
+                queries.pipeline_match_metadata(meta, self._meta_collection.name, OBJ_ID))
 
         if version == -1:
+            # if isinstance(obj_id, bson.ObjectId):
+            #     # Special case for just one object to find
+            #     pipeline.append({'$sort': {VERSION: pymongo.DESCENDING}})
+            #     pipeline.append({'$limit': 1})
+            # else:
             # Join with a collection that is grouped to get the maximum version for each object ID
             # then only take the the matching documents
-            pipeline.append({
-                '$lookup': {
-                    'from': self.DATA_COLLECTION,
-                    'let': {
-                        'obj_id': '$obj_id',
-                        'ver': '$ver'
-                    },
-                    'pipeline': [
-                        # Get the maximum version
-                        {
-                            '$group': {
-                                '_id': '$obj_id',
-                                'ver': {
-                                    '$max': '$ver'
-                                }
-                            }
-                        },
-                        # Then match these with the obj id and version in our collection
-                        {
-                            '$match': {
-                                '$expr': and_(eq_('$_id', '$$obj_id'), eq_('$ver', '$$ver')),
-                            }
-                        }
-                    ],
-                    'as': "max_version"
-                }
-            })
-            # Finally select those from our collection that have a 'max_version' array entry
-            pipeline.append({"$match": {"max_version": {"$ne": []}}},)
+            pipeline.extend(queries.pipeline_latest_version(self._data_collection.name))
 
         return pipeline
 
-    def _to_record(self, entry) -> records.DataRecord:
+    def _to_record(self, entry) -> mincepy.DataRecord:
         """Convert a MongoDB data collection entry to a DataRecord"""
-        record_dict = records.DataRecord.defaults()
+        record_dict = mincepy.DataRecord.defaults()
 
         # Invert our mapping of keys back to the data record property names and update over any
         # defaults
         record_dict.update({
             recordkey: entry[dbkey] for recordkey, dbkey in self.KEY_MAP.items() if dbkey in entry
         })
-        decoded_state = self._decode_state(record_dict[records.STATE])
-        record_dict[records.STATE] = decoded_state
+        return mincepy.DataRecord(**record_dict)
 
-        return records.DataRecord(**record_dict)
-
-    def _to_entry(self, record: records.DataRecord) -> dict:
+    def _to_entry(self, record: mincepy.DataRecord) -> dict:
         """Convert a DataRecord to a MongoDB data collection entry"""
-        defaults = records.DataRecord.defaults()
+        defaults = mincepy.DataRecord.defaults()
         entry = {}
         for key, item in record._asdict().items():
-            if key == records.STATE:
-                entry[self.KEY_MAP[key]] = self._encode_state(item)
-            else:
-                # Exclude entries that have the default value
-                if not (key in defaults and defaults[key] == item):
-                    entry[self.KEY_MAP[key]] = item
-
-        return entry
-
-    def _encode_state(self, entry):
-        if isinstance(entry, list):
-            return [self._encode_state(item) for item in entry]
-
-        if isinstance(entry, dict):
-            return {key: self._encode_state(item) for key, item in entry.items()}
-
-        return entry
-
-    def _decode_state(self, entry):
-        if isinstance(entry, dict):
-            return {key: self._decode_state(item) for key, item in entry.items()}
-
-        if isinstance(entry, list):
-            return [self._decode_state(item) for item in entry]
+            # Exclude entries that have the default value
+            if not (key in defaults and defaults[key] == item):
+                entry[self.KEY_MAP[key]] = item
 
         return entry
 
@@ -472,7 +391,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         return remapped
 
 
-class GridFsFile(builtins.BaseFile):
+class GridFsFile(mincepy.BaseFile):
     TYPE_ID = uuid.UUID('3bf3c24e-f6c8-4f70-956f-bdecd7aed091')
     ATTRS = '_persistent_id', '_file_id'
 
@@ -492,14 +411,14 @@ class GridFsFile(builtins.BaseFile):
             kwargs.setdefault('encoding', self.encoding)
         return open(self._buffer_file, mode, **kwargs)
 
-    def save_instance_state(self, saver: depositors.Saver):
+    def save_instance_state(self, saver: mincepy.Saver):
         filename = self.filename or ""
         with open(self._buffer_file, 'rb') as fstream:
             self._file_id = self._file_store.upload_from_stream(filename, fstream)
 
         return super().save_instance_state(saver)
 
-    def load_instance_state(self, saved_state, loader: depositors.Loader):
+    def load_instance_state(self, saved_state, loader: mincepy.Loader):
         super().load_instance_state(saved_state, loader)
         self._file_store = loader.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
         # Don't copy the file over now, do it lazily when the file is first opened
@@ -537,7 +456,7 @@ def flatten_filter(entry_name: str, query) -> dict:
             else:
                 flattened.update({"{}.{}".format(entry_name, key): value})
         if predicates:
-            flattened.update(and_(*[{entry_name: predicate} for predicate in predicates]))
+            flattened.update(queries.and_(*[{entry_name: predicate} for predicate in predicates]))
 
     else:
         flattened[entry_name] = query

@@ -49,3 +49,31 @@ def test_simple_sort(historian: mincepy.Historian):
     for idx, result in enumerate(results[1:]):
         # No need to subtract 1 from idx as we're already one behind because of the slicing
         assert result.creation_time >= results[idx].creation_time
+
+
+def test_find_latest(historian: mincepy.Historian):
+    """Check that search criteria is only applied to the latest version if -1 is used"""
+
+    car = Car('fiat', 'yellow')
+    car.save()  # Version 0
+    car.colour = 'white'
+    car.save()  # Version 1
+    car.colour = 'red'
+    car.save()  # Version 2
+
+    # Find the original version
+    results = tuple(historian.archive.find(version=0, state=dict(colour='yellow')))
+    assert len(results) == 1
+
+    # Now search for a white fiat as the latest version
+    results = tuple(historian.archive.find(version=-1, state=dict(colour='yellow')))
+    assert len(results) == 0
+
+    # Now do a version-unrestricted search
+    results = tuple(historian.archive.find(version=None, state=dict(colour='yellow')))
+    assert len(results) == 1
+    assert results[0].version == 0
+
+    # Now do a version-unrestricted search
+    results = tuple(historian.archive.find(version=None, state=dict(make='fiat')))
+    assert len(results) == 3

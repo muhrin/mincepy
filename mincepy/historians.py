@@ -680,8 +680,11 @@ class Historian:
                 raise exceptions.ObjectDeleted(obj_id)
 
             # Couldn't find it, so let's check if we have one and check if it is up to date
-            ref = self._get_latest_snapshot_reference(obj_id)
-            record = self._archive.load(ref)
+            results = tuple(self.archive.find(obj_id, version=-1))
+            if not results:
+                raise exceptions.NotFound(obj_id)
+            record = results[0]
+
             if record.is_deleted_record():
                 raise exceptions.ObjectDeleted(obj_id)
 

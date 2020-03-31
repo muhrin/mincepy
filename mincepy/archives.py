@@ -1,10 +1,10 @@
 from abc import ABCMeta, abstractmethod
 import typing
-from typing import Sequence, Iterable, Union
+from typing import Sequence, Iterable, Union, Tuple
 
 from .records import DataRecord, Ref
 
-__all__ = 'Archive', 'ASCENDING', 'DESCENDING'
+__all__ = 'Archive', 'BaseArchive', 'ASCENDING', 'DESCENDING'
 
 IdT = typing.TypeVar('IdT')  # The archive ID type
 
@@ -14,6 +14,8 @@ DESCENDING = -1
 
 
 class Archive(typing.Generic[IdT], metaclass=ABCMeta):
+    """An archive provides the persistent storage for the historian.  It is responsible for storing,
+    searching and loading data records and their metadata."""
 
     @classmethod
     def get_types(cls) -> Sequence:
@@ -142,6 +144,15 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
               meta=None,
               limit=0):
         """Count the number of entries that match the given query"""
+
+    @abstractmethod
+    def get_references(self, obj_id: IdT, version=-1) -> Iterable[Tuple[IdT, IdT]]:
+        """Given an object id get the reference graph in the form of a list of source -> target edge
+        pairs.
+
+        :param obj_id: the object id to look for references from
+        :param version: the snapshot version, -1 means latest
+        """
 
 
 class BaseArchive(Archive[IdT]):

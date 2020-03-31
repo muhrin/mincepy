@@ -51,11 +51,11 @@ setup(name='mincepy',
               'twine',
           ],
       },
-      packages=['mincepy', 'mincepy.cli'],
+      packages=['mincepy', 'mincepy.cli', 'mincepy.mongo'],
       include_package_data=True,
       test_suite='test',
       provides=['mincepy.plugins'],
       entry_points={
           'console_scripts': ['mince = mincepy.cli.main:mince'],
-          'mincepy.plugins.types': ['native_types = mincepy.provides:get_types',]
+          'mincepy.plugins.types': ['native_types = mincepy.provides:get_types'],
       })
