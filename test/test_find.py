@@ -61,6 +61,11 @@ def test_find_latest(historian: mincepy.Historian):
     car.colour = 'red'
     car.save()  # Version 2
 
+    car2 = Car('ford', 'blue')
+    car2.save()
+    car2.colour = 'green'
+    car2.save()
+
     # Find the original version
     results = tuple(historian.archive.find(version=0, state=dict(colour='yellow')))
     assert len(results) == 1

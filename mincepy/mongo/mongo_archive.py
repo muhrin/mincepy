@@ -326,18 +326,6 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         if type_id is not None:
             mfilter['type_id'] = type_id
 
-        if state is not None:
-            mfilter.update(flatten_filter(STATE, state))
-
-        if not deleted:
-            condition = [queries.ne_(mincepy.DELETED)]
-            if STATE in mfilter:
-                condition.append(mfilter[STATE])
-            mfilter.update(flatten_filter(STATE, queries.and_(*condition)))
-
-        if snapshot_hash is not None:
-            mfilter[self.KEY_MAP[mincepy.SNAPSHOT_HASH]] = snapshot_hash
-
         if version is not None and version != -1:
             mfilter[VERSION] = version
 
@@ -348,14 +336,30 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                 queries.pipeline_match_metadata(meta, self._meta_collection.name, OBJ_ID))
 
         if version == -1:
-            # if isinstance(obj_id, bson.ObjectId):
-            #     # Special case for just one object to find
-            #     pipeline.append({'$sort': {VERSION: pymongo.DESCENDING}})
-            #     pipeline.append({'$limit': 1})
-            # else:
-            # Join with a collection that is grouped to get the maximum version for each object ID
-            # then only take the the matching documents
-            pipeline.extend(queries.pipeline_latest_version(self._data_collection.name))
+            if isinstance(obj_id, bson.ObjectId):
+                # Special case for just one object to find, faster
+                pipeline.append({'$sort': {VERSION: pymongo.DESCENDING}})
+                pipeline.append({'$limit': 1})
+            else:
+                # Join with a collection that is grouped to get the maximum version for each object
+                # ID then only take the the matching documents
+                pipeline.extend(queries.pipeline_latest_version(self._data_collection.name))
+
+        post_match = {}
+
+        if state is not None:
+            post_match.update(flatten_filter(STATE, state))
+
+        if not deleted:
+            condition = [queries.ne_(mincepy.DELETED)]
+            if STATE in post_match:
+                condition.append(post_match[STATE])
+            post_match.update(flatten_filter(STATE, queries.and_(*condition)))
+
+        if snapshot_hash is not None:
+            post_match[self.KEY_MAP[mincepy.SNAPSHOT_HASH]] = snapshot_hash
+
+        pipeline.append({'$match': post_match})
 
         return pipeline
 

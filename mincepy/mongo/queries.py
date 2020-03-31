@@ -33,35 +33,44 @@ def pipeline_latest_version(data_collection: str) -> list:
     """Returns a pipeline that will take the incoming data record documents and for each one find
     the latest version."""
     pipeline = []
-    pipeline.append({
-        '$lookup': {
-            'from': data_collection,
-            'let': {
-                'obj_id': '$obj_id',
-                'ver': '$ver'
-            },
-            'pipeline': [
-                # Get the maximum version
-                {
-                    '$group': {
-                        '_id': '$obj_id',
-                        'ver': {
-                            '$max': '$ver'
-                        }
-                    }
-                },
-                # Then match these with the obj id and version in our collection
-                {
-                    '$match': {
-                        '$expr': and_(eq_('$_id', '$$obj_id'), eq_('$ver', '$$ver')),
-                    }
+    pipeline.extend([
+        # Group by object id the maximum version
+        {
+            '$group': {
+                '_id': "$obj_id",
+                'ver': {
+                    '$max': '$ver'
                 }
-            ],
-            'as': "max_version"
-        }
-    })
-    # Finally select those from our collection that have a 'max_version' array entry
-    pipeline.append({"$match": {"max_version": {"$ne": []}}},)
+            }
+        },
+        # Then do a lookup against the same collection to get the records
+        {
+            '$lookup': {
+                'from': data_collection,
+                'let': {
+                    'obj_id': '$_id',
+                    'ver': '$ver'
+                },
+                'pipeline': [{
+                    '$match': {
+                        '$expr': and_(eq_('$obj_id', '$$obj_id'), eq_('$ver', '$$ver')),
+                    }
+                }],
+                'as': 'latest'
+            }
+        },
+        # Now unwind and promote the 'latest' field
+        {
+            '$unwind': {
+                'path': '$latest'
+            }
+        },
+        {
+            '$replaceRoot': {
+                'newRoot': '$latest'
+            }
+        },
+    ])
 
     return pipeline
 
