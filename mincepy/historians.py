@@ -230,9 +230,9 @@ class Historian:
     def replace(self, old, new):
         """Replace a live object with a new version.
 
-        This is especially useful if you have made a copy of an object and modified it but you want to
-        continue the history of the object as the original rather than a brand new object.  Then just
-        replace the old object with the new one by calling this function.
+        This is especially useful if you have made a copy of an object and modified it but you want
+        to continue the history of the object as the original rather than a brand new object.  Then
+        just replace the old object with the new one by calling this function.
         """
         assert not self.current_transaction(
         ), "Can't replace during a transaction for the time being"
@@ -250,7 +250,7 @@ class Historian:
         except KeyError:
             pass
 
-    def load_snapshot(self, reference: records.Ref) -> Any:
+    def load_snapshot(self, reference: records.SnapshotRef) -> Any:
         return depositors.SnapshotLoader(self).load(reference)
 
     def load(self, *obj_ids_or_refs):
@@ -266,7 +266,7 @@ class Historian:
 
     def load_one(self, obj_id_or_ref):
         """Load one object or shot from the database"""
-        if isinstance(obj_id_or_ref, records.Ref):
+        if isinstance(obj_id_or_ref, records.SnapshotRef):
             return self.load_snapshot(obj_id_or_ref)
 
         return self._load_object(obj_id_or_ref, depositors.LiveDepositor(self))
@@ -659,7 +659,7 @@ class Historian:
         for obj_id, meta in trans.metas.items():
             self._archive.set_meta(obj_id, meta)
 
-    def _get_latest_snapshot_reference(self, obj_id) -> records.Ref:
+    def _get_latest_snapshot_reference(self, obj_id) -> records.SnapshotRef:
         """Given an object id this will return a reference to the latest snapshot"""
         try:
             return self._archive.get_snapshot_refs(obj_id)[-1]

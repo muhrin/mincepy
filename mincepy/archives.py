@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 import typing
 from typing import Sequence, Iterable, Union
 
-from .records import DataRecord, Ref
+from .records import DataRecord, SnapshotRef
 
 __all__ = 'Archive', 'BaseArchive', 'ASCENDING', 'DESCENDING'
 
@@ -89,7 +89,7 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
     # endregion
 
     @abstractmethod
-    def load(self, reference: Ref[IdT]) -> DataRecord:
+    def load(self, reference: SnapshotRef[IdT]) -> DataRecord:
         """Load a snapshot of an object with the given reference"""
 
     @abstractmethod
@@ -98,7 +98,7 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         records"""
 
     @abstractmethod
-    def get_snapshot_refs(self, obj_id: IdT) -> typing.Sequence[Ref[IdT]]:
+    def get_snapshot_refs(self, obj_id: IdT) -> typing.Sequence[SnapshotRef[IdT]]:
         """Returns a list of time ordered snapshot references"""
 
     # pylint: disable=too-many-arguments

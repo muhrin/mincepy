@@ -94,7 +94,7 @@ def get_value(title, state):
         value = state[idx]
         # Check for references
         if isinstance(value, dict) and set(value.keys()) == {'type_id', 'state'}:
-            return str(mincepy.records.Ref(*value['state']))
+            return str(mincepy.records.SnapshotRef(*value['state']))
 
         if len(title) > 1:
             return get_value(title[1:], value)

@@ -103,11 +103,11 @@ class WrapperHelper(TypeHelper):
 
 class SnapshotRefHelper(TypeHelper):
     """Add ability to store references"""
-    TYPE = records.Ref
+    TYPE = records.SnapshotRef
     TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
 
     def eq(self, one, other):
-        if not (isinstance(one, records.Ref) and isinstance(other, records.Ref)):
+        if not (isinstance(one, records.SnapshotRef) and isinstance(other, records.SnapshotRef)):
             return False
 
         return one.obj_id == other.obj_id and one.version == other.version
@@ -117,7 +117,12 @@ class SnapshotRefHelper(TypeHelper):
         yield from hasher.yield_hashables(obj.version)
 
     def save_instance_state(self, obj, saver):
-        return obj.to_list()
+        return obj.to_dict()
 
     def load_instance_state(self, obj, saved_state, loader):
-        obj.__init__(*saved_state)
+        if isinstance(saved_state, list):
+            # Legacy version
+            obj.__init__(*saved_state)
+        else:
+            # New version is a dictionary
+            obj.__init__(**saved_state)

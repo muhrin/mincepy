@@ -79,7 +79,7 @@ def get_value(path, state):
         value = state[idx]
         # Check for references
         if isinstance(value, dict) and set(value.keys()) == {'type_id', 'state'}:
-            return str(mincepy.Ref(*value['state']))
+            return str(mincepy.SnapshotRef(*value['state']))
 
         if len(path) > 1:
             return get_value(path[1:], value)

@@ -26,7 +26,7 @@ class Base(metaclass=ABCMeta):
 class Saver(Base, metaclass=ABCMeta):
 
     @abstractmethod
-    def ref(self, obj) -> records.Ref:
+    def ref(self, obj) -> records.SnapshotRef:
         """Get a persistent reference for the given object"""
 
     def encode(self, obj, types_schema=None, path=()):
@@ -97,7 +97,7 @@ class Loader(Base, metaclass=ABCMeta):
 class LiveDepositor(Saver, Loader):
     """Depositor with strategy that all objects that get referenced should be saved"""
 
-    def ref(self, obj) -> Optional[records.Ref]:
+    def ref(self, obj) -> Optional[records.SnapshotRef]:
         if obj is None:
             return None
 
@@ -110,7 +110,7 @@ class LiveDepositor(Saver, Loader):
             # Then we have to save it and get the resulting reference
             return self._historian._save_object(obj, self).get_reference()
 
-    def load(self, reference: records.Ref):
+    def load(self, reference: records.SnapshotRef):
         try:
             return self._historian.get_obj(reference.obj_id)
         except exceptions.NotFound:
@@ -150,7 +150,7 @@ class LiveDepositor(Saver, Loader):
 
         with historian.transaction() as trans:
             # Insert the object into the transaction so others can refer to it
-            ref = records.Ref(builder.obj_id, builder.version)
+            ref = records.SnapshotRef(builder.obj_id, builder.version)
             trans.insert_live_object_reference(ref, obj)
 
             # Deal with a possible object creator
@@ -183,8 +183,8 @@ class SnapshotLoader(Loader):
         super().__init__(historian)
         self._snapshots = {}  # type: MutableMapping[archives.Ref, Any]
 
-    def load(self, ref: records.Ref):
-        if not isinstance(ref, records.Ref):
+    def load(self, ref: records.SnapshotRef):
+        if not isinstance(ref, records.SnapshotRef):
             raise TypeError(ref)
 
         try:

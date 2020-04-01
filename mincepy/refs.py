@@ -74,7 +74,7 @@ class ObjRef(types.SavableObject):
             ref = self._ref
 
         if ref is not None:
-            return ref.to_list()
+            return ref.to_dict()
 
         return None
 
@@ -82,7 +82,12 @@ class ObjRef(types.SavableObject):
         super(ObjRef, self).load_instance_state(saved_state, loader)
         # Rely on class default values for members
         if saved_state is not None:
-            self._ref = records.Ref(*saved_state)
+            if isinstance(saved_state, list):
+                # Legacy version
+                self._ref = records.SnapshotRef(*saved_state)
+            else:
+                # New version is dict
+                self._ref = records.SnapshotRef(**saved_state)
             self._loader = loader
 
 

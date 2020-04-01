@@ -1,12 +1,16 @@
 import copy
 import datetime
 import typing
+from typing import Optional
 from collections import namedtuple
 
+import deprecation
+
 from . import utils
+from . import version
 
 __all__ = 'OBJ_ID', 'TYPE_ID', 'CREATION_TIME', 'VERSION', 'STATE', 'SNAPSHOT_TIME', \
-          'SNAPSHOT_HASH', 'EXTRAS', 'ExtraKeys', 'DELETED', 'DataRecord', 'Ref', \
+          'SNAPSHOT_HASH', 'EXTRAS', 'ExtraKeys', 'DELETED', 'DataRecord', 'SnapshotRef', \
           'DataRecordBuilder'
 
 OBJ_ID = 'obj_id'
@@ -32,11 +36,11 @@ DELETED = '!!deleted'  # Special state to denote a deleted record
 IdT = typing.TypeVar('IdT')  # The archive ID type
 
 
-class Ref(typing.Generic[IdT]):
+class SnapshotRef(typing.Generic[IdT]):
     """Reference information for looking up a snapshot"""
 
     def __init__(self, obj_id, version):
-        super(Ref, self).__init__()
+        super(SnapshotRef, self).__init__()
         self._obj_id = obj_id
         self._version = version
 
@@ -47,7 +51,7 @@ class Ref(typing.Generic[IdT]):
         return (self.obj_id, self.version).__hash__()
 
     def __eq__(self, other):
-        if not isinstance(other, Ref):
+        if not isinstance(other, SnapshotRef):
             return False
 
         return self.obj_id == other.obj_id and self.version == other.version
@@ -60,15 +64,23 @@ class Ref(typing.Generic[IdT]):
     def version(self):
         return self._version
 
+    def to_dict(self) -> dict:
+        """Convenience function to get a dictionary representation.
+        Can be passed to constructor as **kwargs"""
+        return {'obj_id': self.obj_id, 'version': self.version}
+
     def to_list(self) -> list:
         """Convenience to represent the reference as a list"""
         return [self.obj_id, self.version]
 
 
+Ref = SnapshotRef  # WARNING: This will be removed in 0.11, use SnapshotRef instead!
+
+
 class DataRecord(
-        namedtuple(
-            'DataRecord',
-            (
+    namedtuple(
+        'DataRecord',
+        (
                 # Object properties
                 OBJ_ID,  # The ID of the object (spanning all snapshots)
                 TYPE_ID,  # The type ID of this object
@@ -80,12 +92,13 @@ class DataRecord(
                 SNAPSHOT_HASH,  # The hash of the state
                 SNAPSHOT_TIME,  # The time this snapshot was created
                 EXTRAS,  # Additional data stored with the snapshot
-            ))):
+        ))):
     """An immutable record that describes a snapshot of an object"""
 
     @classmethod
     def defaults(cls) -> dict:
-        """Returns a dictionary of default values, the caller owns the dict and is free to modify it"""
+        """Returns a dictionary of default values, the caller owns the dict and is free to modify
+         it"""
         return {
             CREATION_TIME: None,
             SNAPSHOT_TIME: None,
@@ -113,17 +126,17 @@ class DataRecord(
         """Does this record represent the object having been deleted"""
         return self.state == DELETED
 
-    def get_reference(self) -> Ref:
+    def get_reference(self) -> SnapshotRef:
         """Get a reference for this data record"""
-        return Ref(self.obj_id, self.version)
+        return SnapshotRef(self.obj_id, self.version)
 
-    def get_copied_from(self) -> Ref:
+    def get_copied_from(self) -> Optional[SnapshotRef]:
         """Get the reference of the data record this object was originally copied from"""
         obj_ref = self.get_extra(ExtraKeys.COPIED_FROM)
         if obj_ref is None:
             return None
 
-        return Ref(*obj_ref)
+        return SnapshotRef(**obj_ref)
 
     def get_extra(self, name):
         """Convenience function to get an extra from the record, returns None if the extra doesn't
@@ -150,7 +163,7 @@ class DataRecord(
             VERSION: 0,
             SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
         })
-        defaults[EXTRAS][ExtraKeys.COPIED_FROM] = self.get_reference().to_list()
+        defaults[EXTRAS][ExtraKeys.COPIED_FROM] = self.get_reference().to_dict()
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
 
@@ -179,7 +192,7 @@ class DataRecord(
         return utils.NamedTupleBuilder(type(self), defaults)
 
 
-DataRecordBuilder = utils.NamedTupleBuilder[DataRecord]
+DataRecordBuilder = utils.NamedTupleBuilder[DataRecord]  # pylint: disable=invalid-name
 
 
 def make_deleted_builder(last_record: DataRecord) -> DataRecordBuilder:

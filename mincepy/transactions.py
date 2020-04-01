@@ -107,7 +107,7 @@ class Transaction:
             assert self._live_object_references[ref] is obj
         self._live_objects.insert(obj, record)
 
-    def insert_live_object_reference(self, ref: records.Ref, obj):
+    def insert_live_object_reference(self, ref: records.SnapshotRef, obj):
         """Insert a snapshot reference for an object into the transaction"""
         self._live_object_references[ref] = obj
 
@@ -117,7 +117,7 @@ class Transaction:
     def get_record_for_live_object(self, obj) -> records.DataRecord:
         return self._live_objects.get_record(obj)
 
-    def get_live_object_from_reference(self, ref: records.Ref):
+    def get_live_object_from_reference(self, ref: records.SnapshotRef):
         if ref.obj_id in self._deleted:
             raise exceptions.ObjectDeleted(ref.obj_id)
         try:

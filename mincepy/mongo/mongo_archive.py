@@ -86,7 +86,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
 
-    def construct_archive_id(self, value) -> bson.ObjectId:
+    def construct_archive_id(self, value) -> bson.ObjectId:  # pylint: disable=no-self-use
         if not isinstance(value, str):
             raise TypeError("Cannot construct an ObjectID from a '{}'".format(type(value)))
         try:
@@ -116,8 +116,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                     "You're trying to rewrite history, that's not allowed!")
             raise  # Otherwise just raise what we got
 
-    def load(self, reference: mincepy.Ref) -> mincepy.DataRecord:
-        if not isinstance(reference, mincepy.Ref):
+    def load(self, reference: mincepy.SnapshotRef) -> mincepy.DataRecord:
+        if not isinstance(reference, mincepy.SnapshotRef):
             raise TypeError(reference)
 
         results = list(
@@ -139,7 +139,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         if not results:
             return []
 
-        return [mincepy.Ref(obj_id, result[VERSION]) for result in results]
+        return [mincepy.SnapshotRef(obj_id, result[VERSION]) for result in results]
 
     # region Meta
 
