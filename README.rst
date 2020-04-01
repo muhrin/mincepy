@@ -1,9 +1,7 @@
 .. _documentation: https://mincepy.readthedocs.org/
 
-.. image:: docs/source/img/mincepy.svg
-    :height: 64px
-    :width: 64px
-    :alt: mincePy
+mincePy
+=======
 
 .. image:: https://codecov.io/gh/muhrin/mincepy/branch/develop/graph/badge.svg
     :target: https://codecov.io/gh/muhrin/mincepy
@@ -26,9 +24,6 @@
 .. image:: https://img.shields.io/pypi/l/mincepy.svg
     :target: https://pypi.python.org/pypi/mincepy/
 
-
-mincePy
-=======
 
 mincePy: move the database to one side and let your objects take centre stage.
 

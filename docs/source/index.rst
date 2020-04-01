@@ -9,7 +9,7 @@
 Welcome to mincePy's documentation!
 ===================================
 
-.. image:: https://codecov.io/gh/muhrin/mincepy/branch/master/graph/badge.svg
+.. image:: https://codecov.io/gh/muhrin/mincepy/branch/develop/graph/badge.svg
     :target: https://codecov.io/gh/muhrin/mincepy
     :alt: Coveralls
 
