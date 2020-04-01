@@ -1,6 +1,6 @@
 import tempfile
 import typing
-from typing import Optional, Sequence, Union, Iterable, Mapping, Tuple
+from typing import Optional, Sequence, Union, Iterable, Mapping
 import uuid
 
 from bidict import bidict
@@ -290,19 +290,6 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         result = next(self._data_collection.aggregate(pipeline))
 
         return result['total']
-
-    def get_references(self,
-                       obj_id: bson.ObjectId,
-                       version=-1) -> Iterable[Tuple[bson.ObjectId, bson.ObjectId]]:
-        pipeline = []
-
-        if version == -1:
-            pipeline.append({'$match': {'obj_id': obj_id}})
-            pipeline.extend(queries.pipeline_latest_version(self._data_collection.name))
-        else:
-            pipeline.append({'$match': {OBJ_ID: obj_id, VERSION: version}})
-
-        pipeline.append({'$graphLookup': {'from': self._data_collection.name,}})
 
     def _get_pipeline(self,
                       obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
