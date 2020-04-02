@@ -21,7 +21,7 @@ from . import process
 from . import records
 from . import types
 from . import type_registry
-from . import version
+from .version import __version__
 from . import utils
 from .transactions import RollbackTransaction, Transaction, LiveObjects
 
@@ -67,7 +67,7 @@ class Meta:
         """
         return self._historian.update_meta(obj_or_identifier, meta)
 
-    def find(self, filter):
+    def find(self, filter):  # pylint: disable=redefined-builtin
         """Find metadata matching the given criteria.  Ever returned metadata dictionary will
         contain an 'obj_id' key which identifies the object it belongs to"""
         return self._historian.archive.find_meta(filter=filter)
@@ -82,7 +82,11 @@ class Meta:
          """
         self._historian.archive.meta_create_index(keys, unique=unique, where_exist=where_exist)
 
-    def efind(self, **filter):
+    @deprecation.deprecated(deprecated_in="0.10.11",
+                            removed_in="0.11.0",
+                            current_version=__version__,
+                            details="Use find() instead")
+    def efind(self, **filter):  # pylint: disable=redefined-builtin
         """Easy find.  Doesn't have any of the more complete options that find() has but allows
         the filter to be specified as keyword value pairs which is often more convenient if the
         user is happy to get all results"""
@@ -90,6 +94,12 @@ class Meta:
 
 
 class Historian:
+    """The historian acts as a go-between between your python objects and the archive which is
+    a persistent store of the records.  It will keep track of all live objects (i.e. those that
+    have active references to them) that have been loaded and/or saved as well as enabling the
+    user to lookup objects in the archive."""
+
+    # pylint: disable=too-many-public-methods
 
     def __init__(self, archive: archives.Archive, equators=()):
         self._archive = archive
@@ -119,21 +129,21 @@ class Historian:
 
     @deprecation.deprecated(deprecated_in="0.10.3",
                             removed_in="0.11.0",
-                            current_version=version.__version__,
+                            current_version=__version__,
                             details="Use .load or .load_one instead")
     def load_object(self, obj_id):
         return self._load_object(obj_id, depositors.LiveDepositor(self))
 
     @deprecation.deprecated(deprecated_in="0.10.3",
                             removed_in="0.11.0",
-                            current_version=version.__version__,
+                            current_version=__version__,
                             details="Use .save or .saved_one instead")
     def save_object(self, obj) -> records.DataRecord:
         return self._save_object(obj, depositors.LiveDepositor(self))
 
     @deprecation.deprecated(deprecated_in="0.10.3",
                             removed_in="1.0",
-                            current_version=version.__version__,
+                            current_version=__version__,
                             details="Use .archive property instead")
     def get_archive(self):
         return self._archive
@@ -141,7 +151,7 @@ class Historian:
     @property
     @deprecation.deprecated(deprecated_in="0.10.3",
                             removed_in="0.11.0",
-                            current_version=version.__version__,
+                            current_version=__version__,
                             details="Use .meta.sticky instead")
     def sticky_meta(self) -> dict:
         """Sticky metadata that is set on any object being saved for the first time.
@@ -546,6 +556,7 @@ class Historian:
         :param skip: the page to get results from
         :param as_objects: if True returns the live object instances, False returns the DataRecords
         """
+        # pylint: disable=too-many-arguments
         type_id = obj_type
         if obj_type is not None:
             try:

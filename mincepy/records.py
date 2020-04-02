@@ -7,7 +7,7 @@ from collections import namedtuple
 import deprecation
 
 from . import utils
-from . import version
+from .version import __version__
 
 __all__ = 'OBJ_ID', 'TYPE_ID', 'CREATION_TIME', 'VERSION', 'STATE', 'SNAPSHOT_TIME', \
           'SNAPSHOT_HASH', 'EXTRAS', 'ExtraKeys', 'DELETED', 'DataRecord', 'SnapshotRef', \
@@ -69,6 +69,10 @@ class SnapshotRef(typing.Generic[IdT]):
         Can be passed to constructor as **kwargs"""
         return {'obj_id': self.obj_id, 'version': self.version}
 
+    @deprecation.deprecated(deprecated_in="0.10.11",
+                            removed_in="0.11.0",
+                            current_version=__version__,
+                            details="Use to_dict() instead")
     def to_list(self) -> list:
         """Convenience to represent the reference as a list"""
         return [self.obj_id, self.version]
@@ -78,9 +82,9 @@ Ref = SnapshotRef  # WARNING: This will be removed in 0.11, use SnapshotRef inst
 
 
 class DataRecord(
-    namedtuple(
-        'DataRecord',
-        (
+        namedtuple(
+            'DataRecord',
+            (
                 # Object properties
                 OBJ_ID,  # The ID of the object (spanning all snapshots)
                 TYPE_ID,  # The type ID of this object
@@ -92,7 +96,7 @@ class DataRecord(
                 SNAPSHOT_HASH,  # The hash of the state
                 SNAPSHOT_TIME,  # The time this snapshot was created
                 EXTRAS,  # Additional data stored with the snapshot
-        ))):
+            ))):
     """An immutable record that describes a snapshot of an object"""
 
     @classmethod
