@@ -62,6 +62,11 @@ def test_find(historian: mincepy.Historian):
     assert 'zonda' in makes
     assert 'porsche' in makes
 
+    obj_ids = [car.obj_id for car in cars]
+    assert honda_id in obj_ids
+    assert zonda_id in obj_ids
+    assert porsche_id in obj_ids
+
 
 def test_update(historian: mincepy.Historian):
     car = Car('ferrari', 'red')
@@ -89,3 +94,12 @@ def test_update(historian: mincepy.Historian):
     car_record = historian.get_current_record(car)
     assert car_record.snapshot_hash == honda_record.snapshot_hash
     assert car_record.state == honda_record.state
+
+
+def test_to_obj_id(historian: mincepy.Historian):
+    car = Car()
+    car_id = car.save()
+
+    assert historian.to_obj_id(car_id) == car_id
+    assert historian.to_obj_id(car) == car_id
+    assert historian.to_obj_id(str(car_id)) == car_id

@@ -474,6 +474,36 @@ class Historian:
 
         return self._live_objects.get_object(obj_id)
 
+    def to_obj_id(self, obj_or_identifier):
+        """
+        This call will try and get an object id from the passed parameter.  There are three
+        possibilities:
+            1. Passed an object ID in which case it will be returned unchanged
+            2. Passed a live object instance, in which case the id of that object will be returned
+            3. Passed a type that can be understood by the archive as an object id e.g. a string of
+               version, in which case the archive will attempt to convert it
+
+        Returns None if neither of these cases were True.
+        """
+        if self.is_obj_id(obj_or_identifier):
+            return obj_or_identifier
+
+        try:
+            # Try creating it for the user by calling the constructor with the argument passed.
+            # This helps for common obj id types which can be constructed from a string
+            return self._archive.construct_archive_id(obj_or_identifier)
+        except (ValueError, TypeError):
+            # Maybe we've been passed an object
+            pass
+
+        try:
+            return self.get_obj_id(obj_or_identifier)
+        except exceptions.NotFound:
+            pass
+
+        # Out of options
+        return None
+
     def get_snapshot_ref(self, obj):
         """Get the current snapshot reference for a live object"""
         trans = self.current_transaction()
@@ -778,24 +808,12 @@ class Historian:
         """
         This call will try and get an object id from the passed parameter.  There are three
         possibilities:
-            1. Passed an object ID in which case it will be returned directly
-            2. Passed an object instance, in which case it will try and get the id from
-               memory
-            3. Passed a type that can be used as a constructor argument to the object id type
-               in which case it will construct it and return the result
+            1. Passed an object ID in which case it will be returned unchanged
+            2. Passed a live object instance, in which case the id of that object will be returned
+            3. Passed a type that can be understood by the archive as an object id e.g. a string of
+               version, in which case the archive will attempt to convert it
         """
-        if self.is_obj_id(obj_or_identifier):
-            obj_id = obj_or_identifier
-
-        else:
-            try:
-                # Try creating it for the user by calling the constructor with the argument passed.
-                # This helps for common obj id types which can be constructed from a string
-                obj_id = self._archive.construct_archive_id(obj_or_identifier)
-            except (ValueError, TypeError):
-                # Maybe we've been passed an object
-                obj_id = self.get_obj_id(obj_or_identifier)
-
+        obj_id = self.to_obj_id(obj_or_identifier)
         if obj_id is None:
             raise exceptions.NotFound(
                 "Could not get an object id from '{}'".format(obj_or_identifier))
