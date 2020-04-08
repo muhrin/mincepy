@@ -36,6 +36,9 @@ class ObjRef(types.SavableObject):
         desc.append("')")
         return "".join(desc)
 
+    def __repr__(self):
+        return "ObjRef({})".format(self._obj if self._obj is not None else self._ref)
+
     def __call__(self, update=False):
         """Get the object being referenced.  If update is called then the latest version
         will be loaded from the historian"""
