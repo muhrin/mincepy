@@ -261,3 +261,30 @@ def test_file_to_disk(tmp_path, historian: mincepy.Historian):
     file.to_disk(tmp_path)
 
     assert disk_file_path.read_text() == 'TEST'
+
+
+def test_list_state(historian: mincepy.Historian):
+    my_list = builtins.List([3, 1, 4])
+    my_list.save()
+    # Check that the state is indeed stored directly as a primitive list
+    results = tuple(historian.find(state=[3, 1, 4]))
+    assert len(results) == 1
+    assert results[0] is my_list
+
+
+def test_dict_state(historian: mincepy.Historian):
+    my_dict = builtins.Dict({'hungry': 'hippo'})
+    my_dict.save()
+    # Check that the state is indeed stored directly as a primitive list
+    results = tuple(historian.find(state={'hungry': 'hippo'}))
+    assert len(results) == 1
+    assert results[0] is my_dict
+
+
+def test_str_state(historian: mincepy.Historian):
+    my_str = builtins.Str('hungry hippo!')
+    my_str.save()
+    # Check that the state is indeed stored directly as a primitive list
+    results = tuple(historian.find(state='hungry hippo!'))
+    assert len(results) == 1
+    assert results[0] is my_str

@@ -167,6 +167,11 @@ class Historian:
     def archive(self):
         return self._archive
 
+    @property
+    def primitives(self) -> tuple:
+        """A tuple of all the primitive types"""
+        return types.PRIMITIVE_TYPES + (self._archive.get_id_type(),)
+
     def created(self, obj):
         """Called when an object is created.  The historian tracks the creator for saving when
         the object is saved"""
@@ -503,9 +508,7 @@ class Historian:
     def is_primitive(self, obj) -> bool:
         """Check if the object is one of the primitives and should be saved by value in the
         archive"""
-        primitives = types.PRIMITIVE_TYPES + (
-            self._archive.get_id_type(),) + self._archive.get_extra_primitives()
-        return isinstance(obj, primitives)
+        return isinstance(obj, self.primitives)
 
     def is_obj_id(self, obj_id) -> bool:
         """Check if an object is of the object id type"""
@@ -538,7 +541,7 @@ class Historian:
              obj_type=None,
              obj_id=None,
              version: int = -1,
-             state: dict = None,
+             state=None,
              meta: dict = None,
              sort=None,
              limit=0,
@@ -550,6 +553,7 @@ class Historian:
         :param obj_id: an object or list of object ids to look for
         :param version: the version of the object to retrieve, -1 means latest
         :param state: the criteria on the state of the object to apply
+        :type state: must be subclass of historian.primitive
         :param meta: the search criteria to apply on the metadata of the object
         :param sort: the sort criteria
         :param limit: the maximum number of results to return, 0 means unlimited

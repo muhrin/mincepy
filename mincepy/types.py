@@ -8,7 +8,7 @@ try:  # Python3
 except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 
-from . import exceptions
+from . import depositors
 
 __all__ = 'Savable', 'Comparable', 'Object', 'SavableObject', 'PRIMITIVE_TYPES'
 
@@ -25,11 +25,11 @@ class Savable(metaclass=ABCMeta):
         assert self.TYPE_ID is not None, "Must set the TYPE_ID for an object to be savable"
 
     @abstractmethod
-    def save_instance_state(self, saver):
+    def save_instance_state(self, saver: depositors.Saver):
         """Save the instance state of an object, should return a saved instance"""
 
     @abstractmethod
-    def load_instance_state(self, saved_state, loader):
+    def load_instance_state(self, saved_state, loader: depositors.Loader):
         """Take the given object and load the instance state into it"""
 
 

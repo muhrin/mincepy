@@ -20,6 +20,12 @@ class Base(metaclass=ABCMeta):
         return self._historian.archive
 
     def get_historian(self):
+        """
+        Get the owning historian.
+
+        :return: the historian
+        :rtype: mincepy.Historian
+        """
         return self._historian
 
 

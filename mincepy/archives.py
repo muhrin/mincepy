@@ -24,12 +24,6 @@ class Archive(typing.Generic[IdT], metaclass=ABCMeta):
         return tuple()
 
     @classmethod
-    def get_extra_primitives(cls) -> tuple:
-        """Can optionally return a list of types that are treated as primitives i.e. considered to
-         be storable and retrievable directly without encoding."""
-        return tuple()
-
-    @classmethod
     @abstractmethod
     def get_id_type(cls) -> typing.Type[IdT]:
         """Get the type used as an ID by this archive"""

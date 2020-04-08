@@ -18,9 +18,32 @@ __all__ = ('List', 'LiveList', 'LiveRefList', 'RefList', 'Str', 'Dict', 'RefDict
 class _UserType(base_savable.BaseSavableObject, metaclass=ABCMeta):
     """Mixin for helping user types to be compatible with the historian.
     These typically have a .data member that stores the actual data (list, dict, str, etc)"""
-    # pylint: disable=too-few-public-methods
     ATTRS = ('data',)
     data = None  # placeholder
+    # This is an optional type for the data member.  See save_instance_state type for information
+    # on when it might be useful
+    DATA_TYPE = None  # type: type
+
+    def save_instance_state(self, saver):
+        # This is a convenient way of storing primitive data types directly as the state
+        # rather than having to be a 'data' member of a dictionary.  This makes it much
+        # easier to search these types
+        if self.DATA_TYPE is not None and \
+                issubclass(self.DATA_TYPE, saver.get_historian().primitives):
+            return self.data
+
+        return super().save_instance_state(saver)
+
+    def load_instance_state(self, saved_state, loader):
+        # See save_instance_state
+        if self.DATA_TYPE is not None and \
+                issubclass(self.DATA_TYPE, loader.get_historian().primitives):
+            # Skip over BaseSavable's load_instance_state because it will try to get the data field
+            # from the saved_state dictionary
+            super(base_savable.BaseSavableObject, self).load_instance_state(saved_state, loader)
+            self.data = saved_state
+        else:
+            super(_UserType, self).load_instance_state(saved_state, loader)
 
 
 class ObjProxy(_UserType):
@@ -40,6 +63,7 @@ class ObjProxy(_UserType):
 
 class Str(collections.UserString, _UserType):
     TYPE_ID = uuid.UUID('350f3634-4a6f-4d35-b229-71238ce9727d')
+    DATA_TYPE = str
 
     def __init__(self, seq, historian=None):
         collections.UserString.__init__(self, seq)
@@ -75,6 +99,7 @@ class Reffer:
 
 class List(collections.UserList, _UserType):
     TYPE_ID = uuid.UUID('2b033f70-168f-4412-99ea-d1f131e3a25a')
+    DATA_TYPE = list
 
     def __init__(self, initlist=None, historian=None):
         collections.UserList.__init__(self, initlist)
@@ -84,13 +109,13 @@ class List(collections.UserList, _UserType):
 class RefList(collections.abc.MutableSequence, Reffer, _UserType):
     """A list that stores all entries as references in the database except primitives"""
     TYPE_ID = uuid.UUID('091efff5-136d-4ac2-bd59-28f50f151263')
-    CONTAINER = list
+    DATA_TYPE = list
 
     def __init__(self, init_list=None, historian=None):
         super().__init__(historian)
         self.data = []
         if init_list is not None:
-            self.data = self.CONTAINER(self._ref(item) for item in init_list)
+            self.data = self.DATA_TYPE(self._ref(item) for item in init_list)
 
     def __str__(self):
         return str(self.data)
@@ -161,7 +186,7 @@ class LiveList(collections.abc.MutableSequence, _UserType):
 class LiveRefList(RefList):
     """A live list that uses references to store objects"""
     TYPE_ID = uuid.UUID('98454806-c587-4fcc-a514-65fdefb0180d')
-    CONTAINER = LiveList
+    DATA_TYPE = LiveList
 
 
 # endregion
@@ -171,6 +196,7 @@ class LiveRefList(RefList):
 
 class Dict(collections.UserDict, _UserType):
     TYPE_ID = uuid.UUID('a7584078-95b6-4e00-bb8a-b077852ca510')
+    DATA_TYPE = dict
 
     def __init__(self, *args, historian=None, **kwarg):
         collections.UserDict.__init__(self, *args, **kwarg)
@@ -180,15 +206,15 @@ class Dict(collections.UserDict, _UserType):
 class RefDict(collections.MutableMapping, Reffer, _UserType):
     """A dictionary that stores all values as references in the database."""
     TYPE_ID = uuid.UUID('c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0')
-    CONTAINER = dict
+    DATA_TYPE = dict
 
     def __init__(self, *args, **kwargs):
         super().__init__(kwargs.pop('historian', None))
         initial = dict(*args, **kwargs)
         if initial:
-            self.data = self.CONTAINER({key: self._ref(value) for key, value in initial.items()})
+            self.data = self.DATA_TYPE({key: self._ref(value) for key, value in initial.items()})
         else:
-            self.data = self.CONTAINER()
+            self.data = self.DATA_TYPE()
 
     def __str__(self):
         return str(self.data)
@@ -262,9 +288,8 @@ class LiveDict(collections.MutableMapping, _UserType):
 
 class LiveRefDict(RefDict):
     """A live dictionary that uses references to refer to contained objects"""
-    # pylint: disable=too-few-public-methods
     TYPE_ID = uuid.UUID('16e7e814-8268-46e0-8d8e-6f34132366b9')
-    CONTAINER = LiveDict
+    DATA_TYPE = LiveDict
 
 
 # endregion
