@@ -1,6 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import datetime
-import typing
+from typing import Optional
 import uuid
 
 try:  # Python3
@@ -15,6 +15,10 @@ __all__ = 'Savable', 'Comparable', 'Object', 'SavableObject', 'PRIMITIVE_TYPES'
 # The primitives that all archive types must support
 PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID,
                    datetime.datetime)
+
+
+def is_primitive(obj):
+    return isinstance(obj, PRIMITIVE_TYPES)
 
 
 class Savable(metaclass=ABCMeta):
@@ -52,43 +56,61 @@ class Object(Comparable, metaclass=ABCMeta):
 class SavableObject(Object, Savable, metaclass=ABCMeta):
     """A class that is both savable and comparable"""
 
-    def __init__(self, historian=None):
-        super().__init__()
-        from . import history
-        # Tell the historian that we've been created
-        self._historian = historian or history.get_historian()
-        assert self._historian is not None, \
-            "Must provide a valid historian or set one globally using mincepy.set_historian()"
+    _historian = None
 
-        if self._historian is not None:
-            self._historian.created(self)
+    def __init__(self):
+        super().__init__()
+        from . import process
+        process.CreatorsRegistry.created(self)
 
     @property
     def obj_id(self):
+        if self._historian is None:
+            return None
         return self._historian.get_obj_id(self)
 
-    def get_meta(self) -> dict:
+    def get_meta(self) -> Optional[dict]:
         """Get the metadata dictionary for this object"""
+        if self._historian is None:
+            return None
         return self._historian.meta.get(self)
 
-    def set_meta(self, meta: typing.Optional[dict]):
+    def set_meta(self, meta: Optional[dict]):
         """Set the metadata dictionary for this object"""
+        if self._historian is None:
+            raise RuntimeError("Object must be saved before the metadata can be set")
+
         self._historian.meta.set(self, meta)
 
     def update_meta(self, meta: dict):
         """Update the metadata dictionary for this object"""
+        if self._historian is None:
+            raise RuntimeError("Object must be saved before the metadata can be updated")
+
         self._historian.meta.update(self, meta)
 
     def is_saved(self) -> bool:
-        return self.obj_id is not None
+        """Returns True if this object is saved with a historian"""
+        if self._historian is not None:
+            return self._historian.is_saved(self)
+
+        return False
 
     def save(self, with_meta=None, return_sref=False):
         """Save the object"""
-        return self._historian.save(self, with_meta=with_meta, return_sref=return_sref)
+        from . import history
+        return history.get_historian().save(self, with_meta=with_meta, return_sref=return_sref)
 
     def sync(self):
         """Update the state of this object by loading the latest version from the historian"""
-        return self._historian.sync(self)
+        if self._historian is not None:
+            self._historian.sync(self)
+
+    def save_instance_state(self, saver: depositors.Saver):
+        # Check if we've been assigned an object id, otherwise we're just being saved by value
+        if saver.get_historian().get_obj_id(self) is not None:
+            self._historian = saver.get_historian()
+        super(SavableObject, self).save_instance_state(saver)
 
     def load_instance_state(self, saved_state, loader):
         """Take the given object and load the instance state into it"""

@@ -163,7 +163,7 @@ def sync(save=False):
                 self.sync()
             try:
                 retval = obj_method(self, *args, **kwargs)
-                if save:
+                if self.is_saved() and save:
                     self.save()
                 return retval
             finally:

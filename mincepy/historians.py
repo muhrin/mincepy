@@ -115,7 +115,6 @@ class Historian:
         self._live_objects = LiveObjects()
 
         # Staged objects that have been created but not saved
-        self._creators = utils.WeakObjectIdDict()  # type: MutableMapping[typing.Any, Any]
         self._type_ids = {}
 
         self._transactions = None
@@ -171,13 +170,6 @@ class Historian:
     def primitives(self) -> tuple:
         """A tuple of all the primitive types"""
         return types.PRIMITIVE_TYPES + (self._archive.get_id_type(),)
-
-    def created(self, obj):
-        """Called when an object is created.  The historian tracks the creator for saving when
-        the object is saved"""
-        creator = process.Process.current_process()
-        if creator is not None:
-            self._creators[obj] = creator
 
     def create_file(self, filename: str = None, encoding: str = None) -> builtins.BaseFile:
         """Create a new file.  The historian will supply file type compatible with the archive in
@@ -260,10 +252,7 @@ class Historian:
         self._live_objects.insert(new, record)
 
         # Make sure creators is correct as well
-        try:
-            self._creators[new] = self._creators.pop(old)
-        except KeyError:
-            pass
+        process.CreatorsRegistry.set_creator(new, process.CreatorsRegistry.get_creator(old))
 
     def load_snapshot(self, reference: records.SnapshotRef) -> Any:
         return depositors.SnapshotLoader(self).load(reference)
@@ -458,8 +447,15 @@ class Historian:
 
         :return: the object id or None if never saved
         """
+        trans = self.current_transaction()
+        if trans is not None:
+            try:
+                return trans.get_reference_for_live_object(obj).obj_id
+            except exceptions.NotFound:
+                pass
+
         try:
-            return self.get_current_record(obj).obj_id
+            return self._live_objects.get_record(obj).obj_id
         except exceptions.NotFound:
             return None
 
@@ -473,6 +469,11 @@ class Historian:
                 pass
 
         return self._live_objects.get_object(obj_id)
+
+    def is_saved(self, obj) -> bool:
+        """Test if an object is saved with this historian.  This is equivalent to
+        `historian.get_obj_id(obj) is not None`."""
+        return self.get_obj_id(obj) is not None
 
     def to_obj_id(self, obj_or_identifier):
         """
@@ -616,7 +617,7 @@ class Historian:
         if not self.is_obj_id(obj_or_identifier):
             # Object instance, try our creators cache
             try:
-                return self._creators[obj_or_identifier]
+                return process.CreatorsRegistry.get_creator(obj_or_identifier)
             except KeyError:
                 pass
 

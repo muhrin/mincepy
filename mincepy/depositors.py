@@ -150,6 +150,8 @@ class LiveDepositor(Saver, Loader):
 
     def save_from_builder(self, obj, builder):
         """Save a live object"""
+        from . import process
+
         assert builder.snapshot_hash is not None, \
             "The snapshot hash must be set on the builder before saving"
         historian = self.get_historian()
@@ -161,11 +163,8 @@ class LiveDepositor(Saver, Loader):
 
             # Deal with a possible object creator
             if builder.version == 0:
-                try:
-                    creator = historian.get_creator(obj)
-                except exceptions.NotFound:
-                    pass
-                else:
+                creator = process.CreatorsRegistry.get_creator(obj)
+                if creator is not None:
                     # Found one
                     builder.extras[records.ExtraKeys.CREATED_BY] = self.ref(creator).obj_id
 

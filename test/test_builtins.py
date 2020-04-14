@@ -1,3 +1,5 @@
+from typing import MutableMapping
+
 import mincepy
 from mincepy.testing import *
 from mincepy import builtins
@@ -33,9 +35,10 @@ def test_ref_list(historian: mincepy.Historian):
     assert list1_loaded[0] is list2_loaded[0]
 
 
-def test_ref_list_primitives(historian: mincepy.Historian):
+@pytest.mark.parametrize("list_type", (builtins.List, builtins.LiveList, builtins.LiveRefList))
+def test_list_primitives(list_type, historian: mincepy.Historian):
     """Test that we can store primitives in a ref list also"""
-    reflist = mincepy.RefList()
+    reflist = list_type()
     reflist.append(5)
     reflist.append('hello')
     reflist.append(10.8)
@@ -49,29 +52,46 @@ def test_ref_list_primitives(historian: mincepy.Historian):
     assert loaded[2] == 10.8
 
 
-def test_live_lists(historian: mincepy.Historian):
+@pytest.mark.parametrize("list_type", (builtins.LiveList, builtins.LiveRefList))
+def test_live_lists(list_type, historian: mincepy.Historian):
     """Basic tests on live list. It's difficult to test the 'syncing' aspects
     of this container without another process"""
-    for list_type in (builtins.LiveList, builtins.LiveRefList):
-        live_list = list_type()
+    live_list = list_type()
 
-        car = Car()
+    car = Car()
 
-        live_list.append(car)
-        wrapper_id = live_list.save()
-        del live_list
+    live_list.append(car)
+    wrapper_id = live_list.save()
+    del live_list
 
-        live_list = historian.load(wrapper_id)
-        assert len(live_list) == 1
+    live_list = historian.load(wrapper_id)
+    assert len(live_list) == 1
 
-        # Test getitem
-        live_list.append(Car('honda'))
-        live_list.append(Car('fiat'))
-        assert live_list[2].make == 'fiat'
+    # Test getitem
+    live_list.append(Car('honda'))
+    live_list.append(Car('fiat'))
+    assert live_list[2].make == 'fiat'
 
-        # Test delete
-        del live_list[2]
-        assert len(live_list) == 2
+    # Test delete
+    del live_list[2]
+    assert len(live_list) == 2
+
+
+def test_life_list_delete(historian: mincepy.Historian):
+    llist = builtins.LiveRefList()
+    car = Car()
+    llist.append(car)
+    assert len(llist) == 1
+    del llist[0]
+    assert len(llist) == 0
+
+    # Ok, now try when happens when we actually save
+    llist.append(car)
+    historian.save(llist)
+    assert historian.is_saved(car)
+    del llist[0]
+    # The car should still be saved as the container is not considered to own it
+    assert historian.is_saved(car)
 
 
 def test_ref_list_none(historian: mincepy.Historian):
@@ -119,9 +139,10 @@ def test_ref_dict(historian: mincepy.Historian):
     assert dict1_loaded['car'] is dict2_loaded['car']
 
 
-def test_ref_dict_primitives(historian: mincepy.Historian):
+@pytest.mark.parametrize("dict_type", (builtins.RefDict, builtins.LiveDict, builtins.LiveRefDict))
+def test_primitives(dict_type, historian: mincepy.Historian):
     """Test that we can store primitives in a ref list also"""
-    refdict = mincepy.RefDict()
+    refdict = dict_type()
     refdict['0'] = 5
     refdict['1'] = 'hello'
     refdict['2'] = 10.8
@@ -135,28 +156,37 @@ def test_ref_dict_primitives(historian: mincepy.Historian):
     assert loaded['2'] == 10.8
 
 
-def test_live_dicts(historian: mincepy.Historian):
+@pytest.mark.parametrize("dict_type", (builtins.RefDict, builtins.LiveDict, builtins.LiveRefDict))
+def test_ref_dicts_iterate(dict_type: MutableMapping, historian: mincepy.Historian):
+    to_store = {'car': Car(), 'msg': 'hello', 'number': 5}
+
+    ref_dict = dict_type(to_store)
+    for key, val in ref_dict.items():
+        assert val is to_store[key]
+
+
+@pytest.mark.parametrize("dict_type", (builtins.LiveDict, builtins.LiveRefDict))
+def test_live_dicts(dict_type: MutableMapping, historian: mincepy.Historian):
     """Test live dictionary, difficult to test the sync capability"""
-    for dict_type in (builtins.LiveDict, builtins.LiveRefDict):
-        dict1 = dict_type()
-        dict2 = dict_type()
-        car = Car('mini', 'green')
-        dict1['car'] = car
-        dict2['car'] = car
+    dict1 = dict_type()
+    dict2 = dict_type()
+    car = Car('mini', 'green')
+    dict1['car'] = car
+    dict2['car'] = car
 
-        # Reference condition satisfied
-        assert dict1['car'] is dict2['car']
+    # Reference condition satisfied
+    assert dict1['car'] is dict2['car']
 
-        # Now delete everything, reload, and make sure the condition is still satisfied
-        dict1_id, dict2_id = historian.save(dict1, dict2)
-        del dict1, dict2, car
+    # Now delete everything, reload, and make sure the condition is still satisfied
+    dict1_id, dict2_id = historian.save(dict1, dict2)
+    del dict1, dict2, car
 
-        dict1_loaded = historian.load(dict1_id)
-        dict2_loaded = historian.load(dict2_id)
-        assert len(dict1_loaded) == 1
-        assert len(dict2_loaded) == 1
-        assert isinstance(dict1_loaded['car'], Car)
-        assert dict1_loaded['car'] == dict2_loaded['car']
+    dict1_loaded = historian.load(dict1_id)
+    dict2_loaded = historian.load(dict2_id)
+    assert len(dict1_loaded) == 1
+    assert len(dict2_loaded) == 1
+    assert isinstance(dict1_loaded['car'], Car)
+    assert dict1_loaded['car'] == dict2_loaded['car']
 
 
 def test_live_ref_dict(historian: mincepy.Historian):

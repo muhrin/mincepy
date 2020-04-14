@@ -17,19 +17,24 @@ class ObjRef(types.SavableObject):
     _ref = None
     _loader = None
 
-    def __init__(self, obj=None, historian=None):
-        super().__init__(historian)
-        assert not (obj is not None and self._historian.is_primitive(obj)), \
+    def __init__(self, obj=None):
+        super().__init__()
+        assert not (obj is not None and types.is_primitive(obj)), \
             "Can't create a reference to a primitive type"
         self._obj = obj
 
+    def __bool__(self):
+        """Test if this is a null reference"""
+        return self._obj is not None or self._ref is not None
+
     def __str__(self):
-        desc = "ref: "
+        desc = ["ObjRef('"]
         if self._obj is not None:
-            desc += str(self._obj)
+            desc.append(str(self._obj))
         else:
-            desc += str(self._ref)
-        return desc
+            desc.append(str(self._ref))
+        desc.append("')")
+        return "".join(desc)
 
     def __call__(self, update=False):
         """Get the object being referenced.  If update is called then the latest version

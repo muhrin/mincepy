@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Type
 import uuid
 
-import mincepy
+from . import process
 from . import records
 from . import types
 
@@ -16,9 +16,7 @@ def inject_creation_tracking(cls):
 
         def new(_cls, *_args, **_kwargs):
             inst = cls.__orig_new(_cls)
-            hist = mincepy.get_historian()
-            if hist is not None:
-                hist.created(inst)
+            process.CreatorsRegistry.created(inst)
             return inst
 
         cls.__new__ = new
