@@ -1,3 +1,6 @@
+from . import db
+
+
 def and_(*conditions) -> dict:
     """Helper that produces mongo query dict for AND of multiple conditions"""
     if len(conditions) > 1:
@@ -37,9 +40,9 @@ def pipeline_latest_version(data_collection: str) -> list:
         # Group by object id the maximum version
         {
             '$group': {
-                '_id': "$obj_id",
-                'ver': {
-                    '$max': '$ver'
+                '_id': "${}".format(db.OBJ_ID),
+                'max_ver': {
+                    '$max': '${}'.format(db.VERSION)
                 }
             }
         },
@@ -49,11 +52,14 @@ def pipeline_latest_version(data_collection: str) -> list:
                 'from': data_collection,
                 'let': {
                     'obj_id': '$_id',
-                    'ver': '$ver'
+                    'max_ver': '$max_ver'
                 },
                 'pipeline': [{
                     '$match': {
-                        '$expr': and_(eq_('$obj_id', '$$obj_id'), eq_('$ver', '$$ver')),
+                        '$expr': eq_('$_id', {
+                            'oid': '$$obj_id',
+                            'v': '$$max_ver'
+                        })
                     }
                 }],
                 'as': 'latest'

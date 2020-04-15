@@ -1,52 +1,85 @@
-import bson
+from typing import Sequence
 
-import mincepy.mongo
+import pymongo
+
+import mincepy
 from . import db
-
-DEFAULT_REFERENCES_COLLECTION = 'references'
+from . import queries
 
 
 class ReferenceManager:
 
-    def __init__(self, archive, ref_collection=DEFAULT_REFERENCES_COLLECTION):
-        self._archive = archive  # type: mincepy.mongo.MongoArchive
-        self._references = self._archive.database[ref_collection]
+    def __init__(self, ref_collection: pymongo.collection.Collection,
+                 data_collection: pymongo.collection.Collection):
+        self._references = ref_collection
+        self._data_collection = data_collection
 
-    def get_reference_graph(self, obj_id: bson.ObjectId, max_depth=None):
+    def get_reference_graphs(self, srefs: Sequence[mincepy.SnapshotRef]):
         self._ensure_current()
-        results = self._references.aggregate([{
-            'from': self._references.name,
-            'startWith': '${}'.format(obj_id),
-            'connectFromField': 'refs',
-            'connectToField': db.OBJ_ID,
-            'as': 'regs_graph',
-            'maxDepth': max_depth,
-        }])
 
-        for result in results:
-            yield result
+        ids = tuple(db.to_id_dict(sref) for sref in srefs)
+        pipeline = [{
+            '$match': {
+                '_id': queries.in_(*ids)
+            }
+        }, {
+            '$graphLookup': {
+                'from': self._references.name,
+                'startWith': '$refs',
+                'connectFromField': 'refs',
+                'connectToField': '_id',
+                'as': 'references'
+            }
+        }]
 
-    def get_referer_graph(self, obj_id: bson.ObjectId):
-        pass
+        edge_lists = []
+        for result in self._references.aggregate(pipeline):
+            edge_list = []
+            # Do the first entry as special case
+            my_id = result['_id']
+            for neighbour_id in result['refs']:
+                edge_list.append((db.to_sref(my_id), db.to_sref(neighbour_id)))
+            for entry in result['references']:
+                entry_id = entry['_id']
+                if entry_id == my_id:
+                    # Prevent double counting when there are cyclic refs
+                    continue
+
+                for neighbour_id in entry['refs']:
+                    edge_list.append((db.to_sref(entry_id), db.to_sref(neighbour_id)))
+            if edge_list:
+                edge_lists.append(edge_list)
+
+        return edge_lists
 
     def _ensure_current(self):
         """This call ensures that the reference collection is up to date"""
-        self._archive.data_collection.aggregate([
-            # Get the references entries for each record in the data collection
-            {
-                '$lookup': {
-                    'from': self._archive.database.name,
-                    'localField': db.OBJ_ID,
-                    'foreign': db.OBJ_ID,
-                    'as': 'refs'
-                }
-            },
-            # Now get those that don't have an entry in the references collection
-            {
-                '$match': {
-                    'refs': {
-                        '$eq': []
-                    }
-                }
+        # Find all the objects that we don't have in the references collection
+
+        pipeline = [{
+            '$lookup': {
+                'from': self._references.name,
+                'localField': '_id',
+                'foreignField': '_id',
+                'as': 'references'
             }
-        ])
+        }, {
+            '$match': {
+                'references': []
+            }
+        }]
+
+        cur = self._data_collection.aggregate(pipeline)
+        to_insert = []
+        for data_entry in cur:
+            ref_entry = _generate_ref_entry(data_entry)
+            ref_entry['_id'] = data_entry['_id']
+            to_insert.append(ref_entry)
+
+        # Now insert all the calculated refs
+        self._references.insert_many(to_insert)
+
+
+def _generate_ref_entry(data_entry: dict) -> dict:
+    refs = [db.to_id_dict(info[1]) for info in db.to_record(data_entry).get_references()]
+    return {'refs': refs}

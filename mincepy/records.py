@@ -1,10 +1,12 @@
 import copy
+from collections import namedtuple
 import datetime
 import typing
-from typing import Optional
-from collections import namedtuple
+from typing import Optional, Iterable, Sequence, Union, Tuple, Any
+import uuid
 
 import deprecation
+import pytray.tree
 
 from . import utils
 from .version import __version__
@@ -35,17 +37,32 @@ DELETED = '!!deleted'  # Special state to denote a deleted record
 
 IdT = typing.TypeVar('IdT')  # The archive ID type
 
+#: The type ID - this is typically a UUID but can be something else in different contexts
+TypeId = Any  # pylint: disable=invalid-name
+#: A path to a field in in the record.  This is used when traversing a series of containers that can
+#: be either dictionaries or lists and are therefore indexed by strings or integers
+EntryPath = Sequence[Union[str, int]]
+#: Type that represents a path to an entry in the record state and the corresponding type id
+EntryInfo = Tuple[EntryPath, TypeId]
+
 
 class SnapshotRef(typing.Generic[IdT]):
     """Reference information for looking up a snapshot"""
 
-    def __init__(self, obj_id, version):
+    #: The type id for references
+    TYPE_ID = uuid.UUID('633c7035-64fe-4d87-a91e-3b7abd8a6a28')
+
+    def __init__(self, obj_id, version: int):
+        """Create a snapshot reference by passing an object if and version"""
         super(SnapshotRef, self).__init__()
         self._obj_id = obj_id
         self._version = version
 
     def __str__(self):
         return "{}#{}".format(self._obj_id, self._version)
+
+    def __repr__(self):
+        return "SnapshotRef({}, {})".format(self.obj_id, self.version)
 
     def __hash__(self):
         return (self.obj_id, self.version).__hash__()
@@ -61,7 +78,7 @@ class SnapshotRef(typing.Generic[IdT]):
         return self._obj_id
 
     @property
-    def version(self):
+    def version(self) -> int:
         return self._version
 
     def to_dict(self) -> dict:
@@ -122,11 +139,11 @@ class DataRecord(
         return utils.NamedTupleBuilder(cls, values)
 
     @property
-    def created_by(self):
+    def created_by(self) -> IdT:
         """Convenience property to get the creator from the extras"""
         return self.get_extra(ExtraKeys.CREATED_BY)
 
-    def is_deleted_record(self):
+    def is_deleted_record(self) -> bool:
         """Does this record represent the object having been deleted"""
         return self.state == DELETED
 
@@ -194,6 +211,16 @@ class DataRecord(
         })
         defaults.update(kwargs)
         return utils.NamedTupleBuilder(type(self), defaults)
+
+    def get_references(self) -> Iterable[Tuple[EntryPath, SnapshotRef]]:
+        """Get all the references to other objects contained in this record"""
+        references = []
+        if self.state_types is not None and self.state is not None:
+            for entry_info in filter(lambda entry: entry[1] == SnapshotRef.TYPE_ID,
+                                     self.state_types):
+                path = entry_info[0]
+                references.append((path, SnapshotRef(**pytray.tree.get_by_path(self.state, path))))
+        return references
 
 
 DataRecordBuilder = utils.NamedTupleBuilder[DataRecord]  # pylint: disable=invalid-name

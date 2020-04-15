@@ -1,4 +1,3 @@
-import tempfile
 import typing
 from typing import Optional, Sequence, Union, Iterable, Mapping
 import uuid
@@ -12,10 +11,14 @@ import pymongo.errors
 import mincepy
 import mincepy.records
 
+from . import files
 from . import db
+from . import references
 from . import queries
 
-__all__ = 'MongoArchive', 'GridFsFile'
+__all__ = ('MongoArchive',)
+
+DEFAULT_REFERENCES_COLLECTION = 'references'
 
 
 class ObjectIdHelper(mincepy.TypeHelper):
@@ -37,19 +40,22 @@ class ObjectIdHelper(mincepy.TypeHelper):
 
 class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     ID_TYPE = bson.ObjectId
+    SnapshotRef = mincepy.SnapshotRef[bson.ObjectId]
 
     DATA_COLLECTION = 'data'
     META_COLLECTION = 'meta'
 
     @classmethod
     def get_types(cls) -> Sequence:
-        return ObjectIdHelper(), GridFsFile
+        return ObjectIdHelper(), files.GridFsFile
 
     def __init__(self, database: pymongo.database.Database):
         self._database = database
         self._data_collection = database[self.DATA_COLLECTION]
         self._meta_collection = database[self.META_COLLECTION]
         self._file_bucket = gridfs.GridFSBucket(database)
+        self._refman = references.ReferenceManager(
+            self._data_collection[DEFAULT_REFERENCES_COLLECTION], self._data_collection)
         self._create_indices()
 
     @property
@@ -61,10 +67,9 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         return self._data_collection
 
     def _create_indices(self):
-        # Make sure that no two entries can share the same object id and version
+        # Create all the necessary indexes
         self._data_collection.create_index([(db.KEY_MAP[mincepy.OBJ_ID], pymongo.ASCENDING),
-                                            (db.KEY_MAP[mincepy.VERSION], pymongo.ASCENDING)],
-                                           unique=True)
+                                            (db.KEY_MAP[mincepy.VERSION], pymongo.ASCENDING)],)
 
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
@@ -78,7 +83,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             raise ValueError(str(exc))
 
     def create_file(self, filename: str = None, encoding: str = None):
-        return GridFsFile(self._file_bucket, filename, encoding)
+        return files.GridFsFile(self._file_bucket, filename, encoding)
 
     def get_gridfs_bucket(self) -> gridfs.GridFSBucket:
         return self._file_bucket
@@ -103,30 +108,23 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         if not isinstance(reference, mincepy.SnapshotRef):
             raise TypeError(reference)
 
-        results = list(
-            self._data_collection.find({
-                db.KEY_MAP[mincepy.OBJ_ID]: reference.obj_id,
-                db.KEY_MAP[mincepy.VERSION]: reference.version,
-            }))
+        results = tuple(self._data_collection.find({'_id': db.to_id_dict(reference)}))
         if not results:
             raise mincepy.NotFound("Snapshot id '{}' not found".format(reference))
         return db.to_record(results[0])
 
-    def get_snapshot_refs(self, obj_id):
+    def get_snapshot_refs(self, obj_id: bson.ObjectId):
         results = self._data_collection.find({db.OBJ_ID: obj_id},
-                                             projection={
-                                                 db.VERSION: 1,
-                                                 db.OBJ_ID: 1
-                                             },
+                                             projection={'_id': 1},
                                              sort=[(db.VERSION, pymongo.ASCENDING)])
         if not results:
             return []
 
-        return [mincepy.SnapshotRef(obj_id, result[db.VERSION]) for result in results]
+        return [db.to_sref(result['_id']) for result in results]
 
     # region Meta
 
-    def get_meta(self, obj_id):
+    def get_meta(self, obj_id: bson.ObjectId):
         assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
         return self._meta_collection.find_one({'_id': obj_id},
                                               projection={
@@ -274,6 +272,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         return result['total']
 
+    def get_reference_graph(self,
+                            srefs: Sequence[SnapshotRef]) -> Sequence[mincepy.Archive.RefGraph]:
+        return self._refman.get_reference_graphs(srefs)
+
     def _get_pipeline(self,
                       obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
                       type_id=None,
@@ -286,20 +288,23 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                       meta=None):
         """Get a pipeline that would perform the given search.  Can be used directly in an aggregate
          call"""
+        pipeline = []
+
         mfilter = {}
         if obj_id is not None:
             if isinstance(obj_id, bson.ObjectId):
-                mfilter['obj_id'] = obj_id
+                mfilter[db.OBJ_ID] = obj_id
             else:
-                mfilter['obj_id'] = queries.in_(*tuple(obj_id))
-
-        if type_id is not None:
-            mfilter['type_id'] = type_id
+                mfilter[db.OBJ_ID] = queries.in_(*tuple(obj_id))
 
         if version is not None and version != -1:
             mfilter[db.VERSION] = version
 
-        pipeline = [{'$match': mfilter}]
+        if type_id is not None:
+            mfilter[db.TYPE_ID] = type_id
+
+        if mfilter:
+            pipeline.append({'$match': mfilter})
 
         if meta:
             pipeline.extend(
@@ -329,61 +334,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         if snapshot_hash is not None:
             post_match[db.KEY_MAP[mincepy.SNAPSHOT_HASH]] = snapshot_hash
 
-        pipeline.append({'$match': post_match})
+        if post_match:
+            pipeline.append({'$match': post_match})
 
         return pipeline
-
-
-class GridFsFile(mincepy.BaseFile):
-    TYPE_ID = uuid.UUID('3bf3c24e-f6c8-4f70-956f-bdecd7aed091')
-    ATTRS = '_persistent_id', '_file_id'
-
-    def __init__(self,
-                 file_bucket: gridfs.GridFSBucket,
-                 filename: str = None,
-                 encoding: str = None):
-        super().__init__(filename, encoding)
-        self._file_store = file_bucket
-        self._file_id = None
-        self._persistent_id = bson.ObjectId()
-        self._buffer_file = self._create_buffer_file()
-
-    def open(self, mode='r', **kwargs):
-        self._ensure_buffer()
-        if 'b' not in mode:
-            kwargs.setdefault('encoding', self.encoding)
-        return open(self._buffer_file, mode, **kwargs)
-
-    def save_instance_state(self, saver: mincepy.Saver):
-        filename = self.filename or ""
-        with open(self._buffer_file, 'rb') as fstream:
-            self._file_id = self._file_store.upload_from_stream(filename, fstream)
-
-        return super().save_instance_state(saver)
-
-    def load_instance_state(self, saved_state, loader: mincepy.Loader):
-        super().load_instance_state(saved_state, loader)
-        self._file_store = loader.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
-        # Don't copy the file over now, do it lazily when the file is first opened
-        self._buffer_file = None
-
-    def _ensure_buffer(self):
-        if self._buffer_file is None:
-            if self._file_id is not None:
-                self._update_buffer()
-            else:
-                self._create_buffer_file()
-
-    def _update_buffer(self):
-        self._buffer_file = self._create_buffer_file()
-        with open(self._buffer_file, 'wb') as fstream:
-            self._file_store.download_to_stream(self._file_id, fstream)
-
-    def _create_buffer_file(self):
-        tmp_file = tempfile.NamedTemporaryFile(delete=False)
-        tmp_path = tmp_file.name
-        tmp_file.close()
-        return tmp_path
 
 
 def flatten_filter(entry_name: str, query) -> dict:

@@ -1,5 +1,4 @@
 """References module"""
-import uuid
 
 from . import exceptions
 from . import types
@@ -10,7 +9,7 @@ __all__ = ('ObjRef',)
 
 class ObjRef(types.SavableObject):
     """A reference to an object instance"""
-    TYPE_ID = uuid.UUID('633c7035-64fe-4d87-a91e-3b7abd8a6a28')
+    TYPE_ID = records.SnapshotRef.TYPE_ID
     IMMUTABLE = True
 
     _obj = None
