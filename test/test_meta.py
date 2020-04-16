@@ -153,8 +153,8 @@ def test_metadata_find(historian: mincepy.Historian):
     car2.save(with_meta={'reg': 'VD574'})
     car3.save(with_meta={'reg': 'BE368'})
 
-    results = tuple(historian.meta.find(filter=dict(reg={'$regex': '^VD'})))
+    results = dict(historian.meta.find(filter=dict(reg={'$regex': '^VD'})))
     assert len(results) == 2
-    ids = (meta['obj_id'] for meta in results)
+    ids = results.keys()
     assert car1.obj_id in ids
     assert car2.obj_id in ids

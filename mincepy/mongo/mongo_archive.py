@@ -1,5 +1,5 @@
 import typing
-from typing import Optional, Sequence, Union, Iterable, Mapping
+from typing import Optional, Sequence, Union, Iterable, Mapping, Iterator, Dict, Tuple
 import uuid
 
 import bson
@@ -125,19 +125,30 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     # region Meta
 
-    def meta_get(self, obj_id: bson.ObjectId):
-        assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
-        return self._meta_collection.find_one({'_id': obj_id},
-                                              projection={
-                                                  '_id': False,
-                                                  'obj_id': False
-                                              })
+    def meta_get(self, obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]]):
+        # Project away the things that are internal to this archive
+        if isinstance(obj_id, Sequence):
+            for entry in obj_id:
+                if not isinstance(entry, bson.ObjectId):
+                    raise TypeError("Must pass an ObjectId, got {}".format(obj_id))
+
+            cur = self._meta_collection.find({'_id': queries.in_(*obj_id)})
+            results = {oid: None for oid in obj_id}
+            for found in cur:
+                results[found.pop('_id')] = found
+            return results
+
+        # Single obj id
+        if not isinstance(obj_id, bson.ObjectId):
+            raise TypeError("Must pass an ObjectId, got {}".format(obj_id))
+        found = self._meta_collection.find_one({'_id': obj_id})
+        if found is None:
+            return found
+        found.pop('_id')
+        return found
 
     def meta_set(self, obj_id, meta):
         if meta:
-            # Make sure the obj id is in the record
-            meta['_id'] = obj_id
-            meta['obj_id'] = obj_id
             try:
                 found = self._meta_collection.replace_one({'_id': obj_id}, meta, upsert=True)
             except pymongo.errors.DuplicateKeyError as exc:
@@ -149,22 +160,37 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             # Just remove the meta entry outright
             self._meta_collection.delete_one({'_id': obj_id})
 
-    def meta_update(self, obj_id, meta: Mapping):
-        assert meta.get('obj_id',
-                        obj_id) == obj_id, "Can't use the 'obj_id' key in metadata, it is reserved"
+    def meta_set_many(self, metas: Mapping[bson.ObjectId, dict]):
+        documents = []
+        for obj_id, meta in metas.items():
+            meta = dict(meta)
+            meta['_id'] = obj_id
+            documents.append(meta)
 
-        # Make a copy before modification
-        set_to = {'obj_id': obj_id, **meta}
+        self._meta_collection.insert_many(documents, ordered=False)
+
+    def meta_update(self, obj_id, meta: Mapping):
+        if meta.get('_id', obj_id) != obj_id:
+            raise ValueError("Cannot use the key _id, in metadata: it is reserved")
+
         try:
-            self._meta_collection.update_one({'_id': obj_id}, {'$set': set_to}, upsert=True)
+            self._meta_collection.update_one({'_id': obj_id}, {'$set': meta}, upsert=True)
         except pymongo.errors.DuplicateKeyError as exc:
             raise mincepy.DuplicateKeyError(str(exc))
 
-    def meta_find(self, filter: dict):  # pylint: disable=redefined-builtin
-        # Make sure to project away the _id but leave obj_id as there may be multiple and this is
-        # what the user is probably looking for
-        for result in self._meta_collection.find(filter, projection={'_id': False}):
-            yield result
+    def meta_find(
+            self,
+            # pylint: disable=redefined-builtin
+            filter: dict,
+            obj_ids: Iterable[bson.ObjectId] = None) -> Iterator[Tuple[bson.ObjectId, Dict]]:
+
+        match = dict(filter)
+        if obj_ids is not None:
+            match['_id'] = queries.in_(*obj_ids)
+
+        for meta in self._meta_collection.find(match):
+            oid = meta.pop('_id')
+            yield oid, meta
 
     def meta_create_index(self, keys, unique=True, where_exist=False):
         kwargs = {}

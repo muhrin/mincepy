@@ -58,3 +58,40 @@ def test_get_ref_graph_cycle(historian: mincepy.Historian):
     assert n13 in node1_graph
     assert n21 in node1_graph
     assert n32 in node1_graph
+
+
+def test_meta_set_update_many(historian: mincepy.Historian):
+    car1 = Car()
+    car2 = Car()
+    car1id, car2id = historian.save(car1, car2)
+    historian.archive.meta_set_many({car1id: {'reg': 'car1'}, car2id: {'reg': 'car2'}})
+
+    results = historian.archive.meta_get((car1id, car2id))
+    assert results == {car1id: {'reg': 'car1'}, car2id: {'reg': 'car2'}}
+
+    historian.archive.meta_update_many({car1id: {'colour': 'red'}, car2id: {'reg': 'car2updated'}})
+
+    metas = historian.archive.meta_get((car1id, car2id))
+    assert metas == {car1id: {'reg': 'car1', 'colour': 'red'}, car2id: {'reg': 'car2updated'}}
+
+
+def test_meta_find(historian: mincepy.Historian):
+    car1 = Car()
+    car2 = Car()
+
+    car1id, _ = historian.save(car1, car2)
+    historian.archive.set_meta(car1id, {'reg': 'car1'})
+
+    results = dict(historian.archive.meta_find({}, (car1id,)))
+    assert results == {car1id: {'reg': 'car1'}}
+
+
+def test_meta_update_many(historian: mincepy.Historian):
+    car1 = Car()
+    car2 = Car()
+    car1id, car2id = historian.save(car1, car2)
+    historian.archive.meta_set_many({car1id: {'reg': 'car1'}, car2id: {'reg': 'car2'}})
+
+    results = historian.archive.meta_get((car1id, car2id))
+    assert results[car1id] == {'reg': 'car1'}
+    assert results[car2id] == {'reg': 'car2'}

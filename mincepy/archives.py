@@ -1,6 +1,6 @@
 import abc
 import typing
-from typing import Sequence, Iterable, Union
+from typing import Sequence, Union, Tuple, Mapping, Iterable, Dict, Iterator
 
 import deprecation
 
@@ -94,20 +94,33 @@ class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
     # region Metadata
 
     @abc.abstractmethod
-    def meta_get(self, obj_id: IdT):
-        """Get the metadata for the given object snapshot."""
+    def meta_get(self, obj_id: Union[IdT, Iterable[IdT]]):
+        """Get the metadata for one or more objects.  Accepts either a single object id or
+        a sequence.  If a single is passed then the metadata dictionary (or None) is returned
+        directly otherwise a sequence of results is returned."""
 
     @abc.abstractmethod
-    def meta_set(self, obj_id: IdT, meta: dict):
+    def meta_set(self, obj_id: IdT, meta: Mapping):
         """Set the metadata on on the object with the corresponding id"""
 
     @abc.abstractmethod
-    def meta_update(self, obj_id: IdT, meta: dict):
+    def meta_set_many(self, metas: Mapping[IdT, dict]):
+        """Set the metadata on multiple objects.  This method expects to get multiple tuples
+        containing the object id and corresponding metadata"""
+
+    @abc.abstractmethod
+    def meta_update(self, obj_id: IdT, meta: Mapping):
         """Update the metadata on the object with the corresponding id"""
 
     @abc.abstractmethod
-    def meta_find(self, filter: dict):  # pylint: disable=redefined-builtin
-        """Yield metadata satisfying the given filter"""
+    def meta_update_many(self, metas: Mapping[IdT, dict]):
+        """Update the metadata on multiple objects.  This method expects to get multiple tuples
+        containing the object id and corresponding metadata"""
+
+    @abc.abstractmethod
+    def meta_find(self, filter: dict, obj_ids: Iterable[IdT] = None) -> Iterator[Tuple[IdT, Dict]]:  # pylint: disable=redefined-builtin
+        """Yield metadata satisfying the given filter.  The search can optionally be restricted to
+        a set of passed object ids"""
 
     @abc.abstractmethod
     def meta_create_index(self, keys, unique=False, where_exist=False):
@@ -200,6 +213,14 @@ class BaseArchive(Archive[IdT]):
         """
         for record in records:
             self.save(record)
+
+    def meta_update_many(self, metas: Mapping[IdT, dict]):
+        for entry in metas.items():
+            self.meta_update(*entry)
+
+    def meta_set_many(self, metas: Mapping[IdT, dict]):
+        for entry in metas.items():
+            self.meta_set(*entry)
 
     def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
         refs = self.get_snapshot_refs(obj_id)[idx_or_slice]
