@@ -95,3 +95,14 @@ def test_meta_update_many(historian: mincepy.Historian):
     results = historian.archive.meta_get((car1id, car2id))
     assert results[car1id] == {'reg': 'car1'}
     assert results[car2id] == {'reg': 'car2'}
+
+
+def test_count(historian: mincepy.Historian):
+    car1 = Car('ferrari')
+    car2 = Car('skoda')
+    car1id, car2id = historian.save(car1, car2)
+    historian.archive.meta_set_many({car1id: {'reg': 'car1'}, car2id: {'reg': 'car2'}})
+
+    assert historian.archive.count() == 2
+    assert historian.archive.count(state=dict(make='ferrari')) == 1
+    assert historian.archive.count(meta=dict(reg='car1')) == 1
