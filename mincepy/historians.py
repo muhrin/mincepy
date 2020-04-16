@@ -70,7 +70,7 @@ class Meta:
     def find(self, filter):  # pylint: disable=redefined-builtin
         """Find metadata matching the given criteria.  Ever returned metadata dictionary will
         contain an 'obj_id' key which identifies the object it belongs to"""
-        return self._historian.archive.find_meta(filter=filter)
+        return self._historian.archive.meta_find(filter=filter)
 
     def create_index(self, keys, unique=False, where_exist=False):
         """Create an index on the metadata.  Takes either a single key or list of (key, direction)
@@ -385,13 +385,13 @@ class Historian:
             try:
                 return trans.get_meta(obj_id)
             except exceptions.NotFound:
-                current = self._archive.get_meta(obj_id)  # Try the archive
+                current = self._archive.meta_get(obj_id)  # Try the archive
                 if current is None:
                     current = {}  # Ok, no meta
                 trans.set_meta(obj_id, current)  # Cache the meta in the transaction
                 return current
         else:
-            return self.archive.get_meta(obj_id)
+            return self.archive.meta_get(obj_id)
 
     def set_meta(self, obj_or_identifier, meta: Optional[Mapping]):
         """Set the metadata for an object
@@ -404,7 +404,7 @@ class Historian:
         if trans:
             return trans.set_meta(obj_id, meta)
 
-        return self.archive.set_meta(obj_id, meta)
+        return self.archive.meta_set(obj_id, meta)
 
     def update_meta(self, obj_or_identifier, meta: Mapping):
         """Update the metadata for an object
@@ -419,14 +419,14 @@ class Historian:
             try:
                 current = trans.get_meta(obj_id)
             except exceptions.NotFound:
-                current = self._archive.get_meta(obj_id)  # Try the archive
+                current = self._archive.meta_get(obj_id)  # Try the archive
                 if current is None:
                     current = {}  # Ok, no meta
 
             current.update(meta)
             trans.set_meta(obj_id, current)
         else:
-            self.archive.update_meta(obj_id, meta)
+            self.archive.meta_update(obj_id, meta)
 
     # endregion
 
@@ -703,7 +703,7 @@ class Historian:
 
         # Metas
         for obj_id, meta in trans.metas.items():
-            self._archive.set_meta(obj_id, meta)
+            self._archive.meta_set(obj_id, meta)
 
     def _get_latest_snapshot_reference(self, obj_id) -> records.SnapshotRef:
         """Given an object id this will return a reference to the latest snapshot"""

@@ -9,7 +9,7 @@ def test_meta_unique_index(historian: mincepy.Historian):
     car = Car()
     car.save(with_meta={'reg': 'VD495'})
 
-    historian.archive.find_meta(dict(reg='VD495'))
+    historian.archive.meta_find(dict(reg='VD495'))
 
     with pytest.raises(mincepy.DuplicateKeyError):
         Car().save(with_meta={'reg': 'VD495'})

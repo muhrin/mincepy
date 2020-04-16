@@ -5,6 +5,7 @@ import uuid
 import bson
 import gridfs
 import pymongo
+import pymongo.uri_parser
 import pymongo.database
 import pymongo.errors
 
@@ -124,7 +125,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     # region Meta
 
-    def get_meta(self, obj_id: bson.ObjectId):
+    def meta_get(self, obj_id: bson.ObjectId):
         assert isinstance(obj_id, bson.ObjectId), "Must pass an ObjectId"
         return self._meta_collection.find_one({'_id': obj_id},
                                               projection={
@@ -132,7 +133,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                                                   'obj_id': False
                                               })
 
-    def set_meta(self, obj_id, meta):
+    def meta_set(self, obj_id, meta):
         if meta:
             # Make sure the obj id is in the record
             meta['_id'] = obj_id
@@ -148,7 +149,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             # Just remove the meta entry outright
             self._meta_collection.delete_one({'_id': obj_id})
 
-    def update_meta(self, obj_id, meta: Mapping):
+    def meta_update(self, obj_id, meta: Mapping):
         assert meta.get('obj_id',
                         obj_id) == obj_id, "Can't use the 'obj_id' key in metadata, it is reserved"
 
@@ -159,7 +160,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         except pymongo.errors.DuplicateKeyError as exc:
             raise mincepy.DuplicateKeyError(str(exc))
 
-    def find_meta(self, filter: dict):  # pylint: disable=redefined-builtin
+    def meta_find(self, filter: dict):  # pylint: disable=redefined-builtin
         # Make sure to project away the _id but leave obj_id as there may be multiple and this is
         # what the user is probably looking for
         for result in self._meta_collection.find(filter, projection={'_id': False}):
