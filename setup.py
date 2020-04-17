@@ -2,7 +2,7 @@
 from setuptools import setup
 
 __author__ = "Martin Uhrin"
-__license__ = "GPLv3 and MIT, see LICENSE file"
+__license__ = "GPLv3 and MIT"
 
 about = {}
 with open('mincepy/version.py') as f:
