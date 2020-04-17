@@ -23,7 +23,7 @@ setup(name='mincepy',
           'Programming Language :: Python :: 3.6',
           'Programming Language :: Python :: 3.7',
       ],
-      keywords='database schemaless nosql object-store concurrent optimistic-locking',
+      keywords='database schemaless nosql orm object-store concurrent optimistic-locking',
       install_requires=[
           'deprecation',
           'pymongo',

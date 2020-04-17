@@ -4,6 +4,8 @@
    contain the root `toctree` directive.
 
 .. _mincePy: https://github.com/muhrin/mincepy
+.. _object-relational mapper: https://en.wikipedia.org/wiki/Object-relational_mapping
+.. _data mapper pattern: https://en.wikipedia.org/wiki/Data_mapper_pattern
 
 
 Welcome to mincePy's documentation!
@@ -33,13 +35,17 @@ Welcome to mincePy's documentation!
 
 `mincePy`_: move the database to one side and let your objects take centre stage.
 
+MincePy is an `object-relational mapper`_ (ORM) using the `data mapper pattern`_ designed specifically for computational
+and data science.  What does this all mean??  It's simple really, it means you can store, find, get the history of and
+annotate any of your python objects either in your local database or one shared with your collaborators.
 
 Features
 ++++++++
 
+* Ability to work locally or collaboratively on a shared database.
 * Automatic tracking of in-memory objects.
-* Easy storage of python objects.
-* Version control.
+* Easy addition of new python types.
+* Object version control.
 * Live references between objects.
 * Optimistic locking.
 * Python 3.5+ compatible.
