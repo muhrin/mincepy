@@ -8,8 +8,6 @@ import typing
 from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union, Iterator
 import weakref
 
-import deprecation
-
 from . import archives
 from . import builtins
 from . import defaults
@@ -21,7 +19,6 @@ from . import process
 from . import records
 from . import types
 from . import type_registry
-from .version import __version__
 from . import utils
 from .transactions import RollbackTransaction, Transaction, LiveObjects
 
@@ -82,16 +79,6 @@ class Meta:
          """
         self._historian.archive.meta_create_index(keys, unique=unique, where_exist=where_exist)
 
-    @deprecation.deprecated(deprecated_in="0.10.11",
-                            removed_in="0.11.0",
-                            current_version=__version__,
-                            details="Use find() instead")
-    def efind(self, **filter):  # pylint: disable=redefined-builtin
-        """Easy find.  Doesn't have any of the more complete options that find() has but allows
-        the filter to be specified as keyword value pairs which is often more convenient if the
-        user is happy to get all results"""
-        return self.find(filter=filter)
-
 
 class Historian:
     """The historian acts as a go-between between your python objects and the archive which is
@@ -125,42 +112,6 @@ class Historian:
         self._hostname = socket.gethostname()
 
         self._meta = Meta(self)
-
-    @deprecation.deprecated(deprecated_in="0.10.3",
-                            removed_in="0.11.0",
-                            current_version=__version__,
-                            details="Use .load or .load_one instead")
-    def load_object(self, obj_id):
-        return self._load_object(obj_id, depositors.LiveDepositor(self))
-
-    @deprecation.deprecated(deprecated_in="0.10.3",
-                            removed_in="0.11.0",
-                            current_version=__version__,
-                            details="Use .save or .saved_one instead")
-    def save_object(self, obj) -> records.DataRecord:
-        return self._save_object(obj, depositors.LiveDepositor(self))
-
-    @deprecation.deprecated(deprecated_in="0.10.3",
-                            removed_in="1.0",
-                            current_version=__version__,
-                            details="Use .archive property instead")
-    def get_archive(self):
-        return self._archive
-
-    @property
-    @deprecation.deprecated(deprecated_in="0.10.3",
-                            removed_in="0.11.0",
-                            current_version=__version__,
-                            details="Use .meta.sticky instead")
-    def sticky_meta(self) -> dict:
-        """Sticky metadata that is set on any object being saved for the first time.
-        If the user supplies metadata at save time this will take priority but in the following
-        way: the stick meta will be used as a base but updated with the user supplied meta i.e.
-
-            meta = deepcopy(stick_meta.copy)
-            meta.update(user_meta)
-        """
-        return self.meta.sticky
 
     @property
     def archive(self):

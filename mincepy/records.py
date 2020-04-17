@@ -5,11 +5,9 @@ import typing
 from typing import Optional, Iterable, Sequence, Union, Tuple, Any
 import uuid
 
-import deprecation
 import pytray.tree
 
 from . import utils
-from .version import __version__
 
 __all__ = 'OBJ_ID', 'TYPE_ID', 'CREATION_TIME', 'VERSION', 'STATE', 'SNAPSHOT_TIME', \
           'SNAPSHOT_HASH', 'EXTRAS', 'ExtraKeys', 'DELETED', 'DataRecord', 'SnapshotRef', \
@@ -27,6 +25,7 @@ EXTRAS = 'extras'
 
 
 class ExtraKeys:
+    # pylint: disable=too-few-public-methods
     CREATED_BY = '_created_by'  # The ID of the process the data was created in
     COPIED_FROM = '_copied_from'  # The reference to the snapshot that this object was copied from
     USER = '_user'  # The user that saved this snapshot
@@ -85,14 +84,6 @@ class SnapshotRef(typing.Generic[IdT]):
         """Convenience function to get a dictionary representation.
         Can be passed to constructor as **kwargs"""
         return {'obj_id': self.obj_id, 'version': self.version}
-
-    @deprecation.deprecated(deprecated_in="0.10.11",
-                            removed_in="0.11.0",
-                            current_version=__version__,
-                            details="Use to_dict() instead")
-    def to_list(self) -> list:
-        """Convenience to represent the reference as a list"""
-        return [self.obj_id, self.version]
 
 
 Ref = SnapshotRef  # WARNING: This will be removed in 0.11, use SnapshotRef instead!

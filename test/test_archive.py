@@ -80,7 +80,7 @@ def test_meta_find(historian: mincepy.Historian):
     car2 = Car()
 
     car1id, _ = historian.save(car1, car2)
-    historian.archive.set_meta(car1id, {'reg': 'car1'})
+    historian.archive.meta_set(car1id, {'reg': 'car1'})
 
     results = dict(historian.archive.meta_find({}, (car1id,)))
     assert results == {car1id: {'reg': 'car1'}}

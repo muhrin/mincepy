@@ -1,31 +1,26 @@
 import abc
-import typing
-from typing import Sequence, Union, Mapping, Iterable, Dict, Iterator, \
-    Any  # pylint: disable=unused-import
-
-import deprecation
+from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Iterable, Dict, \
+    Iterator, Any, Type
 
 from . import qops
 from .records import DataRecord, SnapshotRef
-from .version import __version__
 
 __all__ = 'Archive', 'BaseArchive', 'ASCENDING', 'DESCENDING'
 
-IdT = typing.TypeVar('IdT')  # The archive ID type
+IdT = TypeVar('IdT')  # The archive ID type
 
 # Sort options
 ASCENDING = 1
 DESCENDING = -1
 
 
-class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
+class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     """An archive provides the persistent storage for the historian.  It is responsible for storing,
     searching and loading data records and their metadata."""
 
-    RefEdge = typing.NamedTuple('RefEdge', [('source', SnapshotRef[IdT]),
-                                            ('target', SnapshotRef[IdT])])
+    RefEdge = NamedTuple('RefEdge', [('source', SnapshotRef[IdT]), ('target', SnapshotRef[IdT])])
     RefGraph = Iterable[RefEdge]
-    MetaEntry = typing.NamedTuple('MetaEntry', [('obj_id', IdT), ['meta', dict]])
+    MetaEntry = NamedTuple('MetaEntry', [('obj_id', IdT), ['meta', dict]])
 
     @classmethod
     def get_types(cls) -> Sequence:
@@ -35,7 +30,7 @@ class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
 
     @classmethod
     @abc.abstractmethod
-    def get_id_type(cls) -> typing.Type[IdT]:
+    def get_id_type(cls) -> Type[IdT]:
         """Get the type used as an ID by this archive"""
 
     @abc.abstractmethod
@@ -59,7 +54,7 @@ class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
         """Save a data record to the archive"""
 
     @abc.abstractmethod
-    def save_many(self, records: typing.Sequence[DataRecord]):
+    def save_many(self, records: Sequence[DataRecord]):
         """Save many data records to the archive"""
 
     # region Metadata
@@ -121,12 +116,12 @@ class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
         """Load a snapshot of an object with the given reference"""
 
     @abc.abstractmethod
-    def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
+    def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, Sequence[DataRecord]]:
         """Load the snapshot records for a particular object, can return a single or multiple
         records"""
 
     @abc.abstractmethod
-    def get_snapshot_refs(self, obj_id: IdT) -> typing.Sequence[SnapshotRef[IdT]]:
+    def get_snapshot_refs(self, obj_id: IdT) -> Sequence[SnapshotRef[IdT]]:
         """Returns a list of time ordered snapshot references"""
 
     # pylint: disable=too-many-arguments
@@ -184,14 +179,14 @@ class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
 
 
 class BaseArchive(Archive[IdT]):
-    ID_TYPE = None  # type: typing.Type[IdT]
+    ID_TYPE = None  # type: Type[IdT]
 
     @classmethod
-    def get_id_type(cls) -> typing.Type[IdT]:
+    def get_id_type(cls) -> Type[IdT]:
         assert cls.ID_TYPE, "The ID type has not been set on this archive"
         return cls.ID_TYPE
 
-    def save_many(self, records: typing.Sequence[DataRecord]):
+    def save_many(self, records: Sequence[DataRecord]):
         """
         This will save records one by one but subclass may want to override this behaviour if
         they can save multiple records at once.
@@ -207,7 +202,7 @@ class BaseArchive(Archive[IdT]):
         for entry in metas.items():
             self.meta_set(*entry)
 
-    def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, typing.List[DataRecord]]:
+    def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, Sequence[DataRecord]]:
         refs = self.get_snapshot_refs(obj_id)[idx_or_slice]
         if len(refs) > 1:
             return [self.load(ref) for ref in refs]
