@@ -11,6 +11,7 @@ import pymongo.errors
 
 import mincepy
 import mincepy.records
+from mincepy import qops
 
 from . import files
 from . import db
@@ -20,6 +21,8 @@ from . import queries
 __all__ = ('MongoArchive',)
 
 DEFAULT_REFERENCES_COLLECTION = 'references'
+
+scalar_query_spec = mincepy.archives.scalar_query_spec  # pylint: disable=invalid-name
 
 
 class ObjectIdHelper(mincepy.TypeHelper):
@@ -70,7 +73,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def _create_indices(self):
         # Create all the necessary indexes
         self._data_collection.create_index([(db.KEY_MAP[mincepy.OBJ_ID], pymongo.ASCENDING),
-                                            (db.KEY_MAP[mincepy.VERSION], pymongo.ASCENDING)],)
+                                            (db.KEY_MAP[mincepy.VERSION], pymongo.ASCENDING)], )
 
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
@@ -128,11 +131,12 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def meta_get(self, obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]]):
         # Project away the things that are internal to this archive
         if isinstance(obj_id, Sequence):
+            # Find multiple
             for entry in obj_id:
                 if not isinstance(entry, bson.ObjectId):
                     raise TypeError("Must pass an ObjectId, got {}".format(obj_id))
 
-            cur = self._meta_collection.find({'_id': queries.in_(*obj_id)})
+            cur = self._meta_collection.find({'_id': qops.in_(*obj_id)})
             results = {oid: None for oid in obj_id}
             for found in cur:
                 results[found.pop('_id')] = found
@@ -180,17 +184,16 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     def meta_find(
             self,
-            # pylint: disable=redefined-builtin
-            filter: dict,
-            obj_ids: Iterable[bson.ObjectId] = None) -> Iterator[Tuple[bson.ObjectId, Dict]]:
-
+            filter: dict,  # pylint: disable=redefined-builtin
+            obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None
+    ) -> Iterator[Tuple[bson.ObjectId, Dict]]:
         match = dict(filter)
-        if obj_ids is not None:
-            match['_id'] = queries.in_(*obj_ids)
+        if obj_id is not None:
+            match['_id'] = scalar_query_spec(obj_id)
 
         for meta in self._meta_collection.find(match):
             oid = meta.pop('_id')
-            yield oid, meta
+            yield self.MetaEntry(oid, meta)
 
     def meta_create_index(self, keys, unique=True, where_exist=False):
         kwargs = {}
@@ -200,15 +203,15 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             else:
                 key_names = (keys,)
             kwargs['partialFilterExpression'] = \
-                queries.and_(*tuple(queries.exists_(name) for name in key_names))
+                qops.and_(*tuple(qops.exists_(name) for name in key_names))
         self._meta_collection.create_index(keys, unique=unique, **kwargs)
 
     # endregion
 
     # pylint: disable=too-many-arguments
     def find(self,
-             obj_id: Optional[bson.ObjectId] = None,
-             type_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
+             obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
+             type_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
              _created_by=None,
              _copied_from=None,
              version=-1,
@@ -270,10 +273,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             mfilter.update(flatten_filter(db.STATE, state))
 
         if not deleted:
-            condition = [queries.ne_(mincepy.DELETED)]
+            condition = [qops.ne_(mincepy.DELETED)]
             if db.STATE in mfilter:
                 condition.append(mfilter[db.STATE])
-            mfilter.update(flatten_filter(db.STATE, queries.and_(*condition)))
+            mfilter.update(flatten_filter(db.STATE, qops.and_(*condition)))
 
         if snapshot_hash is not None:
             mfilter[db.KEY_MAP[mincepy.SNAPSHOT_HASH]] = snapshot_hash
@@ -315,20 +318,18 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                       meta=None):
         """Get a pipeline that would perform the given search.  Can be used directly in an aggregate
          call"""
+        # pylint: disable=too-many-branches
         pipeline = []
 
         mfilter = {}
         if obj_id is not None:
-            if isinstance(obj_id, bson.ObjectId):
-                mfilter[db.OBJ_ID] = obj_id
-            else:
-                mfilter[db.OBJ_ID] = queries.in_(*tuple(obj_id))
+            mfilter[db.OBJ_ID] = scalar_query_spec(obj_id)
 
         if version is not None and version != -1:
             mfilter[db.VERSION] = version
 
         if type_id is not None:
-            mfilter[db.TYPE_ID] = type_id
+            mfilter[db.TYPE_ID] = scalar_query_spec(type_id)
 
         if mfilter:
             pipeline.append({'$match': mfilter})
@@ -353,13 +354,13 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             post_match.update(flatten_filter(db.STATE, state))
 
         if not deleted:
-            condition = [queries.ne_(mincepy.DELETED)]
+            condition = [qops.ne_(mincepy.DELETED)]
             if db.STATE in post_match:
                 condition.append(post_match[db.STATE])
-            post_match.update(flatten_filter(db.STATE, queries.and_(*condition)))
+            post_match.update(flatten_filter(db.STATE, qops.and_(*condition)))
 
         if snapshot_hash is not None:
-            post_match[db.KEY_MAP[mincepy.SNAPSHOT_HASH]] = snapshot_hash
+            post_match[db.KEY_MAP[mincepy.SNAPSHOT_HASH]] = scalar_query_spec(snapshot_hash)
 
         if post_match:
             pipeline.append({'$match': post_match})
@@ -380,7 +381,7 @@ def flatten_filter(entry_name: str, query) -> dict:
             else:
                 flattened.update({"{}.{}".format(entry_name, key): value})
         if predicates:
-            flattened.update(queries.and_(*[{entry_name: predicate} for predicate in predicates]))
+            flattened.update(qops.and_(*[{entry_name: predicate} for predicate in predicates]))
 
     else:
         flattened[entry_name] = query

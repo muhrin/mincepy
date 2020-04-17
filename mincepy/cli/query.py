@@ -16,8 +16,7 @@ import mincepy.records
 def query(obj_type, filter, limit):
     historian = mincepy.get_historian()
 
-    results = historian.find(obj_type, state=filter, limit=limit, as_objects=False,
-                             version=-1)  # type: typing.Sequence[mincepy.DataRecord]
+    results = historian.find_recods(obj_type, state=filter, limit=limit, version=-1)
 
     historian.register_types(mincepy.testing.HISTORIAN_TYPES)
 

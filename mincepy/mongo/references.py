@@ -3,8 +3,8 @@ from typing import Sequence
 import pymongo
 
 import mincepy
+from mincepy import qops
 from . import db
-from . import queries
 
 
 class ReferenceManager:
@@ -20,7 +20,7 @@ class ReferenceManager:
         ids = tuple(db.to_id_dict(sref) for sref in srefs)
         pipeline = [{
             '$match': {
-                '_id': queries.in_(*ids)
+                '_id': qops.in_(*ids)
             }
         }, {
             '$graphLookup': {

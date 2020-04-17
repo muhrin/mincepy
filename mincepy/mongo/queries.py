@@ -1,35 +1,5 @@
+from mincepy import qops
 from . import db
-
-
-def and_(*conditions) -> dict:
-    """Helper that produces mongo query dict for AND of multiple conditions"""
-    if len(conditions) > 1:
-        return {'$and': list(conditions)}
-
-    return conditions[0]
-
-
-def eq_(one, other) -> dict:
-    """Helper that produces mongo query dict for to items being equal"""
-    return {'$eq': [one, other]}
-
-
-def in_(*possibilities) -> dict:
-    """Helper that produces mongo query dict for items being one of"""
-    if len(possibilities) == 1:
-        return possibilities[0]
-
-    return {'$in': list(possibilities)}
-
-
-def ne_(value) -> dict:
-    """Not equal to value"""
-    return {'$ne': value}
-
-
-def exists_(key) -> dict:
-    """Return condition for the existence of a key"""
-    return {key: {'$exists': True}}
 
 
 def pipeline_latest_version(data_collection: str) -> list:
@@ -56,7 +26,7 @@ def pipeline_latest_version(data_collection: str) -> list:
                 },
                 'pipeline': [{
                     '$match': {
-                        '$expr': eq_('$_id', {
+                        '$expr': qops.eq_('$_id', {
                             'oid': '$$obj_id',
                             'v': '$$max_ver'
                         })

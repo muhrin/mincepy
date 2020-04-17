@@ -1,9 +1,11 @@
 import abc
 import typing
-from typing import Sequence, Union, Tuple, Mapping, Iterable, Dict, Iterator
+from typing import Sequence, Union, Mapping, Iterable, Dict, Iterator, \
+    Any  # pylint: disable=unused-import
 
 import deprecation
 
+from . import qops
 from .records import DataRecord, SnapshotRef
 from .version import __version__
 
@@ -23,38 +25,7 @@ class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
     RefEdge = typing.NamedTuple('RefEdge', [('source', SnapshotRef[IdT]),
                                             ('target', SnapshotRef[IdT])])
     RefGraph = Iterable[RefEdge]
-
-    @deprecation.deprecated(deprecated_in="0.11.0",
-                            removed_in="0.12.0",
-                            current_version=__version__,
-                            details="Use meta_find() instead")
-    def find_meta(self, filter: dict):  # pylint: disable=redefined-builtin
-        """Yield metadata satisfying the given filter"""
-        return self.meta_find(filter)
-
-    @deprecation.deprecated(deprecated_in="0.11.0",
-                            removed_in="0.12.0",
-                            current_version=__version__,
-                            details="Use meta_update() instead")
-    def update_meta(self, obj_id: IdT, meta: dict):
-        """Update the metadata on the object with the corresponding id"""
-        return self.meta_update(obj_id, meta)
-
-    @deprecation.deprecated(deprecated_in="0.11.0",
-                            removed_in="0.12.0",
-                            current_version=__version__,
-                            details="Use meta_set() instead")
-    def set_meta(self, obj_id: IdT, meta: dict):
-        """Set the metadata on on the object with the corresponding id"""
-        return self.meta_set(obj_id, meta)
-
-    @deprecation.deprecated(deprecated_in="0.11.0",
-                            removed_in="0.12.0",
-                            current_version=__version__,
-                            details="Use meta_get() instead")
-    def get_meta(self, obj_id: IdT):
-        """Get the metadata for the given object snapshot."""
-        return self.meta_get(obj_id)
+    MetaEntry = typing.NamedTuple('MetaEntry', [('obj_id', IdT), ['meta', dict]])
 
     @classmethod
     def get_types(cls) -> Sequence:
@@ -96,8 +67,8 @@ class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def meta_get(self, obj_id: Union[IdT, Iterable[IdT]]):
         """Get the metadata for one or more objects.  Accepts either a single object id or
-        a sequence.  If a single is passed then the metadata dictionary (or None) is returned
-        directly otherwise a sequence of results is returned."""
+        multiple.  If a single is passed then the metadata dictionary (or None) is returned
+        directly otherwise a mapping of object id to metadata dictionary is returned."""
 
     @abc.abstractmethod
     def meta_set(self, obj_id: IdT, meta: Mapping):
@@ -113,14 +84,25 @@ class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
         """Update the metadata on the object with the corresponding id"""
 
     @abc.abstractmethod
-    def meta_update_many(self, metas: Mapping[IdT, dict]):
-        """Update the metadata on multiple objects.  This method expects to get multiple tuples
-        containing the object id and corresponding metadata"""
+    def meta_update_many(self, metas: Mapping[IdT, Mapping]):
+        """Update the metadata on multiple objects.  This method expects to get a mapping of object
+        id to the mapping to be used to update the metadata for that object"""
 
     @abc.abstractmethod
-    def meta_find(self, filter: dict, obj_ids: Iterable[IdT] = None) -> Iterator[Tuple[IdT, Dict]]:  # pylint: disable=redefined-builtin
-        """Yield metadata satisfying the given filter.  The search can optionally be restricted to
-        a set of passed object ids"""
+    def meta_find(
+            self,
+            filter: dict,  # pylint: disable=redefined-builtin
+            obj_id: Union[IdT, Iterable[IdT], Mapping] = None) -> \
+            'Iterator[Archive.MetaEntry]':
+        """Yield metadata satisfying the given criteria.  The search can optionally be restricted to
+        a set of passed object ids.
+
+        :param filter: a query filter for the search
+        :param obj_id: an optional restriction on the object ids to search.  This ben be either:
+            1. a single object id
+            2. an iterable of object ids in which is treated as {'$in': list(obj_ids)}
+            3. a general query filter to be applied to the object ids
+        """
 
     @abc.abstractmethod
     def meta_create_index(self, keys, unique=False, where_exist=False):
@@ -150,7 +132,7 @@ class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
     # pylint: disable=too-many-arguments
     @abc.abstractmethod
     def find(self,
-             obj_id: Union[IdT, Iterable[IdT]] = None,
+             obj_id: Union[IdT, Iterable[IdT], Dict] = None,
              type_id=None,
              created_by=None,
              copied_from=None,
@@ -173,7 +155,10 @@ class Archive(typing.Generic[IdT], metaclass=abc.ABCMeta):
         :param snapshot_hash: find objects with this snapshot hash
         :param meta: find objects with this meta filter
         :param limit: limit the results to this many records
-        :param obj_id: an obj or or an iterable of obj ids to look for
+        :param obj_id: an optional restriction on the object ids to search.  This ben be either:
+            1. a single object id
+            2. an iterable of object ids in which is treated as {'$in': list(obj_ids)}
+            3. a general query filter to be applied to the object ids
         :param sort: sort the results by the given criteria
         :param skip: skip the this many entries
         """
@@ -232,3 +217,21 @@ class BaseArchive(Archive[IdT]):
 
     def construct_archive_id(self, value) -> IdT:  # pylint: disable=no-self-use
         raise TypeError("Not possible to construct an archive id from '{}'".format(type(value)))
+
+
+def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> \
+        Union[Any, Dict]:
+    """Convenience function to create a query specifier for a given item.  There are three
+    possibilities:
+
+    1. The item is a mapping in which case it is returned as is.
+    2. The item is an iterable (but not a mapping) in which case it is interpreted to mean:
+        {'$in': list(iterable)}
+    3. it is a raw item item in which case it is matched directly
+    """
+    if isinstance(specifier, Mapping):
+        return specifier
+    if isinstance(specifier, Iterable):
+        return qops.in_(*specifier)
+
+    return specifier

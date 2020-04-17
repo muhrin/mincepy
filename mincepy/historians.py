@@ -5,7 +5,7 @@ import getpass
 import logging
 import socket
 import typing
-from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union
+from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union, Iterator
 import weakref
 
 import deprecation
@@ -67,10 +67,10 @@ class Meta:
         """
         return self._historian.update_meta(obj_or_identifier, meta)
 
-    def find(self, filter):  # pylint: disable=redefined-builtin
+    def find(self, filter, obj_ids=None):  # pylint: disable=redefined-builtin
         """Find metadata matching the given criteria.  Ever returned metadata dictionary will
         contain an 'obj_id' key which identifies the object it belongs to"""
-        return self._historian.archive.meta_find(filter=filter)
+        return self._historian.archive.meta_find(filter=filter, obj_id=obj_ids)
 
     def create_index(self, keys, unique=False, where_exist=False):
         """Create an index on the metadata.  Takes either a single key or list of (key, direction)
@@ -576,12 +576,11 @@ class Historian:
              meta: dict = None,
              sort=None,
              limit=0,
-             skip=0,
-             as_objects=True):
+             skip=0) -> Iterator[Any]:
         """Find objects
 
         :param obj_type: the object type to look for
-        :param obj_id: an object or list of object ids to look for
+        :param obj_id: an object or multiple object ids to look for
         :param version: the version of the object to retrieve, -1 means latest
         :param state: the criteria on the state of the object to apply
         :type state: must be subclass of historian.primitive
@@ -590,6 +589,39 @@ class Historian:
         :param limit: the maximum number of results to return, 0 means unlimited
         :param skip: the page to get results from
         :param as_objects: if True returns the live object instances, False returns the DataRecords
+        """
+        # pylint: disable=too-many-arguments
+        results = self.find_records(obj_type=obj_type,
+                                    obj_id=obj_id,
+                                    version=version,
+                                    state=state,
+                                    meta=meta,
+                                    sort=sort,
+                                    limit=limit,
+                                    skip=skip)
+        for result in results:
+            yield self.load(result.obj_id)
+
+    def find_records(self,
+                     obj_type=None,
+                     obj_id=None,
+                     version: int = -1,
+                     state=None,
+                     meta: dict = None,
+                     sort=None,
+                     limit=0,
+                     skip=0) -> Iterator[records.DataRecord]:
+        """Find records
+
+        :param obj_type: the object type to look for
+        :param obj_id: an object or multiple object ids to look for
+        :param version: the version of the object to retrieve, -1 means latest
+        :param state: the criteria on the state of the object to apply
+        :type state: must be subclass of historian.primitive
+        :param meta: the search criteria to apply on the metadata of the object
+        :param sort: the sort criteria
+        :param limit: the maximum number of results to return, 0 means unlimited
+        :param skip: the page to get results from
         """
         # pylint: disable=too-many-arguments
         type_id = obj_type
@@ -606,11 +638,7 @@ class Historian:
                                      sort=sort,
                                      limit=limit,
                                      skip=skip)
-        if as_objects:
-            for result in results:
-                yield self.load(result.obj_id)
-        else:
-            yield from results
+        yield from results
 
     def get_creator(self, obj_or_identifier):
         """Get the object that created the passed object"""
