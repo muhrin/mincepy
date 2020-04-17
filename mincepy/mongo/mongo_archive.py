@@ -1,4 +1,3 @@
-import typing
 from typing import Optional, Sequence, Union, Iterable, Mapping, Iterator, Dict, Tuple
 import uuid
 
@@ -100,7 +99,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         self.save_many([record])
         return record
 
-    def save_many(self, records: typing.List[mincepy.DataRecord]):
+    def save_many(self, records: Sequence[mincepy.DataRecord]):
         # Generate the entries for our collection collecting the metadata that we gathered
         entries = [db.to_entry(record) for record in records]
         try:
