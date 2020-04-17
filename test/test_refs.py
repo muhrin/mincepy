@@ -4,6 +4,8 @@ import mincepy
 import mincepy.records
 from mincepy.testing import Car, Cycle
 
+# pylint: disable=invalid-name
+
 
 def test_obj_ref_simple(historian: mincepy.Historian):
     a = Cycle()
@@ -20,23 +22,25 @@ def test_obj_ref_snapshot(historian: mincepy.Historian):
     ns = Namespace()
     car = Car('honda', 'white')
     ns.car = mincepy.ObjRef(car)
-    ns_id_honda = historian.save(ns, return_sref=True)
+    historian.save(ns)
+    honda_ns_ref = historian.get_snapshot_ref(ns)
 
     car.make = 'fiat'
-    ns_id_fiat = historian.save(ns, return_sref=True)
+    historian.save(ns)
+    fiat_ns_ref = historian.get_snapshot_ref(ns)
     del ns
 
-    assert ns_id_fiat.version == ns_id_honda.version + 1
+    assert fiat_ns_ref.version == honda_ns_ref.version + 1
 
-    loaded = historian.load(ns_id_honda)
+    loaded = historian.load(honda_ns_ref)
     assert loaded.car().make == 'honda'
 
-    loaded2 = historian.load(ns_id_fiat)
+    loaded2 = historian.load(fiat_ns_ref)
     assert loaded2.car().make == 'fiat'
     assert loaded2.car() is not car
 
     # Load the 'live' namespace
-    loaded3 = historian.load(ns_id_honda.obj_id)
+    loaded3 = historian.load(honda_ns_ref.obj_id)
     assert loaded3.car() is car
 
 
@@ -64,7 +68,8 @@ def test_obj_ref_complex(historian: mincepy.Historian):
 
     fiat = Car('fiat')
     loaded.ns2().car = mincepy.ObjRef(fiat)
-    parent_snapshot_id = historian.save(loaded, return_sref=True)
+    historian.save(loaded)
+    parent_sref = historian.get_snapshot_ref(loaded)
     del loaded
 
     loaded2 = historian.load_snapshot(mincepy.records.SnapshotRef(parent_id, 0))
@@ -72,7 +77,7 @@ def test_obj_ref_complex(historian: mincepy.Historian):
     assert loaded2.ns2().car().make == 'honda'
     del loaded2
 
-    loaded3 = historian.load_snapshot(parent_snapshot_id)
+    loaded3 = historian.load_snapshot(parent_sref)
     assert loaded3.ns1().car().make == 'honda'
     assert loaded3.ns2().car().make == 'fiat'
 
@@ -83,7 +88,7 @@ def test_null_ref(historian: mincepy.Historian):
 
     assert null == null2
 
-    nid1, nid2 = historian.save(null, null2)
+    nid1, _nid2 = historian.save(null, null2)
     del null
     loaded = historian.load(nid1)
     assert loaded == null2

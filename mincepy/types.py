@@ -8,6 +8,7 @@ try:  # Python3
 except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 
+import mincepy
 from . import depositors
 
 __all__ = 'Savable', 'Comparable', 'Object', 'SavableObject', 'PRIMITIVE_TYPES'
@@ -60,8 +61,7 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
 
     def __init__(self):
         super().__init__()
-        from . import process
-        process.CreatorsRegistry.created(self)
+        mincepy.process.CreatorsRegistry.created(self)
 
     @property
     def obj_id(self):
@@ -96,10 +96,9 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
 
         return False
 
-    def save(self, with_meta=None, return_sref=False):
+    def save(self, meta: dict = None):
         """Save the object"""
-        from . import history
-        return history.get_historian().save(self, with_meta=with_meta, return_sref=return_sref)
+        return mincepy.get_historian().save_one(self, meta=meta)
 
     def sync(self):
         """Update the state of this object by loading the latest version from the historian"""
@@ -169,7 +168,7 @@ class Equator:
         return self._hasher(*self.yield_hashables(obj))
 
     def eq(self, obj1, obj2) -> bool:  # pylint: disable=invalid-name
-        if not type(obj1) == type(obj2):
+        if not type(obj1) == type(obj2):  # pylint: disable=unidiometic-typecheck
             return False
 
         try:

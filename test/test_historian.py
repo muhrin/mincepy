@@ -5,12 +5,13 @@ from mincepy.testing import Car
 
 def test_transaction_snapshots(historian: mincepy.Historian):
     ferrari = Car('ferrari')
-    ferrari_id = historian.save(ferrari, return_sref=True)
+    historian.save(ferrari)
+    ferrari_ref = historian.get_snapshot_ref(ferrari)
 
     with historian.transaction():
-        ferrari_snapshot_1 = historian.load_snapshot(ferrari_id)
+        ferrari_snapshot_1 = historian.load_snapshot(ferrari_ref)
         with historian.transaction():
-            ferrari_snapshot_2 = historian.load_snapshot(ferrari_id)
+            ferrari_snapshot_2 = historian.load_snapshot(ferrari_ref)
             # Reference wise they should be unequal
             assert ferrari_snapshot_1 is not ferrari_snapshot_2
             assert ferrari is not ferrari_snapshot_1
@@ -21,7 +22,7 @@ def test_transaction_snapshots(historian: mincepy.Historian):
             assert ferrari == ferrari_snapshot_2
 
         # Now check within the same transaction the result is the same
-        ferrari_snapshot_2 = historian.load_snapshot(ferrari_id)
+        ferrari_snapshot_2 = historian.load_snapshot(ferrari_ref)
         # Reference wise they should be unequal
         assert ferrari_snapshot_1 is not ferrari_snapshot_2
         assert ferrari is not ferrari_snapshot_1
@@ -70,11 +71,11 @@ def test_find(historian: mincepy.Historian):
 
 def test_update(historian: mincepy.Historian):
     car = Car('ferrari', 'red')
-    historian.save(car)
+    historian.save_one(car)
 
     # Simulate saving the car from another connection
     honda = Car('honda', 'black')
-    historian.save(honda)
+    historian.save_one(honda)
     honda_record = historian.get_current_record(honda)
 
     archive = historian.archive

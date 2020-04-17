@@ -44,7 +44,7 @@ class ObjectIdHelper(mincepy.TypeHelper):
 
 class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     """MongoDB implementation of the mincepy archive"""
-    
+
     # pylint: disable=too-many-public-methods
 
     ID_TYPE = bson.ObjectId
@@ -77,7 +77,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def _create_indices(self):
         # Create all the necessary indexes
         self._data_collection.create_index([(db.KEY_MAP[mincepy.OBJ_ID], pymongo.ASCENDING),
-                                            (db.KEY_MAP[mincepy.VERSION], pymongo.ASCENDING)], )
+                                            (db.KEY_MAP[mincepy.VERSION], pymongo.ASCENDING)],)
 
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
@@ -187,9 +187,9 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             raise mincepy.DuplicateKeyError(str(exc))
 
     def meta_find(
-            self,
-            filter: dict,  # pylint: disable=redefined-builtin
-            obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None
+        self,
+        filter: dict,  # pylint: disable=redefined-builtin
+        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None
     ) -> Iterator[Tuple[bson.ObjectId, Dict]]:
         match = dict(filter)
         if obj_id is not None:

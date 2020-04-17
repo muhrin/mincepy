@@ -196,34 +196,37 @@ class Historian:
          use."""
         return self._archive.create_file(filename, encoding)
 
-    def save(self, *objs, with_meta=None, return_sref=False):
-        """Save or more objects in the history producing corresponding object identifiers
+    def save(self, *objs):
+        """Save multiple objects producing corresponding object identifiers.  This returns a
+        sequence of ids that is in the same order as the passed objects.
 
-        :param objs: the object(s) to save
-        :param with_meta: the object(s) metadata (has to be a sequence if more than one)
-        :param return_sref: if True will return a snapshot reference, otherwise just the object id
+        :param objs: the object(s) to save.  Can also be a tuple of (obj, meta) to optionally
+            include metadata to be saved with the object(s)
         """
-        if with_meta is not None:
-            if len(objs) == 1:
-                with_meta = (with_meta,)
+        to_save = []
+        # Convert everything to tuples
+        for entry in objs:
+            if isinstance(entry, tuple):
+                if len(entry) > 2:
+                    raise ValueError(
+                        "Supplied tuples can only contain (object, meta), got '{}'".format(entry))
             else:
-                assert len(objs) == len(with_meta), \
-                    "The metadata should be a sequence with the same number of entries as the " \
-                    "number of objects"
-        else:
-            with_meta = [None] * len(objs)
+                entry = (entry,)
+            to_save.append(entry)
 
+        ids = []
         with self.transaction():
-            ids = []
-            for obj, meta in zip(objs, with_meta):
-                ids.append(self.save_one(obj, meta, return_sref))
-            if len(ids) == 1:
-                return ids[0]
+            for entry in to_save:
+                ids.append(self.save_one(*entry))
 
-            return ids
+        if len(objs) == 1:
+            return ids[0]
 
-    def save_one(self, obj, with_meta=None, return_sref=False):
-        """Save the object in the history producing a unique id.
+        return ids
+
+    def save_one(self, obj, meta: dict = None):
+        """Save the object returning an object id.  If metadata is supplied it will be set on the
+        object.
 
         Developer note: this is the front end point-of-entry for a user/client code saving an object
         however subsequent objects being saved in this transaction will only go through _save_object
@@ -233,17 +236,14 @@ class Historian:
             raise exceptions.ModificationError(
                 "Cannot save a snapshot object, that would rewrite history!")
 
-        if with_meta and not isinstance(with_meta, dict):
-            raise TypeError("Metadata must be a dictionary, got type '{}'".format(type(with_meta)))
+        if meta and not isinstance(meta, dict):
+            raise TypeError("Metadata must be a dictionary, got type '{}'".format(type(meta)))
 
         # Save the object and metadata
         with self.transaction():
             record = self._save_object(obj, depositors.LiveDepositor(self))
-            if with_meta:
-                self.meta.update(record.obj_id, with_meta)
-
-        if return_sref:
-            return record.get_reference()
+            if meta:
+                self.meta.update(record.obj_id, meta)
 
         return record.obj_id
 

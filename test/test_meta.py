@@ -9,7 +9,7 @@ from mincepy.testing import Car
 
 def test_metadata_simple(historian: mincepy.Historian):
     car = Car()
-    ferrari_id = historian.save(car, with_meta={'reg': 'VD395'})
+    ferrari_id = historian.save((car, {'reg': 'VD395'}))
     # Check that we get back what we just set
     assert historian.meta.get(ferrari_id) == {'reg': 'VD395'}
 
@@ -26,7 +26,7 @@ def test_metadata_simple(historian: mincepy.Historian):
 
 def test_metadata_using_object_instance(historian: mincepy.Historian):
     car = Car()
-    historian.save(car, with_meta={'reg': 'VD395'})
+    historian.save((car, {'reg': 'VD395'}))
     # Check that we get back what we just set
     assert historian.meta.get(car) == {'reg': 'VD395'}
 
@@ -43,7 +43,7 @@ def test_metadata_multiple(historian: mincepy.Historian):
     honda = Car('honda', 'white')
     zonda = Car('zonda', 'yellow')
 
-    historian.save(honda, zonda, with_meta=({'reg': 'H123'}, {'reg': 'Z456'}))
+    historian.save((honda, {'reg': 'H123'}), (zonda, {'reg': 'Z456'}))
 
     assert historian.meta.get(honda) == {'reg': 'H123'}
     assert historian.meta.get(zonda) == {'reg': 'Z456'}
@@ -52,12 +52,12 @@ def test_metadata_multiple(historian: mincepy.Historian):
 def test_metadata_wrong_type(historian: mincepy.Historian):
     honda = Car('honda', 'white')
     with pytest.raises(TypeError):
-        historian.save(honda, with_meta=['a', 'b'])
+        historian.save_one(honda, meta=['a', 'b'])
 
 
 def test_metadata_update(historian: mincepy.Historian):
     honda = Car('honda', 'white')
-    historian.save(honda, with_meta={'reg': 'H123', 'vin': 1234, 'owner': 'Mike'})
+    historian.save_one(honda, meta=dict(reg='H123', vin=1234, owner='Mike'))
     historian.meta.update(honda, {'vin': 5678, 'owner': 'Mart'})
     assert historian.meta.get(honda) == {'reg': 'H123', 'vin': 5678, 'owner': 'Mart'}
 
@@ -73,7 +73,7 @@ def test_metadata_update_inexistant(historian: mincepy.Historian):
 def test_metadata_find_objects(historian: mincepy.Historian):
     honda = Car('honda', 'white')
     honda2 = Car('honda', 'white')
-    historian.save(honda, with_meta={'reg': 'H123', 'vin': 1234})
+    historian.save_one(honda, meta={'reg': 'H123', 'vin': 1234})
     historian.save(honda2)
 
     results = list(historian.find(Car, meta={'reg': 'H123'}))
@@ -87,8 +87,8 @@ def test_stick_meta(historian: mincepy.Historian):
     car3 = Car()
 
     car1_id = car1.save()
-    car2_id = car2.save(with_meta={'for_sale': True})
-    car3_id = car3.save(with_meta={'owner': 'james'})
+    car2_id = car2.save(meta={'for_sale': True})
+    car3_id = car3.save(meta={'owner': 'james'})
     del car1, car2, car3
 
     assert historian.meta.get(car1_id) == {'owner': 'martin'}
@@ -104,8 +104,8 @@ def test_meta_sticky_children(historian: mincepy.Historian):
     historian.meta.sticky['owner'] = 'martin'
 
     garage_id = garage.save()
-    car0_id = garage[0].save(with_meta={'for_sale': True})
-    car1_id = garage[1].save(with_meta={'owner': 'james'})
+    car0_id = garage[0].save(meta={'for_sale': True})
+    car1_id = garage[1].save(meta={'owner': 'james'})
     del garage
 
     assert historian.meta.get(garage_id) == {'owner': 'martin'}
@@ -132,9 +132,9 @@ def test_metadata_find_object_regex(historian: mincepy.Historian):
     car2 = Car('honda', 'white')
     car3 = Car('honda', 'white')
 
-    car1.save(with_meta={'reg': 'VD395'})
-    car2.save(with_meta={'reg': 'VD574'})
-    car3.save(with_meta={'reg': 'BE368'})
+    car1.save(meta={'reg': 'VD395'})
+    car2.save(meta={'reg': 'VD574'})
+    car3.save(meta={'reg': 'BE368'})
 
     # Find all cars with a reg starting in VD
     results = tuple(historian.find(Car, meta={'reg': {'$regex': '^VD'}}))
@@ -149,9 +149,9 @@ def test_metadata_find(historian: mincepy.Historian):
     car2 = Car('honda', 'white')
     car3 = Car('honda', 'white')
 
-    car1.save(with_meta={'reg': 'VD395'})
-    car2.save(with_meta={'reg': 'VD574'})
-    car3.save(with_meta={'reg': 'BE368'})
+    car1.save(meta={'reg': 'VD395'})
+    car2.save(meta={'reg': 'VD574'})
+    car3.save(meta={'reg': 'BE368'})
 
     results = dict(historian.meta.find(filter=dict(reg={'$regex': '^VD'})))
     assert len(results) == 2

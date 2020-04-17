@@ -20,7 +20,7 @@ def test_get_ref_graph_simple(historian: mincepy.Historian):
 def test_get_ref_self_cycle(historian: mincepy.Historian):
     node = Cycle()
     node.ref = node  # Cycle complete
-    historian.save(node)
+    historian.save_one(node)
 
     node_ref = historian.get_snapshot_ref(node)
     ref_graphs = historian.archive.get_reference_graph((node_ref,))
