@@ -41,4 +41,10 @@ def exists(key) -> dict:
     return {key: {'$exists': True}}
 
 
+def gt(quantity) -> dict:
+    return {'$gt': quantity}
+
+
+gt_ = gt
+
 exists_ = exists

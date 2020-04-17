@@ -1,6 +1,5 @@
 from abc import ABCMeta, abstractmethod
 import datetime
-from typing import Optional
 import uuid
 
 try:  # Python3
@@ -63,59 +62,6 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
         super().__init__()
         mincepy.process.CreatorsRegistry.created(self)
 
-    @property
-    def obj_id(self):
-        if self._historian is None:
-            return None
-        return self._historian.get_obj_id(self)
-
-    def get_meta(self) -> Optional[dict]:
-        """Get the metadata dictionary for this object"""
-        if self._historian is None:
-            return None
-        return self._historian.meta.get(self)
-
-    def set_meta(self, meta: Optional[dict]):
-        """Set the metadata dictionary for this object"""
-        if self._historian is None:
-            raise RuntimeError("Object must be saved before the metadata can be set")
-
-        self._historian.meta.set(self, meta)
-
-    def update_meta(self, meta: dict):
-        """Update the metadata dictionary for this object"""
-        if self._historian is None:
-            raise RuntimeError("Object must be saved before the metadata can be updated")
-
-        self._historian.meta.update(self, meta)
-
-    def is_saved(self) -> bool:
-        """Returns True if this object is saved with a historian"""
-        if self._historian is not None:
-            return self._historian.is_saved(self)
-
-        return False
-
-    def save(self, meta: dict = None):
-        """Save the object"""
-        return mincepy.get_historian().save_one(self, meta=meta)
-
-    def sync(self):
-        """Update the state of this object by loading the latest version from the historian"""
-        if self._historian is not None:
-            self._historian.sync(self)
-
-    def save_instance_state(self, saver: depositors.Saver):
-        # Check if we've been assigned an object id, otherwise we're just being saved by value
-        if saver.get_historian().get_obj_id(self) is not None:
-            self._historian = saver.get_historian()
-        super(SavableObject, self).save_instance_state(saver)
-
-    def load_instance_state(self, saved_state, loader):
-        """Take the given object and load the instance state into it"""
-        super().load_instance_state(saved_state, loader)
-        self._historian = loader.get_historian()
-
 
 class Equator:
 
@@ -168,7 +114,7 @@ class Equator:
         return self._hasher(*self.yield_hashables(obj))
 
     def eq(self, obj1, obj2) -> bool:  # pylint: disable=invalid-name
-        if not type(obj1) == type(obj2):  # pylint: disable=unidiometic-typecheck
+        if not type(obj1) == type(obj2):  # pylint: disable=unidiomatic-typecheck
             return False
 
         try:

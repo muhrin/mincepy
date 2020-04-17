@@ -81,8 +81,8 @@ class SnapshotRef(typing.Generic[IdT]):
         return self._version
 
     def to_dict(self) -> dict:
-        """Convenience function to get a dictionary representation.
-        Can be passed to constructor as **kwargs"""
+        r"""Convenience function to get a dictionary representation.
+        Can be passed to constructor as \*\*kwargs"""
         return {'obj_id': self.obj_id, 'version': self.version}
 
 

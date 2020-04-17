@@ -13,7 +13,7 @@ class InvalidStateError(Exception):
     pass
 
 
-class FunctionCall(base_savable.BaseSavableObject):
+class FunctionCall(base_savable.SimpleSavable):
     TYPE_ID = uuid.UUID('dcacc483-c650-432e-b835-122f78e7a758')
     ATTRS = ('_function', '_args', '_kwargs', '_result', '_exception', '_done')
 

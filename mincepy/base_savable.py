@@ -1,10 +1,13 @@
 import collections
+from typing import Optional
 import typing
 
+import mincepy
+from . import depositors
 from . import refs
 from . import types
 
-__all__ = 'BaseSavableObject', 'AsRef'
+__all__ = 'BaseSavableObject', 'ConvenienceMixin', 'SimpleSavable', 'AsRef'
 
 AsRef = collections.namedtuple('AsRef', 'attr')
 
@@ -48,7 +51,6 @@ class BaseSavableObject(types.SavableObject):
         yield from hasher.yield_hashables([getattr(self, attr.name) for attr in self.__get_attrs()])
 
     def save_instance_state(self, _saver) -> dict:
-
         saved_state = {}
         for attr in self.__get_attrs():
             item = getattr(self, attr.name)
@@ -77,3 +79,71 @@ class BaseSavableObject(types.SavableObject):
 
     def __get_attrs(self) -> typing.Sequence[AttrSpec]:
         return getattr(self, '__attrs')
+
+
+class ConvenienceMixin:
+    """A mixin that adds convenience methods to your savable object"""
+
+    @property
+    def obj_id(self):
+        if self._historian is None:
+            return None
+        return self._historian.get_obj_id(self)
+
+    def get_meta(self) -> Optional[dict]:
+        """Get the metadata dictionary for this object"""
+        if self._historian is None:
+            return None
+        return self._historian.meta.get(self)
+
+    def set_meta(self, meta: Optional[dict]):
+        """Set the metadata dictionary for this object"""
+        if self._historian is None:
+            raise RuntimeError("Object must be saved before the metadata can be set")
+
+        self._historian.meta.set(self, meta)
+
+    def update_meta(self, meta: dict):
+        """Update the metadata dictionary for this object"""
+        if self._historian is None:
+            raise RuntimeError("Object must be saved before the metadata can be updated")
+
+        self._historian.meta.update(self, meta)
+
+    def is_saved(self) -> bool:
+        """Returns True if this object is saved with a historian"""
+        if self._historian is not None:
+            return self._historian.is_saved(self)
+
+        return False
+
+    def save(self, meta: dict = None):
+        """Save the object"""
+        return mincepy.get_historian().save_one(self, meta=meta)
+
+    def sync(self):
+        """Update the state of this object by loading the latest version from the historian"""
+        if self._historian is not None:
+            self._historian.sync(self)
+
+    def save_instance_state(self, saver: depositors.Saver):
+        self._on_save(saver)
+        return super().save_instance_state(saver)
+
+    def load_instance_state(self, saved_state, loader: depositors.Loader):
+        """Take the given object and load the instance state into it"""
+        super().load_instance_state(saved_state, loader)
+        self._on_load(loader)
+
+    def _on_save(self, saver: depositors.Saver):
+        # Check if we've been assigned an object id, otherwise we're just being saved by value
+        if saver.get_historian().get_obj_id(self) is not None:
+            self._historian = saver.get_historian()
+
+    def _on_load(self, loader: depositors.Loader):
+        if loader.get_historian().get_obj_id(self) is not None:
+            self._historian = loader.get_historian()
+
+
+class SimpleSavable(ConvenienceMixin, BaseSavableObject):
+    """A BaseSavableObject with convenience methods mixed in"""

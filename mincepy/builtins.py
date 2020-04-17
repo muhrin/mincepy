@@ -16,7 +16,7 @@ __all__ = ('List', 'LiveList', 'LiveRefList', 'RefList', 'Str', 'Dict', 'RefDict
            'LiveRefDict', 'BaseFile', 'File')
 
 
-class _UserType(base_savable.BaseSavableObject, metaclass=ABCMeta):
+class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
     """Mixin for helping user types to be compatible with the historian.
     These typically have a .data member that stores the actual data (list, dict, str, etc)"""
     ATTRS = ('data',)
@@ -31,6 +31,7 @@ class _UserType(base_savable.BaseSavableObject, metaclass=ABCMeta):
         # easier to search these types
         if self.DATA_TYPE is not None and \
                 issubclass(self.DATA_TYPE, saver.get_historian().primitives):
+            self._on_save(saver)  # Call this here are we aren't going to call up the hierarchy
             return self.data
 
         return super().save_instance_state(saver)
@@ -39,9 +40,7 @@ class _UserType(base_savable.BaseSavableObject, metaclass=ABCMeta):
         # See save_instance_state
         if self.DATA_TYPE is not None and \
                 issubclass(self.DATA_TYPE, loader.get_historian().primitives):
-            # Skip over BaseSavable's load_instance_state because it will try to get the data field
-            # from the saved_state dictionary
-            super(base_savable.BaseSavableObject, self).load_instance_state(saved_state, loader)
+            self._on_load(loader)  # Call this here are we aren't going to call up the hierarchy
             self.data = saved_state
         else:
             super(_UserType, self).load_instance_state(saved_state, loader)
@@ -74,7 +73,7 @@ class Str(collections.UserString, _UserType):
 class Reffer:
     """Mixin for types that want to be able to create references non-primitive types"""
 
-    # pylint: too-few-public-methods, no-self-use
+    # pylint: disable=too-few-public-methods, no-self-use
 
     def _ref(self, obj):
         """Create a reference for a non-primitive, otherwise use the value"""
@@ -181,7 +180,7 @@ class LiveList(collections.abc.MutableSequence, _UserType):
         proxy = self._create_proxy(value)
         self.data.append(proxy)
 
-    def _create_proxy(self, obj):
+    def _create_proxy(self, obj):  # pylint: disable=no-self-use
         return ObjProxy(obj)
 
 
@@ -295,7 +294,7 @@ class LiveDict(collections.MutableMapping, _UserType):
     def __len__(self):
         return len(self.data)
 
-    def _create_proxy(self, value):
+    def _create_proxy(self, value):  # pylint: disable=no-self-use
         return ObjProxy(value)
 
 
@@ -337,7 +336,7 @@ class LiveRefDict(Reffer, LiveDict):
 # endregion
 
 
-class File(base_savable.BaseSavableObject, metaclass=ABCMeta):
+class File(base_savable.SimpleSavable, metaclass=ABCMeta):
     ATTRS = ('_filename', '_encoding')
     READ_SIZE = 256  # The number of bytes to read at a time
 

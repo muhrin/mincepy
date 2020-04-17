@@ -28,7 +28,7 @@ def historian(mongodb_archive):
     mincepy.set_historian(None)
 
 
-class Car(mincepy.BaseSavableObject):
+class Car(mincepy.SimpleSavable):
     TYPE_ID = bson.ObjectId('5e075d6244572f823ed93274')
     ATTRS = 'colour', 'make'
 
@@ -38,7 +38,7 @@ class Car(mincepy.BaseSavableObject):
         self.colour = colour
 
 
-class Garage(mincepy.BaseSavableObject):
+class Garage(mincepy.SimpleSavable):
     TYPE_ID = bson.ObjectId('5e07b40a44572f823ed9327b')
     ATTRS = ('car',)
 
@@ -47,7 +47,7 @@ class Garage(mincepy.BaseSavableObject):
         self.car = car
 
 
-class Person(mincepy.BaseSavableObject):
+class Person(mincepy.SimpleSavable):
     TYPE_ID = uuid.UUID('d60ca740-9fa6-4002-83f6-e4c91403e41b')
     ATTRS = 'name', 'age'
 
@@ -60,7 +60,7 @@ class Person(mincepy.BaseSavableObject):
         return self.name == other.name and self.age == other.age
 
 
-class Cycle(mincepy.BaseSavableObject):
+class Cycle(mincepy.SimpleSavable):
     TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
     ATTRS = ('_ref',)
 

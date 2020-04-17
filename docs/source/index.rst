@@ -6,6 +6,11 @@
 .. _mincePy: https://github.com/muhrin/mincepy
 .. _object-relational mapper: https://en.wikipedia.org/wiki/Object-relational_mapping
 .. _data mapper pattern: https://en.wikipedia.org/wiki/Data_mapper_pattern
+.. _gui: https://github.com/muhrin/mincepy_gui/
+.. _store: examples/quick-start.ipynb#Storing-objects
+.. _find: examples/quick-start.ipynb#Finding-objects
+.. _annotate: examples/quick-start.ipynb#Annotating-objects
+.. _history: examples/quick-start.ipynb#Version-control
 
 
 Welcome to mincePy's documentation!
@@ -36,8 +41,8 @@ Welcome to mincePy's documentation!
 `mincePy`_: move the database to one side and let your objects take centre stage.
 
 MincePy is an `object-relational mapper`_ (ORM) using the `data mapper pattern`_ designed specifically for computational
-and data science.  What does this all mean??  It's simple really, it means you can store, find, get the history of and
-annotate any of your python objects either in your local database or one shared with your collaborators.
+and data science.  What does this all mean??  It's simple really, it means you can `store`_, `find`_, get the `history`_
+of and `annotate`_ any of your python objects either in your local database or one shared with your collaborators.
 
 Features
 ++++++++
@@ -49,6 +54,7 @@ Features
 * Live references between objects.
 * Optimistic locking.
 * Python 3.5+ compatible.
+* A responsive, Qt, `gui`_.
 
 
 Installation
@@ -72,6 +78,16 @@ Installation from git:
     git clone https://github.com/muhrin/mincepy.git
     cd mincepy
     python setup.py install
+
+
+Next you'll need MongoDB, in Ubuntu it's as simple as:
+
+
+.. code-block:: shell
+
+    apt install mongodb
+
+see `here <https://docs.mongodb.com/manual/administration/install-community/>`_, for other platforms.
 
 
 Development
@@ -104,6 +120,7 @@ Table Of Contents
    :glob:
    :maxdepth: 3
 
+   examples/quick-start.ipynb
    apidoc
 
 

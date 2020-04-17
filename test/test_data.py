@@ -258,7 +258,7 @@ def test_user_info(historian: mincepy.Historian):
 
 def test_save_as_ref(historian: mincepy.Historian):
 
-    class Person(mincepy.BaseSavableObject):
+    class Person(mincepy.SimpleSavable):
         TYPE_ID = uuid.UUID('692429b6-a08b-489a-aa09-6eb3174b6405')
         ATTRS = (mincepy.AsRef('car'),)  # Save the car by reference
 
@@ -280,7 +280,7 @@ def test_save_as_ref(historian: mincepy.Historian):
 
 def test_encode_nested(historian: mincepy.Historian):
 
-    class CarDelegate(mincepy.BaseSavableObject):
+    class CarDelegate(mincepy.SimpleSavable):
         TYPE_ID = uuid.UUID('c0148a43-c0c0-4d2b-9262-ed1c8c6ab2fc')
         ATTRS = ('car',)
 

@@ -442,10 +442,11 @@ class Historian:
         """
         This call will try and get an object id from the passed parameter.  There are three
         possibilities:
-            1. Passed an object ID in which case it will be returned unchanged
-            2. Passed a live object instance, in which case the id of that object will be returned
-            3. Passed a type that can be understood by the archive as an object id e.g. a string of
-               version, in which case the archive will attempt to convert it
+
+        1. Passed an object ID in which case it will be returned unchanged
+        2. Passed a live object instance, in which case the id of that object will be returned
+        3. Passed a type that can be understood by the archive as an object id e.g. a string of
+           version, in which case the archive will attempt to convert it
 
         Returns None if neither of these cases were True.
         """
@@ -540,7 +541,30 @@ class Historian:
              sort=None,
              limit=0,
              skip=0) -> Iterator[Any]:
-        """Find objects
+        """
+        .. _MongoDB: https://docs.mongodb.com/manual/tutorial/query-documents/
+
+        Find objects.  This call will search the archive for objects matching the given criteria.
+        In many cases the main arguments of interest will be `state` and `meta` which allow you to
+        apply filters on the stored state of the object and metadata respectively.  To understand
+        how the state is stored in the database (and therefore how to apply filters to it) it may
+        be necessary to look at the details of the `save_instance_state()` method for that type.
+        Metadata is always a dictionary containing primitives (strings, dicts, lists, etc).
+
+        For the most part, the filter syntax of `mincepy` conforms to that of `MongoDB`_ with
+        convenience functions locate in :py:mod:`mincepy.qops` that can make it easier to
+        to build a query.
+
+        Examples:
+
+        Find all :py:class:`~mincepy.testing.Car`s that are brown or red:
+
+        >>> from mincepy import qops
+        >>> historian.find(state=dict(colour=qops.in_('brown', 'red')))
+
+        Find all people that are older than 34 and live in Edinburgh:
+
+        >>> historian.find(state=dict(age=qops.gt(34)), meta=dict(city='Edinburgh'))
 
         :param obj_type: the object type to look for
         :param obj_id: an object or multiple object ids to look for
@@ -551,7 +575,6 @@ class Historian:
         :param sort: the sort criteria
         :param limit: the maximum number of results to return, 0 means unlimited
         :param skip: the page to get results from
-        :param as_objects: if True returns the live object instances, False returns the DataRecords
         """
         # pylint: disable=too-many-arguments
         results = self.find_records(obj_type=obj_type,

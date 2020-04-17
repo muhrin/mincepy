@@ -19,7 +19,7 @@ def track(func):
     return wrapper
 
 
-class Process(base_savable.BaseSavableObject):
+class Process(base_savable.SimpleSavable):
     TYPE_ID = uuid.UUID('bcf03171-a1f1-49c7-b890-b7f9d9f9e5a2')
     STACK = []
     ATTRS = '_name', '_running'
