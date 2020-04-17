@@ -18,14 +18,17 @@ def archive_uri():
 
 
 def create_default_historian():
+    """Create a default historian using the current `archive_uri()`"""
     uri = archive_uri()
     if uri:
-        return archive_factory.historian(uri)
+        return archive_factory.create_historian(uri)
 
     return None
 
 
 def get_historian() -> historians.Historian:
+    """Get the currently set global historian.  If one doesn't exist create_default_historian will
+    be called to try and make a new one"""
     global CURRENT_HISTORIAN  # pylint: disable=global-statement
     if CURRENT_HISTORIAN is None:
         # Try creating a new one
@@ -35,6 +38,9 @@ def get_historian() -> historians.Historian:
 
 
 def set_historian(new_historian: Optional[historians.Historian], apply_plugins=True):
+    """Set the current global historian.  Optionally load all plugins.
+    To reset the historian pass None.
+    """
     global CURRENT_HISTORIAN  # pylint: disable=global-statement
     CURRENT_HISTORIAN = new_historian
     if new_historian is not None and apply_plugins:

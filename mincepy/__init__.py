@@ -14,7 +14,6 @@ from .records import *
 from .refs import *
 from .types import *
 from .version import *
-from . import analysis
 from . import builtins
 from . import common_helpers
 from . import mongo
