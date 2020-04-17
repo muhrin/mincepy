@@ -66,12 +66,12 @@ def test_meta_set_update_many(historian: mincepy.Historian):
     car1id, car2id = historian.save(car1, car2)
     historian.archive.meta_set_many({car1id: {'reg': 'car1'}, car2id: {'reg': 'car2'}})
 
-    results = historian.archive.meta_get((car1id, car2id))
+    results = historian.archive.meta_get_many((car1id, car2id))
     assert results == {car1id: {'reg': 'car1'}, car2id: {'reg': 'car2'}}
 
     historian.archive.meta_update_many({car1id: {'colour': 'red'}, car2id: {'reg': 'car2updated'}})
 
-    metas = historian.archive.meta_get((car1id, car2id))
+    metas = historian.archive.meta_get_many((car1id, car2id))
     assert metas == {car1id: {'reg': 'car1', 'colour': 'red'}, car2id: {'reg': 'car2updated'}}
 
 
@@ -92,7 +92,7 @@ def test_meta_update_many(historian: mincepy.Historian):
     car1id, car2id = historian.save(car1, car2)
     historian.archive.meta_set_many({car1id: {'reg': 'car1'}, car2id: {'reg': 'car2'}})
 
-    results = historian.archive.meta_get((car1id, car2id))
+    results = historian.archive.meta_get_many((car1id, car2id))
     assert results[car1id] == {'reg': 'car1'}
     assert results[car2id] == {'reg': 'car2'}
 

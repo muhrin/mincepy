@@ -43,6 +43,10 @@ class ObjectIdHelper(mincepy.TypeHelper):
 
 
 class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
+    """MongoDB implementation of the mincepy archive"""
+    
+    # pylint: disable=too-many-public-methods
+
     ID_TYPE = bson.ObjectId
     SnapshotRef = mincepy.SnapshotRef[bson.ObjectId]
 
@@ -73,7 +77,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def _create_indices(self):
         # Create all the necessary indexes
         self._data_collection.create_index([(db.KEY_MAP[mincepy.OBJ_ID], pymongo.ASCENDING),
-                                            (db.KEY_MAP[mincepy.VERSION], pymongo.ASCENDING)],)
+                                            (db.KEY_MAP[mincepy.VERSION], pymongo.ASCENDING)], )
 
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
@@ -129,19 +133,6 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     # region Meta
 
     def meta_get(self, obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]]):
-        # Project away the things that are internal to this archive
-        if isinstance(obj_id, Sequence):
-            # Find multiple
-            for entry in obj_id:
-                if not isinstance(entry, bson.ObjectId):
-                    raise TypeError("Must pass an ObjectId, got {}".format(obj_id))
-
-            cur = self._meta_collection.find({'_id': qops.in_(*obj_id)})
-            results = {oid: None for oid in obj_id}
-            for found in cur:
-                results[found.pop('_id')] = found
-            return results
-
         # Single obj id
         if not isinstance(obj_id, bson.ObjectId):
             raise TypeError("Must pass an ObjectId, got {}".format(obj_id))
@@ -150,6 +141,19 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             return found
         found.pop('_id')
         return found
+
+    def meta_get_many(self, obj_ids: Iterable[bson.ObjectId]) -> Dict[bson.ObjectId, dict]:
+        # Find multiple
+        for obj_id in obj_ids:
+            if not isinstance(obj_id, bson.ObjectId):
+                raise TypeError("Must pass an ObjectId, got {}".format(obj_id))
+
+        cur = self._meta_collection.find({'_id': qops.in_(*obj_ids)})
+        results = {oid: None for oid in obj_ids}
+        for found in cur:
+            results[found.pop('_id')] = found
+
+        return results
 
     def meta_set(self, obj_id, meta):
         if meta:
@@ -164,7 +168,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             # Just remove the meta entry outright
             self._meta_collection.delete_one({'_id': obj_id})
 
-    def meta_set_many(self, metas: Mapping[bson.ObjectId, dict]):
+    def meta_set_many(self, metas: Mapping[bson.ObjectId, Optional[dict]]):
         documents = []
         for obj_id, meta in metas.items():
             meta = dict(meta)
@@ -183,9 +187,9 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             raise mincepy.DuplicateKeyError(str(exc))
 
     def meta_find(
-        self,
-        filter: dict,  # pylint: disable=redefined-builtin
-        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None
+            self,
+            filter: dict,  # pylint: disable=redefined-builtin
+            obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None
     ) -> Iterator[Tuple[bson.ObjectId, Dict]]:
         match = dict(filter)
         if obj_id is not None:

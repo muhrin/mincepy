@@ -1,6 +1,6 @@
 import abc
 from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Iterable, Dict, \
-    Iterator, Any, Type
+    Iterator, Any, Type, Optional
 
 from . import qops
 from .records import DataRecord, SnapshotRef
@@ -17,6 +17,8 @@ DESCENDING = -1
 class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     """An archive provides the persistent storage for the historian.  It is responsible for storing,
     searching and loading data records and their metadata."""
+
+    # pylint: disable=too-many-public-methods
 
     RefEdge = NamedTuple('RefEdge', [('source', SnapshotRef[IdT]), ('target', SnapshotRef[IdT])])
     RefGraph = Iterable[RefEdge]
@@ -60,17 +62,20 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     # region Metadata
 
     @abc.abstractmethod
-    def meta_get(self, obj_id: Union[IdT, Iterable[IdT]]):
-        """Get the metadata for one or more objects.  Accepts either a single object id or
-        multiple.  If a single is passed then the metadata dictionary (or None) is returned
-        directly otherwise a mapping of object id to metadata dictionary is returned."""
+    def meta_get(self, obj_id: IdT) -> Optional[dict]:
+        """Get the metadata for an objects."""
 
     @abc.abstractmethod
-    def meta_set(self, obj_id: IdT, meta: Mapping):
+    def meta_get_many(self, obj_ids: Iterable[IdT]) -> Dict:
+        """Get the metadata for multiple objects.  Returns a dictionary mapping the object id to
+        the metadata dictionary"""
+
+    @abc.abstractmethod
+    def meta_set(self, obj_id: IdT, meta: Optional[Mapping]):
         """Set the metadata on on the object with the corresponding id"""
 
     @abc.abstractmethod
-    def meta_set_many(self, metas: Mapping[IdT, dict]):
+    def meta_set_many(self, metas: Mapping[IdT, Optional[Mapping]]):
         """Set the metadata on multiple objects.  This method expects to get multiple tuples
         containing the object id and corresponding metadata"""
 
@@ -194,11 +199,17 @@ class BaseArchive(Archive[IdT]):
         for record in records:
             self.save(record)
 
-    def meta_update_many(self, metas: Mapping[IdT, dict]):
+    def meta_get_many(self, obj_ids: Iterable[IdT]) -> Dict[IdT, dict]:
+        metas = {}
+        for obj_id in obj_ids:
+            metas[obj_id] = self.meta_get(obj_id)
+        return metas
+
+    def meta_update_many(self, metas: Mapping[IdT, Mapping]):
         for entry in metas.items():
             self.meta_update(*entry)
 
-    def meta_set_many(self, metas: Mapping[IdT, dict]):
+    def meta_set_many(self, metas: Mapping[IdT, Mapping]):
         for entry in metas.items():
             self.meta_set(*entry)
 

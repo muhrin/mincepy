@@ -5,7 +5,7 @@ import getpass
 import logging
 import socket
 import typing
-from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union, Iterator
+from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union, Iterator, Dict
 import weakref
 
 from . import archives
@@ -33,8 +33,10 @@ HistorianType = Union[helpers.TypeHelper, typing.Type[types.SavableObject]]
 class Meta:
     """A class for grouping metadata related methods"""
 
+    # Meta is a 'friend' of Historian and so can access privates pylint: disable=protected-access
+
     def __init__(self, historian):
-        self._historian = historian
+        self._hist = historian  # type: 'Historian'
         self._sticky = {}
 
     @property
@@ -46,7 +48,37 @@ class Meta:
 
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         """
-        return self._historian.get_meta(obj_or_identifier)
+        results = self.get_many((obj_or_identifier,))
+        assert len(results) == 1
+        return tuple(results.values())[0]
+
+    def get_many(self, obj_or_identifiers) -> Dict[Any, dict]:
+        obj_ids = set(
+            self._hist._ensure_obj_id(obj_or_identifier)
+            for obj_or_identifier in obj_or_identifiers)
+        trans = self._hist.current_transaction()
+        if trans:
+            # First, get what we can from the archive
+            found = {}
+            for obj_id in obj_ids:
+                try:
+                    found[obj_id] = trans.get_meta(obj_id)
+                except exceptions.NotFound:
+                    pass
+
+            # Now get anything else from the archive
+            obj_ids -= found.keys()
+            if obj_ids:
+                from_archive = self._hist.archive.meta_get_many(obj_ids)
+                # Now put into the transaction so it doesn't look it up again.
+                for obj_id in obj_ids:
+                    trans.set_meta(obj_id, from_archive[obj_id])
+                found.update(from_archive)
+
+            return found
+
+        # No transaction
+        return self._hist.archive.meta_get_many(obj_ids)
 
     def set(self, obj_or_identifier, meta: Optional[Mapping]):
         """Set the metadata for an object
@@ -54,7 +86,21 @@ class Meta:
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         :param meta: the metadata dictionary
         """
-        return self._historian.set_meta(obj_or_identifier, meta)
+        obj_id = self._hist._ensure_obj_id(obj_or_identifier)
+        trans = self._hist.current_transaction()
+        if trans:
+            return trans.set_meta(obj_id, meta)
+
+        return self._hist.archive.meta_set(obj_id, meta)
+
+    def set_many(self, metas: Mapping[Any, Optional[dict]]):
+        mapped = {self._hist._ensure_obj_id(ident): meta for ident, meta in metas.items()}
+        trans = self._hist.current_transaction()
+        if trans:
+            for entry in mapped.items():
+                trans.set_meta(*entry)
+        else:
+            self._hist.archive.meta_set_many(mapped)
 
     def update(self, obj_or_identifier, meta: Mapping):
         """Update the metadata for an object
@@ -62,12 +108,35 @@ class Meta:
         :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
         :param meta: the metadata dictionary
         """
-        return self._historian.update_meta(obj_or_identifier, meta)
+        obj_id = self._hist._ensure_obj_id(obj_or_identifier)
+        trans = self._hist.current_transaction()
+        if trans:
+            # Update the metadata in the transaction
+            try:
+                current = trans.get_meta(obj_id)
+            except exceptions.NotFound:
+                current = self._hist.archive.meta_get(obj_id)  # Try the archive
+                if current is None:
+                    current = {}  # Ok, no meta
 
-    def find(self, filter, obj_ids=None):  # pylint: disable=redefined-builtin
+            current.update(meta)
+            trans.set_meta(obj_id, current)
+        else:
+            self._hist.archive.meta_update(obj_id, meta)
+
+    def update_many(self, metas: Mapping[Any, Optional[dict]]):
+        mapped = {self._hist._ensure_obj_id(ident): meta for ident, meta in metas.items()}
+        trans = self._hist.current_transaction()
+        if trans:
+            for entry in mapped.items():
+                self.update(*entry)
+        else:
+            self._hist.archive.meta_update_many(mapped)
+
+    def find(self, filter, obj_id=None):  # pylint: disable=redefined-builtin
         """Find metadata matching the given criteria.  Ever returned metadata dictionary will
         contain an 'obj_id' key which identifies the object it belongs to"""
-        return self._historian.archive.meta_find(filter=filter, obj_id=obj_ids)
+        return self._hist.archive.meta_find(filter=filter, obj_id=obj_id)
 
     def create_index(self, keys, unique=False, where_exist=False):
         """Create an index on the metadata.  Takes either a single key or list of (key, direction)
@@ -77,7 +146,7 @@ class Meta:
          :param unique: if True, create a uniqueness constraint on this index
          :param where_exist: if True, only apply this index on documents that contain the key(s)
          """
-        self._historian.archive.meta_create_index(keys, unique=unique, where_exist=where_exist)
+        self._hist.archive.meta_create_index(keys, unique=unique, where_exist=where_exist)
 
 
 class Historian:
@@ -319,67 +388,10 @@ class Historian:
 
         return [self._archive.load(ref) for ref in to_get]
 
-    # region Metadata
-
     @property
-    def meta(self):
+    def meta(self) -> Meta:
+        """Access to functions that operate on the metadata"""
         return self._meta
-
-    def get_meta(self, obj_or_identifier) -> dict:
-        """Get the metadata for an object
-
-        :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
-        """
-        obj_id = self._ensure_obj_id(obj_or_identifier)
-        trans = self.current_transaction()
-        if trans:
-            try:
-                return trans.get_meta(obj_id)
-            except exceptions.NotFound:
-                current = self._archive.meta_get(obj_id)  # Try the archive
-                if current is None:
-                    current = {}  # Ok, no meta
-                trans.set_meta(obj_id, current)  # Cache the meta in the transaction
-                return current
-        else:
-            return self.archive.meta_get(obj_id)
-
-    def set_meta(self, obj_or_identifier, meta: Optional[Mapping]):
-        """Set the metadata for an object
-
-        :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
-        :param meta: the metadata dictionary
-        """
-        obj_id = self._ensure_obj_id(obj_or_identifier)
-        trans = self.current_transaction()
-        if trans:
-            return trans.set_meta(obj_id, meta)
-
-        return self.archive.meta_set(obj_id, meta)
-
-    def update_meta(self, obj_or_identifier, meta: Mapping):
-        """Update the metadata for an object
-
-        :param obj_or_identifier: either the object instance, an object ID or a snapshot reference
-        :param meta: the metadata dictionary
-        """
-        obj_id = self._ensure_obj_id(obj_or_identifier)
-        trans = self.current_transaction()
-        if trans:
-            # Update the metadata in the transaction
-            try:
-                current = trans.get_meta(obj_id)
-            except exceptions.NotFound:
-                current = self._archive.meta_get(obj_id)  # Try the archive
-                if current is None:
-                    current = {}  # Ok, no meta
-
-            current.update(meta)
-            trans.set_meta(obj_id, current)
-        else:
-            self.archive.meta_update(obj_id, meta)
-
-    # endregion
 
     def get_current_record(self, obj) -> records.DataRecord:
         """Get a record for an object known to the historian"""

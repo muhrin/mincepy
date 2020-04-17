@@ -120,11 +120,11 @@ def test_meta_transaction(historian: mincepy.Historian):
     with historian.transaction():
         car1.save()
         with historian.transaction() as trans:
-            historian.set_meta(car1.obj_id, {'spurious': True})
-            assert historian.get_meta(car1.obj_id) == {'spurious': True}
+            historian.meta.set(car1.obj_id, {'spurious': True})
+            assert historian.meta.get(car1.obj_id) == {'spurious': True}
             trans.rollback()
-        assert not historian.get_meta(car1)
-    assert not historian.get_meta(car1)
+        assert not historian.meta.get(car1)
+    assert not historian.meta.get(car1)
 
 
 def test_metadata_find_object_regex(historian: mincepy.Historian):

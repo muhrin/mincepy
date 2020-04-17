@@ -6,12 +6,13 @@ from . import historians
 __all__ = 'create_archive', 'create_historian'
 
 from . import plugins
-from . import mongo
 
 
 def create_archive(uri: str):
     """Create an archive type based on a uri string"""
     if uri.startswith('mongodb'):
+        from . import mongo  # pylint: disable=import-outside-toplevel
+
         # Format is:
         # mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
         parsed = pymongo.uri_parser.parse_uri(uri)
