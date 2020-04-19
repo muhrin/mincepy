@@ -27,3 +27,17 @@ script:
 after_success:
   - coverage report
   - codecov
+
+jobs:
+  include:
+    - stage: docs-test
+      python: 3.6
+      addons:
+        apt:
+          packages:
+            - pandoc
+      install:
+        - pip install .[rmq,dev,docs]
+        - pip install flake8
+      script:
+        - sphinx-build -nT -b dummy docs/source docs/build/html
