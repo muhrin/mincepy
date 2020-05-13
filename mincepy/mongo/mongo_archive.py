@@ -12,6 +12,8 @@ import mincepy
 import mincepy.records
 from mincepy import qops
 
+from . import migrate
+from . import migrations
 from . import files
 from . import db
 from . import references
@@ -59,6 +61,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     def __init__(self, database: pymongo.database.Database):
         self._database = database
+        migrate.ensure_up_to_date(database, migrations.LATEST)
+
         self._data_collection = database[self.DATA_COLLECTION]
         self._history_collection = database[self.HISTORY_COLLECTION]
         self._meta_collection = database[self.META_COLLECTION]
@@ -137,7 +141,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         # Now update the live objects collection
         if bulk_ops:
-            self._data_collection.bulk_write(bulk_ops)
+            self._data_collection.bulk_write(bulk_ops, ordered=False)
         # Remove any metadata
         if to_delete:
             self._meta_collection.delete_many({'_id': qops.in_(*to_delete)})

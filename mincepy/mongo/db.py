@@ -5,6 +5,9 @@ import bson
 
 import mincepy.records
 
+SETTINGS_COLLECTION = 'settings'
+GLOBAL_SETTINGS = 'global'
+
 # region Data collection
 OBJ_ID = 'obj_id'
 VERSION = 'ver'
@@ -30,6 +33,8 @@ KEY_MAP = bidict({
     mincepy.records.SNAPSHOT_TIME: SNAPSHOT_TIME,
     mincepy.records.EXTRAS: EXTRAS,
 })
+
+# endregion
 
 
 def to_record(entry) -> mincepy.DataRecord:
@@ -82,6 +87,3 @@ def sref_from_dict(record: dict):
 def sref_from_str(sref_str: str):
     parts = sref_str.split('#')
     return mincepy.SnapshotRef(bson.ObjectId(parts[0]), int(parts[1]))
-
-
-# endregion

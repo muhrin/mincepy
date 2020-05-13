@@ -38,7 +38,7 @@ def test_benchmark_insertions_transaction(historian: mincepy.Historian, benchmar
     benchmark(insert_cars, historian, in_transaction=True)
 
 
-@pytest.mark.parametrize("num", [10 ** i for i in range(5)])
+@pytest.mark.parametrize("num", [10**i for i in range(5)])
 def test_find_cars(historian: mincepy.Historian, benchmark, num):
     """Test finding a car as a function of the number of entries in the database"""
     # Put in the one we want to find

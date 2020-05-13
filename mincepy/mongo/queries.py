@@ -5,14 +5,17 @@ from . import db
 def pipeline_latest_version(data_collection: str) -> list:
     """Returns a pipeline that will take the incoming data record documents and for each one find
     the latest version."""
+    oid_var = '${}'.format(db.OBJ_ID)
+    ver_var = '${}'.format(db.VERSION)
+
     pipeline = []
     pipeline.extend([
         # Group by object id the maximum version
         {
             '$group': {
-                '_id': "${}".format(db.OBJ_ID),
+                '_id': oid_var,
                 'max_ver': {
-                    '$max': '${}'.format(db.VERSION)
+                    '$max': ver_var
                 }
             }
         },
@@ -26,10 +29,12 @@ def pipeline_latest_version(data_collection: str) -> list:
                 },
                 'pipeline': [{
                     '$match': {
-                        '$expr': qops.eq_('$_id', {
-                            'oid': '$$obj_id',
-                            'v': '$$max_ver'
-                        })
+                        '$expr':
+                            qops.and_(*[
+                                # Match object id and version
+                                qops.eq_(oid_var, '$$obj_id'),
+                                qops.eq_(ver_var, '$$max_ver')
+                            ]),
                     }
                 }],
                 'as': 'latest'
