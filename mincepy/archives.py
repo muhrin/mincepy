@@ -1,6 +1,6 @@
 import abc
 from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Iterable, Dict, \
-    Iterator, Any, Type, Optional
+    Iterator, Any, Type, Optional  # pylint: disable=unused-import
 
 from . import qops
 from .records import DataRecord, SnapshotRef
@@ -138,7 +138,6 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
              copied_from=None,
              version=-1,
              state=None,
-             deleted=True,
              snapshot_hash=None,
              meta=None,
              limit=0,
@@ -151,7 +150,6 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         :param copied_from: find records copied from the record with the given id
         :param version: find records with this version, -1 for latest
         :param state: find objects with this state filter
-        :param deleted: if True, find deleted records too
         :param snapshot_hash: find objects with this snapshot hash
         :param meta: find objects with this meta filter
         :param limit: limit the results to this many records

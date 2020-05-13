@@ -158,3 +158,18 @@ def test_metadata_find(historian: mincepy.Historian):
     ids = results.keys()
     assert car1.obj_id in ids
     assert car2.obj_id in ids
+
+
+def test_meta_delete(historian: mincepy.Historian):
+    """Test that when an object is delete so is its metadata"""
+    car = Car()
+    car_id = car.save(meta={'reg': '1234'})
+    results = dict(historian.meta.get(car))
+    assert results == {'reg': '1234'}
+
+    historian.delete(car)
+
+    assert historian.meta.get(car_id) is None
+
+    results = tuple(historian.meta.find({}, obj_id=car_id))
+    assert len(results) == 0

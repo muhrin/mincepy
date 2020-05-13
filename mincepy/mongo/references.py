@@ -10,17 +10,18 @@ from . import db
 class ReferenceManager:
 
     def __init__(self, ref_collection: pymongo.collection.Collection,
-                 data_collection: pymongo.collection.Collection):
+                 data_collection: pymongo.collection.Collection,
+                 history_collection: pymongo.collection.Collection):
         self._references = ref_collection
         self._data_collection = data_collection
+        self._history_collection = history_collection
 
     def get_reference_graphs(self, srefs: Sequence[mincepy.SnapshotRef]):
         self._ensure_current()
 
-        ids = tuple(db.to_id_dict(sref) for sref in srefs)
         pipeline = [{
             '$match': {
-                '_id': qops.in_(*ids)
+                '_id': qops.in_(*map(str, srefs))
             }
         }, {
             '$graphLookup': {
@@ -38,7 +39,7 @@ class ReferenceManager:
             # Do the first entry as special case
             my_id = result['_id']
             for neighbour_id in result['refs']:
-                edge_list.append((db.to_sref(my_id), db.to_sref(neighbour_id)))
+                edge_list.append((db.sref_from_str(my_id), db.sref_from_str(neighbour_id)))
             for entry in result['references']:
                 entry_id = entry['_id']
                 if entry_id == my_id:
@@ -46,7 +47,7 @@ class ReferenceManager:
                     continue
 
                 for neighbour_id in entry['refs']:
-                    edge_list.append((db.to_sref(entry_id), db.to_sref(neighbour_id)))
+                    edge_list.append((db.sref_from_str(entry_id), db.sref_from_str(neighbour_id)))
             if edge_list:
                 edge_lists.append(edge_list)
 
@@ -69,7 +70,7 @@ class ReferenceManager:
             }
         }]
 
-        cur = self._data_collection.aggregate(pipeline)
+        cur = self._history_collection.aggregate(pipeline)
         to_insert = []
         for data_entry in cur:
             ref_entry = _generate_ref_entry(data_entry)
@@ -81,5 +82,5 @@ class ReferenceManager:
 
 
 def _generate_ref_entry(data_entry: dict) -> dict:
-    refs = [db.to_id_dict(info[1]) for info in db.to_record(data_entry).get_references()]
+    refs = [str(info[1]) for info in db.to_record(data_entry).get_references()]
     return {'refs': refs}

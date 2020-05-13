@@ -50,6 +50,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     SnapshotRef = mincepy.SnapshotRef[bson.ObjectId]
 
     DATA_COLLECTION = 'data'
+    HISTORY_COLLECTION = 'history'
     META_COLLECTION = 'meta'
 
     @classmethod
@@ -59,10 +60,12 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def __init__(self, database: pymongo.database.Database):
         self._database = database
         self._data_collection = database[self.DATA_COLLECTION]
+        self._history_collection = database[self.HISTORY_COLLECTION]
         self._meta_collection = database[self.META_COLLECTION]
         self._file_bucket = gridfs.GridFSBucket(database)
         self._refman = references.ReferenceManager(
-            self._data_collection[DEFAULT_REFERENCES_COLLECTION], self._data_collection)
+            self._data_collection[DEFAULT_REFERENCES_COLLECTION], self._data_collection,
+            self._history_collection)
         self._create_indices()
 
     @property
@@ -76,7 +79,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def _create_indices(self):
         # Create all the necessary indexes
         self._data_collection.create_index(db.OBJ_ID)
-        self._data_collection.create_index(db.VERSION)
+        self._history_collection.create_index([(db.OBJ_ID, pymongo.ASCENDING),
+                                               (db.VERSION, pymongo.ASCENDING)]),
 
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
@@ -100,10 +104,30 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         return record
 
     def save_many(self, records: Sequence[mincepy.DataRecord]):
-        # Generate the entries for our collection collecting the metadata that we gathered
-        entries = [db.to_entry(record) for record in records]
+        # Generate the entries for our collection
+        history = []  # All objects
+        bulk_ops = []
+        to_delete = []
+        for record in records:
+            entry = db.to_entry(record)  # Make the db entry
+            # The history uses the snapshot reference string as the principal id
+            entry['_id'] = str(record.get_reference())
+            history.append(entry)
+
+            if not record.is_deleted_record():
+                live_entry = entry.copy()
+                live_entry['_id'] = record.obj_id
+
+                bulk_ops.append(
+                    pymongo.operations.ReplaceOne({db.OBJ_ID: record.obj_id},
+                                                  live_entry,
+                                                  upsert=True))
+            else:
+                bulk_ops.append(pymongo.operations.DeleteOne({db.OBJ_ID: record.obj_id}))
+                to_delete.append(record.obj_id)
+
         try:
-            self._data_collection.insert_many(entries)
+            self._history_collection.insert_many(history)
         except pymongo.errors.BulkWriteError as exc:
             write_errors = exc.details['writeErrors']
             if write_errors:
@@ -111,23 +135,37 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                     "You're trying to rewrite history, that's not allowed!")
             raise  # Otherwise just raise what we got
 
+        # Now update the live objects collection
+        if bulk_ops:
+            self._data_collection.bulk_write(bulk_ops)
+        # Remove any metadata
+        if to_delete:
+            self._meta_collection.delete_many({'_id': qops.in_(*to_delete)})
+
     def load(self, reference: mincepy.SnapshotRef) -> mincepy.DataRecord:
         if not isinstance(reference, mincepy.SnapshotRef):
             raise TypeError(reference)
 
-        results = tuple(self._data_collection.find({'_id': db.to_id_dict(reference)}))
+        results = tuple(
+            self._history_collection.find({
+                db.OBJ_ID: reference.obj_id,
+                db.VERSION: reference.version
+            }))
         if not results:
             raise mincepy.NotFound("Snapshot id '{}' not found".format(reference))
         return db.to_record(results[0])
 
     def get_snapshot_refs(self, obj_id: bson.ObjectId):
-        results = self._data_collection.find({db.OBJ_ID: obj_id},
-                                             projection={'_id': 1},
-                                             sort=[(db.VERSION, pymongo.ASCENDING)])
+        results = self._history_collection.find({db.OBJ_ID: obj_id},
+                                                projection={
+                                                    db.OBJ_ID: 1,
+                                                    db.VERSION: 1
+                                                },
+                                                sort=[(db.VERSION, pymongo.ASCENDING)])
         if not results:
             return []
 
-        return [db.to_sref(result['_id']) for result in results]
+        return list(map(db.sref_from_dict, results))
 
     # region Meta
 
@@ -217,9 +255,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
              type_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
              _created_by=None,
              _copied_from=None,
-             version=-1,
+             version=None,
              state=None,
-             deleted=True,
              snapshot_hash=None,
              meta=None,
              limit=0,
@@ -231,7 +268,6 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                                       _copied_from=_copied_from,
                                       version=version,
                                       state=state,
-                                      deleted=deleted,
                                       snapshot_hash=snapshot_hash,
                                       meta=meta)
 
@@ -249,7 +285,12 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             sort_dict = db.remap(sort_dict)
             pipeline.append({'$sort': sort_dict})
 
-        results = self._data_collection.aggregate(pipeline)
+        if version == -1:
+            coll = self._data_collection
+        else:
+            coll = self._history_collection
+
+        results = coll.aggregate(pipeline)
 
         for result in results:
             yield db.to_record(result)
@@ -285,11 +326,9 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             mfilter[db.KEY_MAP[mincepy.SNAPSHOT_HASH]] = snapshot_hash
 
         if version == -1:
-            # For counting we don't care which version we get we just want there to be only 1
-            # counted per obj_id so select the first
-            mfilter[db.VERSION] = 0
+            coll = self._data_collection
         else:
-            mfilter[db.VERSION] = version
+            coll = self._history_collection
 
         pipeline = [{'$match': mfilter}]
 
@@ -301,7 +340,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             pipeline.append({'$limit': limit})
 
         pipeline.append({'$count': "total"})
-        result = next(self._data_collection.aggregate(pipeline))
+        result = next(coll.aggregate(pipeline))
 
         return result['total']
 
@@ -314,9 +353,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                       type_id=None,
                       _created_by=None,
                       _copied_from=None,
-                      version=-1,
+                      version=None,
                       state=None,
-                      deleted=True,
                       snapshot_hash=None,
                       meta=None):
         """Get a pipeline that would perform the given search.  Can be used directly in an aggregate
@@ -334,39 +372,18 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         if type_id is not None:
             mfilter[db.TYPE_ID] = scalar_query_spec(type_id)
 
+        if state is not None:
+            mfilter.update(flatten_filter(db.STATE, state))
+
+        if snapshot_hash is not None:
+            mfilter[db.KEY_MAP[mincepy.SNAPSHOT_HASH]] = scalar_query_spec(snapshot_hash)
+
         if mfilter:
             pipeline.append({'$match': mfilter})
 
         if meta:
             pipeline.extend(
                 queries.pipeline_match_metadata(meta, self._meta_collection.name, db.OBJ_ID))
-
-        if version == -1:
-            if isinstance(obj_id, bson.ObjectId):
-                # Special case for just one object to find, faster
-                pipeline.append({'$sort': {db.VERSION: pymongo.DESCENDING}})
-                pipeline.append({'$limit': 1})
-            else:
-                # Join with a collection that is grouped to get the maximum version for each object
-                # ID then only take the the matching documents
-                pipeline.extend(queries.pipeline_latest_version(self._data_collection.name))
-
-        post_match = {}
-
-        if state is not None:
-            post_match.update(flatten_filter(db.STATE, state))
-
-        if not deleted:
-            condition = [qops.ne_(mincepy.DELETED)]
-            if db.STATE in post_match:
-                condition.append(post_match[db.STATE])
-            post_match.update(flatten_filter(db.STATE, qops.and_(*condition)))
-
-        if snapshot_hash is not None:
-            post_match[db.KEY_MAP[mincepy.SNAPSHOT_HASH]] = scalar_query_spec(snapshot_hash)
-
-        if post_match:
-            pipeline.append({'$match': post_match})
 
         return pipeline
 

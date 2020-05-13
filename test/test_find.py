@@ -53,13 +53,15 @@ def test_simple_sort(historian: mincepy.Historian):
 
 def test_find_latest(historian: mincepy.Historian):
     """Check that search criteria is only applied to the latest version if -1 is used"""
-
+    # Version 0
     car = Car('fiat', 'yellow')
-    car.save()  # Version 0
+    car.save()
+    # Version 1
     car.colour = 'white'
-    car.save()  # Version 1
+    car.save()
+    # Version 2
     car.colour = 'red'
-    car.save()  # Version 2
+    car.save()
 
     car2 = Car('ford', 'blue')
     car2.save()
@@ -71,7 +73,7 @@ def test_find_latest(historian: mincepy.Historian):
     assert len(results) == 1
 
     # Now search for a white fiat as the latest version
-    results = tuple(historian.archive.find(version=-1, state=dict(colour='yellow')))
+    results = tuple(historian.archive.find(version=-1, state=dict(colour='white')))
     assert len(results) == 0
 
     # Now do a version-unrestricted search

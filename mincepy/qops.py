@@ -15,6 +15,14 @@ def and_(*conditions) -> dict:
     return {'$and': list(conditions)}
 
 
+def or_(*conditions) -> dict:
+    """Helper that produces mongo query dict for OR of multiple conditions"""
+    if len(conditions) == 1:
+        return conditions[0]
+
+    return {'$or': list(conditions)}
+
+
 def eq_(one, other) -> dict:
     """Helper that produces mongo query dict for to items being equal"""
     return {'$eq': [one, other]}

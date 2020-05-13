@@ -50,7 +50,8 @@ class Meta:
         """
         results = self.get_many((obj_or_identifier,))
         assert len(results) == 1
-        return tuple(results.values())[0]
+        meta = tuple(results.values())[0]
+        return meta
 
     def get_many(self, obj_or_identifiers) -> Dict[Any, dict]:
         obj_ids = set(

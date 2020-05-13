@@ -1,12 +1,13 @@
 """This module contains the names of the keys in the various collections used by the mongo
 archive and methods to convert mincepy types to mongo collection entries and back"""
 from bidict import bidict
+import bson
 
 import mincepy.records
 
 # region Data collection
-OBJ_ID = '_id.oid'
-VERSION = '_id.v'
+OBJ_ID = 'obj_id'
+VERSION = 'ver'
 TYPE_ID = mincepy.records.TYPE_ID
 CREATION_TIME = 'ctime'
 STATE = 'state'
@@ -35,8 +36,8 @@ def to_record(entry) -> mincepy.DataRecord:
     """Convert a MongoDB data collection entry to a DataRecord"""
     record_dict = mincepy.DataRecord.defaults()
 
-    record_dict[mincepy.OBJ_ID] = entry['_id']['oid']
-    record_dict[mincepy.VERSION] = entry['_id']['v']
+    record_dict[mincepy.OBJ_ID] = entry[OBJ_ID]
+    record_dict[mincepy.VERSION] = entry[VERSION]
 
     # Invert our mapping of keys back to the data record property names and update over any
     # defaults
@@ -49,13 +50,9 @@ def to_record(entry) -> mincepy.DataRecord:
 def to_entry(record: mincepy.DataRecord) -> dict:
     """Convert a DataRecord to a MongoDB data collection entry"""
     defaults = mincepy.DataRecord.defaults()
-    entry = {'_id': to_id_dict(record.get_reference())}
+    entry = {}
     for key, item in record._asdict().items():
         db_key = KEY_MAP[key]
-        if db_key in (OBJ_ID, VERSION):
-            # Already dealt with above
-            continue
-
         # Exclude entries that have the default value
         if not (key in defaults and defaults[key] == item):
             entry[db_key] = item
@@ -75,11 +72,16 @@ def remap(record_dict: dict) -> dict:
 
 
 def to_id_dict(sref: mincepy.SnapshotRef) -> dict:
-    return {'oid': sref.obj_id, 'v': sref.version}
+    return {OBJ_ID: sref.obj_id, VERSION: sref.version}
 
 
-def to_sref(id_dict: dict):
-    return mincepy.SnapshotRef(id_dict['oid'], id_dict['v'])
+def sref_from_dict(record: dict):
+    return mincepy.SnapshotRef(record[OBJ_ID], record[VERSION])
+
+
+def sref_from_str(sref_str: str):
+    parts = sref_str.split('#')
+    return mincepy.SnapshotRef(bson.ObjectId(parts[0]), int(parts[1]))
 
 
 # endregion
