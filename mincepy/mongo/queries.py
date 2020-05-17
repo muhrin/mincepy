@@ -1,4 +1,4 @@
-from mincepy import qops
+from mincepy import q
 from . import db
 
 
@@ -30,11 +30,10 @@ def pipeline_latest_version(data_collection: str) -> list:
                 'pipeline': [{
                     '$match': {
                         '$expr':
-                            qops.and_(*[
+                            q.and_(
                                 # Match object id and version
-                                qops.eq_(oid_var, '$$obj_id'),
-                                qops.eq_(ver_var, '$$max_ver')
-                            ]),
+                                q.eq_(oid_var, '$$obj_id'),
+                                q.eq_(ver_var, '$$max_ver')),
                     }
                 }],
                 'as': 'latest'

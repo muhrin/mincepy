@@ -10,7 +10,7 @@ import pymongo.errors
 
 import mincepy
 import mincepy.records
-from mincepy import qops
+from mincepy import q
 
 from . import migrate
 from . import migrations
@@ -144,7 +144,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             self._data_collection.bulk_write(bulk_ops, ordered=False)
         # Remove any metadata
         if to_delete:
-            self._meta_collection.delete_many({'_id': qops.in_(*to_delete)})
+            self._meta_collection.delete_many({'_id': q.in_(*to_delete)})
 
     def load(self, reference: mincepy.SnapshotRef) -> mincepy.DataRecord:
         if not isinstance(reference, mincepy.SnapshotRef):
@@ -189,7 +189,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             if not isinstance(obj_id, bson.ObjectId):
                 raise TypeError("Must pass an ObjectId, got {}".format(obj_id))
 
-        cur = self._meta_collection.find({'_id': qops.in_(*obj_ids)})
+        cur = self._meta_collection.find({'_id': q.in_(*obj_ids)})
         results = {oid: None for oid in obj_ids}
         for found in cur:
             results[found.pop('_id')] = found
@@ -248,7 +248,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             else:
                 key_names = (keys,)
             kwargs['partialFilterExpression'] = \
-                qops.and_(*tuple(qops.exists_(name) for name in key_names))
+                q.and_(*tuple(q.exists_(name) for name in key_names))
         self._meta_collection.create_index(keys, unique=unique, **kwargs)
 
     # endregion
@@ -321,10 +321,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             mfilter.update(flatten_filter(db.STATE, state))
 
         if not deleted:
-            condition = [qops.ne_(mincepy.DELETED)]
+            condition = [q.ne_(mincepy.DELETED)]
             if db.STATE in mfilter:
                 condition.append(mfilter[db.STATE])
-            mfilter.update(flatten_filter(db.STATE, qops.and_(*condition)))
+            mfilter.update(flatten_filter(db.STATE, q.and_(*condition)))
 
         if snapshot_hash is not None:
             mfilter[db.KEY_MAP[mincepy.SNAPSHOT_HASH]] = snapshot_hash
@@ -363,7 +363,6 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                       meta=None):
         """Get a pipeline that would perform the given search.  Can be used directly in an aggregate
          call"""
-        # pylint: disable=too-many-branches
         pipeline = []
 
         mfilter = {}
@@ -405,7 +404,7 @@ def flatten_filter(entry_name: str, query) -> dict:
             else:
                 flattened.update({"{}.{}".format(entry_name, key): value})
         if predicates:
-            flattened.update(qops.and_(*[{entry_name: predicate} for predicate in predicates]))
+            flattened.update(q.and_(*[{entry_name: predicate} for predicate in predicates]))
 
     else:
         flattened[entry_name] = query

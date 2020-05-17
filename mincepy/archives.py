@@ -2,7 +2,7 @@ import abc
 from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Iterable, Dict, \
     Iterator, Any, Type, Optional  # pylint: disable=unused-import
 
-from . import qops
+from . import qops as q
 from .records import DataRecord, SnapshotRef
 
 __all__ = 'Archive', 'BaseArchive', 'ASCENDING', 'DESCENDING'
@@ -236,6 +236,6 @@ def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> \
     if isinstance(specifier, Mapping):
         return specifier
     if isinstance(specifier, Iterable):
-        return qops.in_(*specifier)
+        return q.in_(*specifier)
 
     return specifier

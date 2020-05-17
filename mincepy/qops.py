@@ -1,10 +1,9 @@
-"""Module containing functions to generate query operations.  Where the name would clash with a
-python keyword an underscore has been appended.
+"""Module containing functions to generate query operations.  To prevent clashes with python
+builtins we append underscores to the function names.  This also makes it safer to import this
+module as a wildcard import.
 """
 
-__all__ = 'and_', 'eq_', 'in_', 'ne', 'exists'
-
-# We use shorter than normal names here, but that's ok. pylint: disable=invalid-name
+__all__ = 'and_', 'eq_', 'in_', 'ne_', 'exists_', 'or_', 'gt_'
 
 
 def and_(*conditions) -> dict:
@@ -36,23 +35,15 @@ def in_(*possibilities) -> dict:
     return {'$in': list(possibilities)}
 
 
-def ne(value) -> dict:
+def ne_(value) -> dict:
     """Not equal to value"""
     return {'$ne': value}
 
 
-ne_ = ne
-
-
-def exists(key) -> dict:
+def exists_(key) -> dict:
     """Return condition for the existence of a key"""
     return {key: {'$exists': True}}
 
 
-def gt(quantity) -> dict:
+def gt_(quantity) -> dict:
     return {'$gt': quantity}
-
-
-gt_ = gt
-
-exists_ = exists

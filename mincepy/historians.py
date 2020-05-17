@@ -560,12 +560,12 @@ class Historian:
 
         Find all :py:class:`~mincepy.testing.Car`s that are brown or red:
 
-        >>> from mincepy import qops
-        >>> historian.find(state=dict(colour=qops.in_('brown', 'red')))
+        >>> import mincepy
+        >>> historian.find(state=dict(colour=mincepy.q.in_('brown', 'red')))
 
         Find all people that are older than 34 and live in Edinburgh:
 
-        >>> historian.find(state=dict(age=qops.gt(34)), meta=dict(city='Edinburgh'))
+        >>> historian.find(state=dict(age=mincepy.q.gt_(34)), meta=dict(city='Edinburgh'))
 
         :param obj_type: the object type to look for
         :param obj_id: an object or multiple object ids to look for

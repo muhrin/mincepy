@@ -1,3 +1,4 @@
+from . import qops as q
 from .archives import *
 from .builtins import *
 from .base_savable import *
@@ -19,7 +20,7 @@ from . import common_helpers
 from . import mongo
 from . import utils
 
-_ADDITIONAL = ('analysis', 'mongo', 'builtins', 'common_helpers', 'utils')
+_ADDITIONAL = ('analysis', 'mongo', 'builtins', 'common_helpers', 'utils', 'q')
 
 __all__ = (archives.__all__ + comparators.__all__ + depositors.__all__ + exceptions.__all__ +
            historians.__all__ + convenience.__all__ + process.__all__ + types.__all__ +
