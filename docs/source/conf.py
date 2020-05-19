@@ -105,6 +105,7 @@ html_theme = 'alabaster'
 #
 # html_theme_options = {}
 html_theme_options = {
+    'analytics_id': 'UA-17296547-2',
     'codecov_button': True,
     'description': 'Python object storage with versioning made simple',
     'github_button': True,
