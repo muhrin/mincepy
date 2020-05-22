@@ -35,19 +35,26 @@ class LiveObjects:
         self._objects.update(live_objects._objects)
 
     def remove(self, obj_id):
-        """Remove an object from the collection"""
+        """Remove an object from the collection
+
+        :raises: :class:`mincepy.NotFound` if the ID is not found
+        """
         try:
             self._records.pop(self._objects.pop(obj_id))
         except KeyError:
             raise exceptions.NotFound(obj_id)
 
-    def get_record(self, obj):
+    def get_record(self, obj) -> records.DataRecord:
         try:
             return self._records[obj]
         except KeyError:
             raise exceptions.NotFound("No live object found '{}'".format(obj))
 
     def get_object(self, obj_id):
+        """Get an object from the transaction by id.
+
+        :raises: :class:`mincepy.NotFound` if the ID is not found
+        """
         try:
             return self._objects[obj_id]
         except KeyError:
@@ -100,11 +107,15 @@ class Transaction:
 
     def insert_live_object(self, obj, record: records.DataRecord):
         """Insert a live object along with an up-to-date record into the transaction"""
+        if self.is_deleted(record.obj_id):
+            raise exceptions.ObjectDeleted(record.obj_id)
+
         ref = record.get_reference()
         if ref not in self._live_object_references:
             self._live_object_references[ref] = obj
         else:
             assert self._live_object_references[ref] is obj
+
         self._live_objects.insert(obj, record)
 
     def insert_live_object_reference(self, ref: records.SnapshotRef, obj):
@@ -112,14 +123,18 @@ class Transaction:
         self._live_object_references[ref] = obj
 
     def get_live_object(self, obj_id):
+        if self.is_deleted(obj_id):
+            raise exceptions.ObjectDeleted(obj_id)
+
         return self._live_objects.get_object(obj_id)
 
     def get_record_for_live_object(self, obj) -> records.DataRecord:
         return self._live_objects.get_record(obj)
 
     def get_live_object_from_reference(self, ref: records.SnapshotRef):
-        if ref.obj_id in self._deleted:
+        if self.is_deleted(ref.obj_id):
             raise exceptions.ObjectDeleted(ref.obj_id)
+
         try:
             return self._live_object_references[ref]
         except KeyError:
@@ -129,6 +144,7 @@ class Transaction:
         for ref, cached in self._live_object_references.items():
             if obj is cached:
                 return ref
+
         raise exceptions.NotFound("Live object '{} not found".format(obj))
 
     def delete(self, obj_id):

@@ -106,3 +106,21 @@ def test_count(historian: mincepy.Historian):
     assert historian.archive.count() == 2
     assert historian.archive.count(state=dict(make='ferrari')) == 1
     assert historian.archive.count(meta=dict(reg='car1')) == 1
+
+
+def test_find_from_id(historian: mincepy.Historian):
+    car = Car('ferrari')
+    car_id = car.save()
+
+    results = tuple(historian.archive.find(obj_id=car_id))
+    assert len(results) == 1
+    assert results[0].obj_id == car_id
+
+    # Now check that we can pass an iterable of ids
+    car2 = Car('skoda')
+    car2_id = car2.save()
+    results = tuple(historian.archive.find(obj_id=[car_id, car2_id]))
+    assert len(results) == 2
+    ids = [record.obj_id for record in results]
+    assert car_id in ids
+    assert car2_id in ids

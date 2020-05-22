@@ -429,7 +429,7 @@ class Historian:
         if trans:
             try:
                 return trans.get_live_object(obj_id)
-            except ValueError:
+            except exceptions.NotFound:
                 pass
 
         return self._live_objects.get_object(obj_id)

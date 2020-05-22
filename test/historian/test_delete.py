@@ -39,9 +39,9 @@ def test_delete_in_transaction(historian: mincepy.Historian):
         historian.delete(inside_id)
         historian.delete(outside_id)
 
-        with pytest.raises(mincepy.NotFound):
+        with pytest.raises(mincepy.ObjectDeleted):
             historian.get_obj(obj_id=inside_id)
-        with pytest.raises(mincepy.NotFound):
+        with pytest.raises(mincepy.ObjectDeleted):
             historian.get_obj(obj_id=outside_id)
 
         with pytest.raises(mincepy.ObjectDeleted):
@@ -70,3 +70,13 @@ def test_delete_find(historian: mincepy.Historian):
     # Now check the archive
     assert len(tuple(historian.archive.find(obj_id=car_id))) == 2
     assert len(tuple(historian.archive.find(obj_id=car_id, state=mincepy.DELETED))) == 1
+
+
+def test_delete_multiple_versions(historian: mincepy.Historian):
+    car = Car('skoda', 'green')
+    car.save()
+    car.colour = 'red'
+    car.save()
+
+    with historian.transaction():
+        historian.delete(car)
