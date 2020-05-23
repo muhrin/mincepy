@@ -136,7 +136,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
              type_id=None,
              created_by=None,
              copied_from=None,
-             version=-1,
+             version=None,
              state=None,
              snapshot_hash=None,
              meta=None,
@@ -148,7 +148,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         :param type_id: the type id to look for
         :param created_by: find records with the given type id
         :param copied_from: find records copied from the record with the given id
-        :param version: find records with this version, -1 for latest
+        :param version: restrict the search to this version, -1 for latest
         :param state: find objects with this state filter
         :param snapshot_hash: find objects with this snapshot hash
         :param meta: find objects with this meta filter

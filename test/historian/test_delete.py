@@ -80,3 +80,29 @@ def test_delete_multiple_versions(historian: mincepy.Historian):
 
     with historian.transaction():
         historian.delete(car)
+
+
+def test_delete_twice(historian: mincepy.Historian):
+    car = Car('trabant')
+    car_id = car.save()
+    historian.delete(car_id)
+
+    with pytest.raises(mincepy.NotFound):
+        historian.delete(car_id)
+
+    with pytest.raises(mincepy.NotFound):
+        historian.delete(car)
+
+
+def test_delete_twice_in_transaction(historian: mincepy.Historian):
+    car = Car('trabant')
+    car_id = car.save()
+
+    with historian.transaction():
+        historian.delete(car_id)
+
+        with pytest.raises(mincepy.NotFound):
+            historian.delete(car_id)
+
+        with pytest.raises(mincepy.NotFound):
+            historian.delete(car)

@@ -34,13 +34,13 @@ class LiveObjects:
         self._records.update(live_objects._records)
         self._objects.update(live_objects._objects)
 
-    def remove(self, obj_id):
-        """Remove an object from the collection
+    def remove(self, obj_id) -> Any:
+        """Remove an object from the collection.  Returns the removed object.
 
         :raises: :class:`mincepy.NotFound` if the ID is not found
         """
         try:
-            self._records.pop(self._objects.pop(obj_id))
+            return self._records.pop(self._objects.pop(obj_id))
         except KeyError:
             raise exceptions.NotFound(obj_id)
 
@@ -66,6 +66,13 @@ class RollbackTransaction(Exception):
 
 
 class Transaction:
+    """A transaction object for keeping track of actions performed in a transaction that will be
+    committed at the end.
+
+    A transaction has no interaction with the database and simply stores a transient state.  For
+    this reason things like constrains are not enforced and database queries will no reflect
+    mutations performed within the transaction (only upon commit).
+    """
 
     def __init__(self):
         # Records staged for saving to the archive
@@ -108,7 +115,7 @@ class Transaction:
     def insert_live_object(self, obj, record: records.DataRecord):
         """Insert a live object along with an up-to-date record into the transaction"""
         if self.is_deleted(record.obj_id):
-            raise exceptions.ObjectDeleted(record.obj_id)
+            raise ValueError("Object with id '{}' has already been deleted!".format(record.obj_id))
 
         ref = record.get_reference()
         if ref not in self._live_object_references:
@@ -144,7 +151,6 @@ class Transaction:
         for ref, cached in self._live_object_references.items():
             if obj is cached:
                 return ref
-
         raise exceptions.NotFound("Live object '{} not found".format(obj))
 
     def delete(self, obj_id):
@@ -225,7 +231,7 @@ class Transaction:
         self._live_object_references.update(transaction._live_object_references)
         self._staged.extend(transaction.staged)
         self._metas.update(transaction.metas)
-        for deleted in transaction._deleted:
+        for deleted in transaction.deleted:
             self.delete(deleted)
 
     @staticmethod

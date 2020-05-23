@@ -9,7 +9,7 @@ class ModificationError(Exception):
     """Raised when a modification of the history encountered a problem"""
 
 
-class ObjectDeleted(Exception):
+class ObjectDeleted(NotFound):
     """Raise when the user tries to interact with a deleted object"""
 
 

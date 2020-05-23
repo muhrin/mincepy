@@ -339,13 +339,27 @@ class Historian:
         return obj_copy
 
     def delete(self, obj_or_identifier):
-        """Delete an object"""
-        obj_id = self._ensure_obj_id(obj_or_identifier)
+        """Delete an object.
+
+        :raises mincepy.NotFound: if the object cannot be found (potentially because it was
+            already deleted)
+        """
         # We need a record to be able to build the delete record
+        obj_id = self._ensure_obj_id(obj_or_identifier)
+
         try:
             record = self.get_current_record(self.get_obj(obj_id))
-        except exceptions.NotFound:
-            record = tuple(self.archive.find(obj_id=obj_id))[0]
+        except exceptions.ObjectDeleted:
+            # Object deleted already do reraise
+            raise
+        except exceptions.NotFound as exc:
+            # Have a look in the archive
+            results = self.archive.find(obj_id=obj_id, version=-1)
+            try:
+                record = next(results)
+            except StopIteration:
+                # not even in the archive
+                raise exc
 
         with self.transaction() as trans:
             builder = records.make_deleted_builder(record)
@@ -401,15 +415,19 @@ class Historian:
         if trans:
             try:
                 return trans.get_record_for_live_object(obj)
+            except exceptions.ObjectDeleted:
+                # ObjectDeleted is a specialisation of the NotFound error but it means that we
+                # should consider the object as being gone so reraise it
+                raise
             except exceptions.NotFound:
                 pass
 
         return self._live_objects.get_record(obj)
 
-    def get_obj_id(self, obj):
+    def get_obj_id(self, obj) -> Any:
         """Get the object ID for a live object.
 
-        :return: the object id or None if never saved
+        :return: the object id or None if the object is not known to the historian
         """
         trans = self.current_transaction()
         if trans is not None:
@@ -419,7 +437,12 @@ class Historian:
                 pass
 
         try:
-            return self._live_objects.get_record(obj).obj_id
+            obj_id = self._live_objects.get_record(obj).obj_id
+            if trans is not None and trans.is_deleted(obj_id):
+                # The object has been deleted in the transaction, so it is not known
+                return None
+
+            return obj_id
         except exceptions.NotFound:
             return None
 
@@ -429,6 +452,10 @@ class Historian:
         if trans:
             try:
                 return trans.get_live_object(obj_id)
+            except exceptions.ObjectDeleted:
+                # ObjectDeleted is a specialisation of the NotFound error but it means that we
+                # should consider the object as being gone so reraise it
+                raise
             except exceptions.NotFound:
                 pass
 
