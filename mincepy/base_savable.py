@@ -119,7 +119,8 @@ class ConvenienceMixin:
 
     def save(self, meta: dict = None):
         """Save the object"""
-        return mincepy.get_historian().save_one(self, meta=meta)
+        historian = self._historian or mincepy.get_historian()
+        return historian.save_one(self, meta=meta)
 
     def sync(self):
         """Update the state of this object by loading the latest version from the historian"""

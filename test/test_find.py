@@ -39,6 +39,17 @@ def test_find_skip(historian: mincepy.Historian):
     assert not makes
 
 
+def test_find_by_type_id(historian: mincepy.Historian):
+    """Test that searching by the type id works too"""
+    cars = []
+    for idx in range(10):
+        cars.append(Car(idx))
+
+    historian.save(*cars)
+    result = tuple(historian.find(obj_type=Car.TYPE_ID))
+    assert len(result) == 10
+
+
 def test_simple_sort(historian: mincepy.Historian):
     cars = mincepy.builtins.RefList()
     for idx in range(10):
