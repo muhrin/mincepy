@@ -1,4 +1,6 @@
 """"Tests of metadata storage"""
+import uuid
+
 import pytest
 
 import mincepy
@@ -173,3 +175,56 @@ def test_meta_delete(historian: mincepy.Historian):
 
     results = tuple(historian.meta.find({}, obj_id=car_id))
     assert len(results) == 0
+
+
+def test_set_meta_in_save(historian: mincepy.Historian):
+
+    class Info(mincepy.BaseSavableObject):
+        TYPE_ID = uuid.UUID('6744689d-5f88-482e-bb42-2bec5f139cc2')
+
+        def save_instance_state(self, saver: mincepy.Saver) -> dict:
+            state = super().save_instance_state(saver)
+            saver.get_historian().meta.set(self, dict(msg='good news'))
+            return state
+
+    info = Info()
+    historian.save(info)
+
+    meta = historian.meta.get(info)
+    assert meta == {'msg': 'good news'}
+
+
+def test_set_meta_in_save_simple(historian: mincepy.Historian):
+
+    class Info(mincepy.SimpleSavable):
+        TYPE_ID = uuid.UUID('6744689d-5f88-482e-bb42-2bec5f139cc2')
+
+        def save_instance_state(self, saver: mincepy.Saver) -> dict:
+            state = super().save_instance_state(saver)
+            self.set_meta(dict(msg='good news'))
+            return state
+
+    info = Info()
+    info.save()
+
+    meta = historian.meta.get(info)
+    assert meta == {'msg': 'good news'}
+
+
+def test_set_meta_in_save_fail(historian: mincepy.Historian):
+    """Make sure that metadata isn't saved if saving of the object fails"""
+
+    class Info(mincepy.SimpleSavable):
+        TYPE_ID = uuid.UUID('6744689d-5f88-482e-bb42-2bec5f139cc2')
+
+        def save_instance_state(self, saver: mincepy.Saver) -> dict:
+            super().save_instance_state(saver)
+            self.set_meta(dict(msg='good news'))
+            raise RuntimeError("I'm crashin' yo")
+
+    info = Info()
+    with pytest.raises(RuntimeError):
+        info.save()
+
+    with pytest.raises(mincepy.NotFound):
+        historian.meta.get(info)
