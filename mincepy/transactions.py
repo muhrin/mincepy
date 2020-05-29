@@ -85,7 +85,7 @@ class Transaction:
         self._live_object_references = {}
 
         # Snapshots: ref -> obj
-        self._snapshots = {}  # type: Dict[archives.Ref, Any]
+        self._snapshots = {}  # type: Dict[records.SnapshotRef, Any]
         # Maps from object id -> metadata dictionary
         self._metas = {}  # type: Dict[Any, dict]
 

@@ -22,11 +22,11 @@ class ObjRef(types.SavableObject):
             "Can't create a reference to a primitive type"
         self._obj = obj
 
-    def __bool__(self):
+    def __bool__(self) -> bool:
         """Test if this is a null reference"""
         return self._obj is not None or self._ref is not None
 
-    def __str__(self):
+    def __str__(self) -> str:
         desc = ["ObjRef('"]
         if self._obj is not None:
             desc.append(str(self._obj))
@@ -35,7 +35,7 @@ class ObjRef(types.SavableObject):
         desc.append("')")
         return "".join(desc)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "ObjRef({})".format(self._obj if self._obj is not None else self._ref)
 
     def __call__(self, update=False):
@@ -58,7 +58,7 @@ class ObjRef(types.SavableObject):
 
         return self._obj
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         if not isinstance(other, ObjRef):
             return False
 

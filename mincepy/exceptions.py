@@ -1,4 +1,4 @@
-__all__ = 'NotFound', 'ModificationError', 'ObjectDeleted', 'DuplicateKeyError'
+__all__ = 'NotFound', 'ModificationError', 'ObjectDeleted', 'DuplicateKeyError', 'MigrationError'
 
 
 class NotFound(Exception):
@@ -15,3 +15,7 @@ class ObjectDeleted(NotFound):
 
 class DuplicateKeyError(Exception):
     """Indicates that a uniqueness constraint was violated"""
+
+
+class MigrationError(Exception):
+    """Indicates that an error occurred during migration"""

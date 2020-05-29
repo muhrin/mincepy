@@ -1,12 +1,17 @@
 from abc import ABCMeta, abstractmethod
-from typing import Type
+import logging
+from typing import Type, Optional, Sequence
 import uuid
 
+import mincepy  # pylint: disable=unused-import
+from . import migrations
 from . import process
 from . import records
 from . import types
 
 __all__ = 'TypeHelper', 'WrapperHelper', 'BaseHelper'
+
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 def inject_creation_tracking(cls):
@@ -36,6 +41,8 @@ class TypeHelper(metaclass=ABCMeta):
     TYPE_ID = None  # The unique id for this type of objects
     IMMUTABLE = False  # If set to true then the object is decoded straight away
     INJECT_CREATION_TRACKING = False
+    # The latest migration, if there is one
+    LATEST_MIGRATION = None  # type: migrations.ObjectMigration
 
     def __init__(self):
         assert self.TYPE is not None, "Must set the TYPE to a type of or a tuple of types"
@@ -60,8 +67,53 @@ class TypeHelper(metaclass=ABCMeta):
         """Save the instance state of an object, should return a saved instance"""
 
     @abstractmethod
-    def load_instance_state(self, obj, saved_state, loader):
+    def load_instance_state(self, obj, saved_state, loader: 'mincepy.Loader'):
         """Take the given blank object and load the instance state into it"""
+
+    def get_version(self) -> Optional[int]:
+        """Gets the version of the latest migration, returns None if there is not migration"""
+        if self.LATEST_MIGRATION is None:
+            return None
+
+        version = self.LATEST_MIGRATION.VERSION
+        if version is None:
+            raise RuntimeError("Object '{}' has a migration ({}) which has no version "
+                               "number".format(self.TYPE, self.LATEST_MIGRATION))
+
+        return version
+
+    def ensure_up_to_date(self, saved_state, version: int, loader: 'mincepy.Loader'):
+        """Apply any migrations that are necessary to this saved state.  If no migrations are
+        necessary then None is returned"""
+        to_apply = self._get_migrations(version)
+        if not to_apply:
+            return None
+
+        logger.info("Migrating saved state of '%s' from version %s to %i (%i migrations to apply)",
+                    self.TYPE, version, self.get_version(), len(to_apply))
+        for migration in to_apply:
+            saved_state = migration.upgrade(saved_state, loader)
+            logger.info("Migration %s applied", migration.NAME)
+
+        logger.info("Migration of %s completed successfully", self.TYPE)
+
+        return saved_state
+
+    def _get_migrations(self, version: Optional[int]) -> Sequence[migrations.ObjectMigration]:
+        """Get the sequence of migrations that needs to be applied to a given version"""
+        if self.LATEST_MIGRATION is None:
+            return []
+
+        to_apply = []
+        current = self.LATEST_MIGRATION
+        while version is None or version < current.VERSION:
+            to_apply.append(current)
+            current = current.PREVIOUS
+            if current is None:
+                break
+
+        to_apply.reverse()
+        return to_apply
 
 
 class BaseHelper(TypeHelper, metaclass=ABCMeta):
@@ -84,6 +136,7 @@ class WrapperHelper(TypeHelper):
     def __init__(self, obj_type: Type[types.SavableObject]):
         self.TYPE = obj_type
         self.TYPE_ID = obj_type.TYPE_ID
+        self.LATEST_MIGRATION = obj_type.LATEST_MIGRATION
         super(WrapperHelper, self).__init__()
 
     def yield_hashables(self, obj, hasher):

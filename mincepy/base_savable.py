@@ -131,7 +131,7 @@ class ConvenienceMixin:
         self._on_save(saver)
         return super().save_instance_state(saver)
 
-    def load_instance_state(self, saved_state, loader: depositors.Loader):
+    def load_instance_state(self, saved_state, loader: 'mincepy.Loader'):
         """Take the given object and load the instance state into it"""
         super().load_instance_state(saved_state, loader)
         self._on_load(loader)

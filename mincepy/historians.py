@@ -168,7 +168,8 @@ class Historian:
         self.register_types(archive.get_types())
 
         # Snapshot objects -> reference. Objects that were loaded from historical snapshots
-        self._snapshots_objects = utils.WeakObjectIdDict()  # type: MutableMapping[Any, records.Ref]
+        self._snapshots_objects = utils.WeakObjectIdDict(
+        )  # type: MutableMapping[Any, records.SnapshotRef]
         self._live_objects = LiveObjects()
 
         # Staged objects that have been created but not saved
@@ -678,6 +679,7 @@ class Historian:
         return record.created_by
 
     def get_user_info(self) -> dict:
+        """Get information about the current user and host"""
         user_info = {}
         if self._user:
             user_info[records.ExtraKeys.USER] = self._user

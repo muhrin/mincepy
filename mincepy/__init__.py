@@ -10,6 +10,7 @@ from .exceptions import *
 from .helpers import *
 from .historians import *
 from .history import *
+from .migrations import *
 from .process import *
 from .records import *
 from .refs import *
@@ -25,4 +26,5 @@ _ADDITIONAL = ('analysis', 'mongo', 'builtins', 'common_helpers', 'utils', 'q')
 __all__ = (archives.__all__ + comparators.__all__ + depositors.__all__ + exceptions.__all__ +
            historians.__all__ + convenience.__all__ + process.__all__ + types.__all__ +
            helpers.__all__ + version.__all__ + history.__all__ + archive_factory.__all__ +
-           refs.__all__ + records.__all__ + base_savable.__all__ + builtins.__all__ + _ADDITIONAL)
+           refs.__all__ + records.__all__ + base_savable.__all__ + builtins.__all__ +
+           migrations.__all__ + _ADDITIONAL)

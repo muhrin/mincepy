@@ -1,3 +1,4 @@
+import gc
 import uuid
 
 import pytest
@@ -175,6 +176,7 @@ def test_cyclic_ref_simple(historian: mincepy.Historian):
     a.ref = a  # Cycle complete
     a_id = historian.save(a)
     del a
+    gc.collect()  # Force a garbage collection
 
     loaded_a = historian.load(a_id)
     assert loaded_a.ref is loaded_a
@@ -187,9 +189,15 @@ def test_cyclic_ref_complex(historian: mincepy.Historian):
 
     a_id = historian.save(a)
     del a
+
     loaded_a = historian.load(a_id)
     assert loaded_a.ref is b
     assert b.ref is loaded_a
+
+    del loaded_a, b
+    gc.collect()  # Force a garbage collection
+    reloaded_a = historian.load(a_id)
+    assert isinstance(reloaded_a.ref, Cycle)
 
 
 def test_transaction_rollback(historian: mincepy.Historian):

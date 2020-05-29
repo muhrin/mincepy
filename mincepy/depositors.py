@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+import logging
 from typing import Optional, MutableMapping, Any
 
 from pytray import tree
@@ -8,6 +9,8 @@ from . import exceptions
 from . import records
 
 __all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor'
+
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 class Base(metaclass=ABCMeta):
@@ -30,28 +33,36 @@ class Base(metaclass=ABCMeta):
 
 
 class Saver(Base, metaclass=ABCMeta):
+    """A depositor that knows how to save records into the archive"""
 
     @abstractmethod
     def ref(self, obj) -> records.SnapshotRef:
         """Get a persistent reference for the given object"""
 
-    def encode(self, obj, types_schema=None, path=()):
+    def encode(self, obj, schema=None, path=()):
         """Encode a type for archiving"""
-        if types_schema is None:
-            types_schema = []
+        if schema is None:
+            schema = []
 
         historian = self.get_historian()
 
         if historian.is_primitive(obj):
             # Deal with the special containers by encoding their values if need be
-            return tree.transform(self.encode, obj, path, types_schema=types_schema)
+            return tree.transform(self.encode, obj, path, schema=schema)
 
         # Store by value
         helper = historian.get_helper(type(obj), auto_register=True)
         save_state = helper.save_instance_state(obj, self)
-        assert historian.is_primitive(save_state), "Saved state must be one of the primitive types"
-        types_schema.append((path, helper.TYPE_ID))
-        return self.encode(save_state, types_schema, path)
+        if not historian.is_primitive(save_state):
+            raise RuntimeError("Saved state must be one of the primitive types")
+
+        schema_entry = [path, helper.TYPE_ID]
+        version = helper.get_version()
+        if version is not None:
+            schema_entry.append(version)
+
+        schema.append(schema_entry)
+        return self.encode(save_state, schema, path)
 
     def save_state(self, obj):
         """Save the state of an object and return the encoded state ready to be archived in a
@@ -62,42 +73,60 @@ class Saver(Base, metaclass=ABCMeta):
 
 
 class Loader(Base, metaclass=ABCMeta):
+    """A loader that knows how to load objects from the archive"""
 
-    def decode(self, encoded, type_schema: dict = None, path=(), created_callback=None):
+    def decode(self,
+               encoded,
+               schema: records.StateSchema = None,
+               path=(),
+               created_callback=None,
+               migrated=None):
+        """Given the encoded state and an optional schema that defines the type of the encoded
+        objects this method will decode the saved state and load the object."""
         try:
-            type_id = type_schema[path]
+            entry = schema[path]
         except KeyError:
-            return self._unpack(encoded, type_schema, path, created_callback)
+            return self._recursive_unpack(encoded, schema, path, created_callback)
         else:
             saved_state = encoded
-            helper = self.get_historian().get_helper(type_id)
+            helper = self.get_historian().get_helper(entry.type_id)
             if helper.IMMUTABLE:
-                saved_state = self._unpack(encoded, type_schema, path, created_callback)
+                saved_state = self._recursive_unpack(encoded, schema, path, created_callback)
 
             new_obj = helper.new(saved_state)
-            assert new_obj is not None, \
-                "Helper '{}' failed to create a class given state '{}'".format(
-                    helper.__class__, saved_state)
+            if new_obj is None:
+                raise RuntimeError("Helper '{}' failed to create a class given state '{}'".format(
+                    helper.__class__, saved_state))
+
             if created_callback is not None:
                 created_callback(path, new_obj)
 
             if not helper.IMMUTABLE:
-                saved_state = self._unpack(encoded, type_schema, path, created_callback)
+                saved_state = self._recursive_unpack(encoded, schema, path, created_callback,
+                                                     migrated)
+
+            updated = helper.ensure_up_to_date(saved_state, entry.version, self)
+            if updated is not None:
+                saved_state = updated
+                if migrated is not None:
+                    migrated[path] = updated
 
             helper.load_instance_state(new_obj, saved_state, self)
             return new_obj
 
-    def _unpack(self,
-                encoded_saved_state,
-                type_schema: dict = None,
-                path=(),
-                created_callback=None):
+    def _recursive_unpack(self,
+                          encoded_saved_state,
+                          schema: records.StateSchema = None,
+                          path=(),
+                          created_callback=None,
+                          migrated=None):
         """Unpack a saved state expanding any contained objects"""
         return tree.transform(self.decode,
                               encoded_saved_state,
                               path,
-                              type_schema=type_schema,
-                              created_callback=created_callback)
+                              schema=schema,
+                              created_callback=created_callback,
+                              migrated=migrated)
 
 
 class LiveDepositor(Saver, Loader):
@@ -132,8 +161,21 @@ class LiveDepositor(Saver, Loader):
                 if not path:
                     trans.insert_live_object(new_obj, record)
 
-            norm_schema = {tuple(path): type_id for path, type_id in record.state_types}
-            return self.decode(record.state, norm_schema, created_callback=created)
+            migrated = {}
+            loaded = self.decode(record.state,
+                                 record.get_state_schema(),
+                                 created_callback=created,
+                                 migrated=migrated)
+
+            if migrated:
+                # TODO: Stage the record to be saved in the database
+                logger.info("Object with id %s has been migrated to the latest version",
+                            record.obj_id)
+            #     new_state = self.save_state(loaded)
+            #     record.copy_builder(**new_state)
+            #     trans.stage(record)
+
+            return loaded
 
     def update_from_record(self, obj, record: records.DataRecord) -> bool:
         """Do an in-place update of a object from a record"""
@@ -143,12 +185,11 @@ class LiveDepositor(Saver, Loader):
             # Make sure the record is in the transaction with the object
             trans.insert_live_object(obj, record)
 
-            norm_schema = {tuple(path): type_id for path, type_id in record.state_types}
-            saved_state = self._unpack(record.state, norm_schema)
+            saved_state = self._recursive_unpack(record.state, record.get_state_schema())
             helper.load_instance_state(obj, saved_state, self)
             return True
 
-    def save_from_builder(self, obj, builder):
+    def save_from_builder(self, obj, builder: records.DataRecordBuilder):
         """Save a live object"""
         from . import process
 
@@ -186,7 +227,7 @@ class SnapshotLoader(Loader):
 
     def __init__(self, historian):
         super().__init__(historian)
-        self._snapshots = {}  # type: MutableMapping[archives.Ref, Any]
+        self._snapshots = {}  # type: MutableMapping[records.SnapshotRef, Any]
 
     def load(self, ref: records.SnapshotRef):
         if not isinstance(ref, records.SnapshotRef):
@@ -207,7 +248,6 @@ class SnapshotLoader(Loader):
 
     def load_from_record(self, record: records.DataRecord):
         with self._historian.transaction() as trans:
-            norm_schema = {tuple(path): type_id for path, type_id in record.state_types}
-            obj = self.decode(record.state, norm_schema)
+            obj = self.decode(record.state, record.get_state_schema())
             trans.insert_snapshot(obj, record.get_reference())
             return obj

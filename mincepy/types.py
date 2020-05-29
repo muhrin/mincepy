@@ -24,6 +24,7 @@ def is_primitive(obj):
 class Savable(metaclass=ABCMeta):
     """Interface for an object that can save an load its instance state"""
     TYPE_ID = None
+    LATEST_MIGRATION = None  # type: mincepy.ObjectMigration
 
     def __init__(self):
         assert self.TYPE_ID is not None, "Must set the TYPE_ID for an object to be savable"

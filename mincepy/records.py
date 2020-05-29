@@ -1,8 +1,11 @@
+"""This module defines the data record and other objects and functions related to storing things
+in an archive."""
+
 import copy
 from collections import namedtuple
 import datetime
 import typing
-from typing import Optional, Iterable, Sequence, Union, Tuple, Any
+from typing import Optional, Iterable, Sequence, Union, Tuple, Any, Mapping
 import uuid
 
 import pytray.tree
@@ -11,7 +14,7 @@ from . import utils
 
 __all__ = 'OBJ_ID', 'TYPE_ID', 'CREATION_TIME', 'VERSION', 'STATE', 'SNAPSHOT_TIME', \
           'SNAPSHOT_HASH', 'EXTRAS', 'ExtraKeys', 'DELETED', 'DataRecord', 'SnapshotRef', \
-          'DataRecordBuilder'
+          'DataRecordBuilder', 'StateSchema'
 
 OBJ_ID = 'obj_id'
 TYPE_ID = 'type_id'
@@ -22,6 +25,8 @@ STATE_TYPES = 'state_types'
 SNAPSHOT_HASH = 'snapshot_hash'
 SNAPSHOT_TIME = 'snapshot_time'
 EXTRAS = 'extras'
+
+SchemaEntry = namedtuple('SchemaEntry', 'type_id version')
 
 
 class ExtraKeys:
@@ -118,7 +123,7 @@ class DataRecord(
         }
 
     @classmethod
-    def new_builder(cls, **kwargs) -> utils.NamedTupleBuilder:
+    def new_builder(cls, **kwargs) -> 'DataRecordBuilder':
         """Get a builder for a new data record, the version will be set to 0"""
         values = cls.defaults()
         values.update({
@@ -127,7 +132,7 @@ class DataRecord(
             SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
         })
         values.update(kwargs)
-        return utils.NamedTupleBuilder(cls, values)
+        return DataRecordBuilder(cls, values)
 
     @property
     def created_by(self) -> IdT:
@@ -155,15 +160,16 @@ class DataRecord(
         exist"""
         return self.extras.get(name, None)
 
-    def copy_builder(self, **kwargs) -> utils.NamedTupleBuilder:
+    def copy_builder(self, **kwargs) -> 'DataRecordBuilder':
         """Get a copy builder from this DataRecord instance. The following attributes will be
         copied over:
 
         * type_id
         * state [deepcopy]
         * snapshot_hash
+        * extras [deepcopy] - the COPIED_FROM entry will be set to a reference to this object
 
-        the version will be set to 0 and the creation time to now
+        the version will be set to 0 and the creation time to now.
         """
         defaults = self.defaults()
         defaults.update({
@@ -174,12 +180,14 @@ class DataRecord(
             SNAPSHOT_HASH: self.snapshot_hash,
             VERSION: 0,
             SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
+            EXTRAS: copy.deepcopy(self.extras)
         })
         defaults[EXTRAS][ExtraKeys.COPIED_FROM] = self.get_reference().to_dict()
         defaults.update(kwargs)
-        return utils.NamedTupleBuilder(type(self), defaults)
 
-    def child_builder(self, **kwargs) -> utils.NamedTupleBuilder:
+        return DataRecordBuilder(type(self), defaults)
+
+    def child_builder(self, **kwargs) -> 'DataRecordBuilder':
         """
         Get a child builder from this DataRecord instance.  The following attributes will be copied
         over:
@@ -198,10 +206,10 @@ class DataRecord(
             CREATION_TIME: self.creation_time,
             VERSION: self.version + 1,
             SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
-            EXTRAS: self.extras.copy(),
+            EXTRAS: copy.deepcopy(self.extras),
         })
         defaults.update(kwargs)
-        return utils.NamedTupleBuilder(type(self), defaults)
+        return DataRecordBuilder(type(self), defaults)
 
     def get_references(self) -> Iterable[Tuple[EntryPath, SnapshotRef]]:
         """Get all the references to other objects contained in this record"""
@@ -213,7 +221,22 @@ class DataRecord(
                 references.append((path, SnapshotRef(**pytray.tree.get_by_path(self.state, path))))
         return references
 
+    def get_state_schema(self) -> 'StateSchema':
+        """Get the schema for the state.  This contains the types and versions for each member of
+        the state"""
+        schema = {}
+        for entry in self.state_types:
+            path = tuple(entry[0])
+            type_id = entry[1]
+            version = None
+            if len(entry) > 2:
+                version = entry[2]
+            schema[path] = SchemaEntry(type_id, version)
 
+        return schema
+
+
+StateSchema = Mapping[tuple, SchemaEntry]
 DataRecordBuilder = utils.NamedTupleBuilder[DataRecord]  # pylint: disable=invalid-name
 
 
