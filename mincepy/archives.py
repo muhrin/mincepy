@@ -3,7 +3,8 @@ from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Itera
     Iterator, Any, Type, Optional  # pylint: disable=unused-import
 
 from . import qops as q
-from .records import DataRecord, SnapshotRef
+from .records import DataRecord, SnapshotId
+from . import operations
 
 __all__ = 'Archive', 'BaseArchive', 'ASCENDING', 'DESCENDING'
 
@@ -20,7 +21,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
     # pylint: disable=too-many-public-methods
 
-    RefEdge = NamedTuple('RefEdge', [('source', SnapshotRef[IdT]), ('target', SnapshotRef[IdT])])
+    RefEdge = NamedTuple('RefEdge', [('source', SnapshotId[IdT]), ('target', SnapshotId[IdT])])
     RefGraph = Iterable[RefEdge]
     MetaEntry = NamedTuple('MetaEntry', [('obj_id', IdT), ['meta', dict]])
 
@@ -58,6 +59,10 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def save_many(self, records: Sequence[DataRecord]):
         """Save many data records to the archive"""
+
+    @abc.abstractmethod
+    def bulk_write(self, ops: Sequence[operations.Operation]):
+        """Made a collection of write operations to the database"""
 
     # region Metadata
 
@@ -117,7 +122,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     # endregion
 
     @abc.abstractmethod
-    def load(self, reference: SnapshotRef[IdT]) -> DataRecord:
+    def load(self, reference: SnapshotId[IdT]) -> DataRecord:
         """Load a snapshot of an object with the given reference"""
 
     @abc.abstractmethod
@@ -126,7 +131,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         records"""
 
     @abc.abstractmethod
-    def get_snapshot_refs(self, obj_id: IdT) -> Sequence[SnapshotRef[IdT]]:
+    def get_snapshot_refs(self, obj_id: IdT) -> Sequence[SnapshotId[IdT]]:
         """Returns a list of time ordered snapshot references"""
 
     # pylint: disable=too-many-arguments
@@ -175,8 +180,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         """Count the number of entries that match the given query"""
 
     @abc.abstractmethod
-    def get_reference_graph(self,
-                            srefs: Sequence[SnapshotRef[IdT]]) -> 'Sequence[Archive.RefGraph]':
+    def get_reference_graph(self, sids: Sequence[SnapshotId[IdT]]) -> 'Sequence[Archive.RefGraph]':
         """Given one or more object ids the archive will supply the corresponding reference graph(s)
         """
 
@@ -189,13 +193,15 @@ class BaseArchive(Archive[IdT]):
         assert cls.ID_TYPE, "The ID type has not been set on this archive"
         return cls.ID_TYPE
 
+    def save(self, record: DataRecord):
+        return self.bulk_write([operations.Insert(record)])
+
     def save_many(self, records: Sequence[DataRecord]):
         """
         This will save records one by one but subclass may want to override this behaviour if
         they can save multiple records at once.
         """
-        for record in records:
-            self.save(record)
+        self.bulk_write([operations.Insert(record) for record in records])
 
     def meta_get_many(self, obj_ids: Iterable[IdT]) -> Dict[IdT, dict]:
         metas = {}

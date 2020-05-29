@@ -50,15 +50,16 @@ EntryPath = Sequence[Union[str, int]]
 EntryInfo = Tuple[EntryPath, TypeId]
 
 
-class SnapshotRef(typing.Generic[IdT]):
-    """Reference information for looking up a snapshot"""
+class SnapshotId(typing.Generic[IdT]):
+    """A snapshot id identifies a particular version of an object (and the corresponding record), it
+    it therefore composed of the object id and the version number."""
 
     #: The type id for references
     TYPE_ID = uuid.UUID('633c7035-64fe-4d87-a91e-3b7abd8a6a28')
 
     def __init__(self, obj_id, version: int):
-        """Create a snapshot reference by passing an object if and version"""
-        super(SnapshotRef, self).__init__()
+        """Create a snapshot id by passing an object id and version"""
+        super().__init__()
         self._obj_id = obj_id
         self._version = version
 
@@ -72,7 +73,7 @@ class SnapshotRef(typing.Generic[IdT]):
         return (self.obj_id, self.version).__hash__()
 
     def __eq__(self, other):
-        if not isinstance(other, SnapshotRef):
+        if not isinstance(other, SnapshotId):
             return False
 
         return self.obj_id == other.obj_id and self.version == other.version
@@ -91,7 +92,7 @@ class SnapshotRef(typing.Generic[IdT]):
         return {'obj_id': self.obj_id, 'version': self.version}
 
 
-Ref = SnapshotRef  # WARNING: This will be removed in 0.11, use SnapshotRef instead!
+SnapshotRef = SnapshotId
 
 
 class DataRecord(

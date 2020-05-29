@@ -10,8 +10,9 @@ import pymongo.errors
 
 import mincepy
 import mincepy.records
-from mincepy import q
+from mincepy import q, operations
 
+from . import bulk
 from . import migrate
 from . import migrations
 from . import files
@@ -45,8 +46,6 @@ class ObjectIdHelper(mincepy.TypeHelper):
 
 class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     """MongoDB implementation of the mincepy archive"""
-
-    # pylint: disable=too-many-public-methods
 
     ID_TYPE = bson.ObjectId
     SnapshotRef = mincepy.SnapshotRef[bson.ObjectId]
@@ -84,7 +83,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         # Create all the necessary indexes
         self._data_collection.create_index(db.OBJ_ID)
         self._history_collection.create_index([(db.OBJ_ID, pymongo.ASCENDING),
-                                               (db.VERSION, pymongo.ASCENDING)]),
+                                               (db.VERSION, pymongo.ASCENDING)])
 
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
@@ -103,48 +102,26 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def get_gridfs_bucket(self) -> gridfs.GridFSBucket:
         return self._file_bucket
 
-    def save(self, record: mincepy.DataRecord):
-        self.save_many([record])
-        return record
-
-    def save_many(self, records: Sequence[mincepy.DataRecord]):
-        # Generate the entries for our collection
-        history = []  # All objects
-        bulk_ops = []
-        to_delete = []
-        for record in records:
-            entry = db.to_entry(record)  # Make the db entry
-            # The history uses the snapshot reference string as the principal id
-            entry['_id'] = str(record.get_reference())
-            history.append(entry)
-
-            if not record.is_deleted_record():
-                live_entry = entry.copy()
-                live_entry['_id'] = record.obj_id
-
-                bulk_ops.append(
-                    pymongo.operations.ReplaceOne({db.OBJ_ID: record.obj_id},
-                                                  live_entry,
-                                                  upsert=True))
-            else:
-                bulk_ops.append(pymongo.operations.DeleteOne({db.OBJ_ID: record.obj_id}))
-                to_delete.append(record.obj_id)
+    def bulk_write(self, ops: Sequence[operations.Operation]):
+        # First, convert these to corresponding mongo bulk operations.  Because of the way we split
+        # objects into 'data' and 'history' we have to perform these operations on both
+        data_ops = []
+        history_ops = []
+        for data_op, history_op in map(bulk.to_mongo_op, ops):
+            data_ops.append(data_op)
+            history_ops.append(history_op)
 
         try:
-            self._history_collection.insert_many(history)
+            # First perform the data operations
+            self._data_collection.bulk_write(data_ops, ordered=True)
+            # Then the history operations
+            self._history_collection.bulk_write(history_ops, ordered=True)
         except pymongo.errors.BulkWriteError as exc:
             write_errors = exc.details['writeErrors']
             if write_errors:
                 raise mincepy.ModificationError(
                     "You're trying to rewrite history, that's not allowed!")
             raise  # Otherwise just raise what we got
-
-        # Now update the live objects collection
-        if bulk_ops:
-            self._data_collection.bulk_write(bulk_ops, ordered=False)
-        # Remove any metadata
-        if to_delete:
-            self._meta_collection.delete_many({'_id': q.in_(*to_delete)})
 
     def load(self, reference: mincepy.SnapshotRef) -> mincepy.DataRecord:
         if not isinstance(reference, mincepy.SnapshotRef):
@@ -349,8 +326,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         return result['total']
 
     def get_reference_graph(self,
-                            srefs: Sequence[SnapshotRef]) -> Sequence[mincepy.Archive.RefGraph]:
-        return self._refman.get_reference_graphs(srefs)
+                            sids: Sequence[SnapshotRef]) -> Sequence[mincepy.Archive.RefGraph]:
+        return self._refman.get_reference_graphs(sids)
 
     def _get_pipeline(self,
                       obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,

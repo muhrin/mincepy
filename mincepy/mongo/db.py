@@ -1,5 +1,7 @@
 """This module contains the names of the keys in the various collections used by the mongo
 archive and methods to convert mincepy types to mongo collection entries and back"""
+import functools
+
 from bidict import bidict
 import bson
 
@@ -52,14 +54,36 @@ def to_record(entry) -> mincepy.DataRecord:
     return mincepy.DataRecord(**record_dict)
 
 
-def to_entry(record: mincepy.DataRecord) -> dict:
-    """Convert a DataRecord to a MongoDB data collection entry"""
+@functools.singledispatch
+def to_document(record, exclude_defaults=False) -> dict:
+    """Convert mincepy record information to a MongoDB document.  Optionally exclude entries that
+    have the same value as the default"""
+    raise TypeError(record.__class__)
+
+
+@to_document.register
+def _(record: mincepy.DataRecord, exclude_defaults=False) -> dict:
+    """Convert a DataRecord to a MongoDB document with our keys"""
     defaults = mincepy.DataRecord.defaults()
     entry = {}
     for key, item in record._asdict().items():
         db_key = KEY_MAP[key]
         # Exclude entries that have the default value
-        if not (key in defaults and defaults[key] == item):
+        if not (exclude_defaults and key in defaults and defaults[key] == item):
+            entry[db_key] = item
+
+    return entry
+
+
+@to_document.register
+def _(record: dict, exclude_defaults=False) -> dict:
+    """Convert a dictionary containing record keys to a MongoDB document with our keys"""
+    defaults = mincepy.DataRecord.defaults()
+    entry = {}
+    for key, item in record.items():
+        db_key = KEY_MAP[key]
+        # Exclude entries that have the default value
+        if exclude_defaults and not (key in defaults and defaults[key] == item):
             entry[db_key] = item
 
     return entry

@@ -3,7 +3,7 @@ builtins we append underscores to the function names.  This also makes it safer 
 module as a wildcard import.
 """
 
-__all__ = 'and_', 'eq_', 'in_', 'ne_', 'exists_', 'or_', 'gt_'
+__all__ = 'and_', 'eq_', 'in_', 'ne_', 'exists_', 'or_', 'gt_', 'lt_'
 
 
 def and_(*conditions) -> dict:
@@ -47,3 +47,7 @@ def exists_(key) -> dict:
 
 def gt_(quantity) -> dict:
     return {'$gt': quantity}
+
+
+def lt_(quantity) -> dict:
+    return {'$lt': quantity}
