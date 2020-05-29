@@ -169,12 +169,11 @@ class LiveDepositor(Saver, Loader):
                                  migrated=migrated)
 
             if migrated:
-                # TODO: Stage the record to be saved in the database
                 logger.info("Object with id %s has been migrated to the latest version",
                             record.obj_id)
-            #     new_state = self.save_state(loaded)
-            #     record.copy_builder(**new_state)
-            #     trans.stage(record)
+                new_state = self.save_state(loaded)
+                record.copy_builder(**new_state)
+                trans.stage(operations.Update(record.get_reference(), record._asdict()))
 
             return loaded
 

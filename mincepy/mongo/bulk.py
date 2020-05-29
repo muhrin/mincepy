@@ -49,13 +49,13 @@ def _(op: mincepy.operations.Update):
     """Update"""
     sid = op.snapshot_id
     update = db.to_document(op.update)
+    update = {'$set': update}
 
     # It's fine if either (or both) of these fail to find anything to update
     data_op = pymongo.operations.UpdateOne(filter={
         db.OBJ_ID: sid.obj_id,
         db.VERSION: sid.version
-    },
-                                           update=update)
+    }, update=update)
     history_op = pymongo.operations.UpdateOne(filter={'_id': str(sid)}, update=update)
 
     return data_op, history_op

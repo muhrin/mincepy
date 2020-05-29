@@ -83,7 +83,7 @@ def _(record: dict, exclude_defaults=False) -> dict:
     for key, item in record.items():
         db_key = KEY_MAP[key]
         # Exclude entries that have the default value
-        if exclude_defaults and not (key in defaults and defaults[key] == item):
+        if not (exclude_defaults and key in defaults and defaults[key] == item):
             entry[db_key] = item
 
     return entry

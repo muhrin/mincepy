@@ -29,7 +29,7 @@ class Update(Operation):
     containing the fields to be updated.  The update operation behaves like a dict.update()"""
 
     def __init__(self, sid: records.SnapshotId, update: dict):
-        diff = set(update.keys()) - set(records.DataRecord._fields())
+        diff = set(update.keys()) - set(records.DataRecord._fields)
         if diff:
             raise ValueError("Invalid keys found in the update operation: {}".format(diff))
 
