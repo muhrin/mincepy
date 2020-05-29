@@ -61,7 +61,7 @@ def to_document(record, exclude_defaults=False) -> dict:
     raise TypeError(record.__class__)
 
 
-@to_document.register
+@to_document.register(mincepy.DataRecord)
 def _(record: mincepy.DataRecord, exclude_defaults=False) -> dict:
     """Convert a DataRecord to a MongoDB document with our keys"""
     defaults = mincepy.DataRecord.defaults()
@@ -75,7 +75,7 @@ def _(record: mincepy.DataRecord, exclude_defaults=False) -> dict:
     return entry
 
 
-@to_document.register
+@to_document.register(dict)
 def _(record: dict, exclude_defaults=False) -> dict:
     """Convert a dictionary containing record keys to a MongoDB document with our keys"""
     defaults = mincepy.DataRecord.defaults()

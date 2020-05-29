@@ -1,4 +1,5 @@
 """"Tests of migration"""
+import gc
 import logging
 import uuid
 
@@ -137,6 +138,7 @@ def test_migrate_to_reference(historian: mincepy.Historian):
     assert isinstance(loaded.ref, mincepy.testing.Car)
     assert loaded.ref is not car
     del loaded
+    gc.collect()  # Force garbage collection
 
     # Now, change my mind
     historian.register_type(StoreByRef)
@@ -158,6 +160,7 @@ def test_dependent_migrations(historian: mincepy.Historian):
     assert isinstance(loaded.ref, CarV1)
     assert loaded.ref is not car
     del loaded
+    gc.collect()  # Force garbage collection
 
     # Now, change my mind
     historian.register_type(StoreByRef)  # Store by reference instead

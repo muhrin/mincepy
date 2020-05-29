@@ -17,7 +17,7 @@ def to_mongo_op(op: mincepy.operations.Operation):
     raise NotImplementedError
 
 
-@to_mongo_op.register
+@to_mongo_op.register(mincepy.operations.Insert)
 def _(op: mincepy.operations.Insert):
     """Insert"""
     record = op.record
@@ -44,7 +44,7 @@ def _(op: mincepy.operations.Insert):
     return data_op, history_op
 
 
-@to_mongo_op.register
+@to_mongo_op.register(mincepy.operations.Update)
 def _(op: mincepy.operations.Update):
     """Update"""
     sid = op.snapshot_id
@@ -55,13 +55,14 @@ def _(op: mincepy.operations.Update):
     data_op = pymongo.operations.UpdateOne(filter={
         db.OBJ_ID: sid.obj_id,
         db.VERSION: sid.version
-    }, update=update)
+    },
+                                           update=update)
     history_op = pymongo.operations.UpdateOne(filter={'_id': str(sid)}, update=update)
 
     return data_op, history_op
 
 
-@to_mongo_op.register
+@to_mongo_op.register(mincepy.operations.Delete)
 def _(op: mincepy.operations.Delete):
     """Delete"""
     sid = op.snapshot_id

@@ -1,8 +1,7 @@
 import collections
 import collections.abc
 from functools import wraps
-import typing
-from typing import TypeVar, Generic
+from typing import TypeVar, Generic, Any, Type
 import weakref
 
 
@@ -14,7 +13,7 @@ class WeakObjectIdDict(collections.MutableMapping):
 
     def __init__(self, seq=None, **kwargs):
         self._refs = {}  # type: collections.abc.MutableMapping[int, weakref.ReferenceType]
-        self._values = {}  # type: collections.abc.MutableMapping[int, typing.Any]
+        self._values = {}  # type: collections.abc.MutableMapping[int, Any]
         if seq:
             if isinstance(seq, collections.abc.Mapping):
                 for key, value in seq.items():
@@ -81,36 +80,41 @@ class DefaultFromCall:
 class NamedTupleBuilder(Generic[T]):
     """A builder that allows namedtuples to be build step by step"""
 
-    def __init__(self, tuple_type: typing.Type[T], defaults=None):
+    def __init__(self, tuple_type: Type[T], defaults=None):
         # Have to do it this way because we overwrite __setattr__
         defaults = defaults or {}
-        object.__setattr__(self, '_tuple_type', tuple_type)
         diff = set(defaults.keys()) - set(tuple_type._fields)
-        assert not diff, "Can't supply defaults that are not in the namedtuple: '{}'".format(diff)
-        object.__setattr__(self, '_values', defaults)
+        if diff:
+            raise RuntimeError(
+                "Can't supply defaults that are not in the namedtuple: '{}'".format(diff))
 
-    def __repr__(self):
-        """Representation of the object."""
-        return '%s(%s)' % (self.__class__.__name__, dict.__repr__(self._values))
+        super().__setattr__('_tuple_type', tuple_type)
+        super().__setattr__('_values', defaults)
 
-    def __getattr__(self, attr):
+    def __getattr__(self, item):
         """Read a key as an attribute.
 
         :raises AttributeError: if the attribute does not correspond to an existing key.
         """
+        if item == '_tuple_type':
+            return self._tuple_type
         try:
-            return self._values[attr]
+            return self._values[item]
         except KeyError:
-            errmsg = "'{}' object has no attribute '{}'".format(self.__class__.__name__, attr)
+            errmsg = "'{}' object has no attribute '{}'".format(self.__class__.__name__, item)
             raise AttributeError(errmsg)
 
     def __setattr__(self, attr, value):
         """Set a key as an attribute."""
-        if attr not in self._tuple_type._fields:
+        if attr not in super().__getattribute__('_tuple_type')._fields:
             raise AttributeError("AttributeError: '{}' is not a valid attribute of the object "
                                  "'{}'".format(attr, self.__class__.__name__))
 
         self._values[attr] = value
+
+    def __repr__(self):
+        """Representation of the object."""
+        return '%s(%s)' % (self.__class__.__name__, dict.__repr__(self._values))
 
     def __dir__(self):
         return self._tuple_type._fields
