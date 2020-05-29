@@ -15,6 +15,7 @@ from . import depositors
 from . import refs
 from . import exceptions
 from . import helpers
+from . import operations
 from . import process
 from . import records
 from . import types
@@ -335,7 +336,7 @@ class Historian:
 
             # Insert all the new objects into the transaction
             trans.insert_live_object(obj_copy, obj_copy_record)
-            trans.stage(obj_copy_record)
+            trans.stage(operations.Insert(obj_copy_record))
 
         return obj_copy
 
@@ -366,7 +367,7 @@ class Historian:
             builder = records.make_deleted_builder(record)
             deleted_record = self._record_builder_created(builder).build()
             trans.delete(obj_id)
-            trans.stage(deleted_record)
+            trans.stage(operations.Insert(deleted_record))
 
     def history(
             self,
@@ -743,7 +744,7 @@ class Historian:
 
         # Save any records that were staged for archiving
         if trans.staged:
-            self._archive.save_many(trans.staged)
+            self._archive.bulk_write(trans.staged)
 
         # Metas
         for obj_id, meta in trans.metas.items():

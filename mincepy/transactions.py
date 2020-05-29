@@ -5,6 +5,7 @@ import weakref
 
 from . import archives
 from . import exceptions
+from . import operations
 from . import records
 from . import utils
 
@@ -28,9 +29,10 @@ class LiveObjects:
         self._records[obj] = record
         self._objects[record.obj_id] = obj
 
-    def update(self, live_objects):
+    def update(self, live_objects: 'LiveObjects'):
         """Like a dictionary update, take the given live objects container and absorb it into
         ourselves overwriting any existing values and incorporating any new"""
+        # pylint: disable=protected-access
         self._records.update(live_objects._records)
         self._objects.update(live_objects._objects)
 
@@ -76,7 +78,7 @@ class Transaction:
 
     def __init__(self):
         # Records staged for saving to the archive
-        self._staged = []  # type: List[archives.DataRecord]
+        self._staged = []  # type: List[operations.Operation]
 
         self._deleted = set()  # A set of deleted obj ids
 
@@ -204,12 +206,12 @@ class Transaction:
         except KeyError:
             raise exceptions.NotFound("No snapshot with reference '{}' found".format(ref))
 
-    def stage(self, record: records.DataRecord):
-        """Stage a record to be saved once on completion of this transaction"""
-        self._staged.append(record)
+    def stage(self, op: operations.Operation):  # pylint: disable=invalid-name
+        """Stage an operation to be carried out on completion of this transaction"""
+        self._staged.append(op)
 
     @property
-    def staged(self) -> Sequence[records.DataRecord]:
+    def staged(self) -> Sequence[operations.Operation]:
         """The list of records that were staged during this transaction"""
         return self._staged
 
@@ -224,8 +226,9 @@ class Transaction:
             # Update our transaction with the nested
             self._update(nested)
 
-    def _update(self, transaction):
+    def _update(self, transaction: 'Transaction'):
         """Absorb a nested transaction into this one, done at the end of a nested context"""
+        # pylint: disable=protected-access
         self._live_objects.update(transaction.live_objects)
         self._snapshots.update(transaction.snapshots)
         self._live_object_references.update(transaction._live_object_references)

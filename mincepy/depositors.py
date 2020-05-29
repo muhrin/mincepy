@@ -6,6 +6,7 @@ from pytray import tree
 
 from . import archives
 from . import exceptions
+from . import operations
 from . import records
 
 __all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor'
@@ -215,7 +216,7 @@ class LiveDepositor(Saver, Loader):
 
             # Insert the record into the transaction
             trans.insert_live_object(obj, record)
-            trans.stage(record)  # Stage it for being saved
+            trans.stage(operations.Insert(record))  # Stage it for being saved
 
         return record
 
