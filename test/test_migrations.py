@@ -189,7 +189,7 @@ def test_migrating_snapshot(historian: mincepy.Historian, caplog):
     del car
 
     historian.register_type(CarV3)  # And update the car definition
-    snapshot = historian.load_snapshot(mincepy.SnapshotRef(car_id, 0))  # Load version 0
+    snapshot = historian.load_snapshot(mincepy.SnapshotId(car_id, 0))  # Load version 0
 
     assert snapshot.colour == 'yellow'
     assert snapshot.make == 'bugatti'

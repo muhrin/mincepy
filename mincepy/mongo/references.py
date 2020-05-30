@@ -16,7 +16,7 @@ class ReferenceManager:
         self._data_collection = data_collection
         self._history_collection = history_collection
 
-    def get_reference_graphs(self, srefs: Sequence[mincepy.SnapshotRef]):
+    def get_reference_graphs(self, srefs: Sequence[mincepy.SnapshotId]):
         self._ensure_current()
 
         pipeline = [{

@@ -43,7 +43,7 @@ def print_records(records: typing.Sequence[mincepy.records.DataRecord], historia
             helper = historian.get_helper(record.type_id)
             type_str = get_type_name(helper.TYPE) + "#{}".format(record.version)
         except KeyError:
-            type_str = str(record.get_reference())
+            type_str = str(record.snapshot_id)
         if record.is_deleted_record():
             type_str += " [deleted]"
         refs.append(type_str)
@@ -93,7 +93,7 @@ def get_value(title, state):
         value = state[idx]
         # Check for references
         if isinstance(value, dict) and set(value.keys()) == {'type_id', 'state'}:
-            return str(mincepy.records.SnapshotRef(*value['state']))
+            return str(mincepy.records.SnapshotId(*value['state']))
 
         if len(title) > 1:
             return get_value(title[1:], value)

@@ -87,7 +87,7 @@ class Transaction:
         self._live_object_references = {}
 
         # Snapshots: ref -> obj
-        self._snapshots = {}  # type: Dict[records.SnapshotRef, Any]
+        self._snapshots = {}  # type: Dict[records.SnapshotId, Any]
         # Maps from object id -> metadata dictionary
         self._metas = {}  # type: Dict[Any, dict]
 
@@ -119,7 +119,7 @@ class Transaction:
         if self.is_deleted(record.obj_id):
             raise ValueError("Object with id '{}' has already been deleted!".format(record.obj_id))
 
-        ref = record.get_reference()
+        ref = record.snapshot_id
         if ref not in self._live_object_references:
             self._live_object_references[ref] = obj
         else:
@@ -127,7 +127,7 @@ class Transaction:
 
         self._live_objects.insert(obj, record)
 
-    def insert_live_object_reference(self, ref: records.SnapshotRef, obj):
+    def insert_live_object_reference(self, ref: records.SnapshotId, obj):
         """Insert a snapshot reference for an object into the transaction"""
         self._live_object_references[ref] = obj
 
@@ -140,7 +140,7 @@ class Transaction:
     def get_record_for_live_object(self, obj) -> records.DataRecord:
         return self._live_objects.get_record(obj)
 
-    def get_live_object_from_reference(self, ref: records.SnapshotRef):
+    def get_live_object_from_reference(self, ref: records.SnapshotId):
         if self.is_deleted(ref.obj_id):
             raise exceptions.ObjectDeleted(ref.obj_id)
 

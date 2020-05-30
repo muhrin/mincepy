@@ -165,12 +165,12 @@ class Historian:
         # Register default types
         self._type_registry = type_registry.TypeRegistry()
         self.register_type(refs.ObjRef)
-        self.register_type(helpers.SnapshotRefHelper())
+        self.register_type(helpers.SnapshotIdHelper())
         self.register_types(archive.get_types())
 
         # Snapshot objects -> reference. Objects that were loaded from historical snapshots
         self._snapshots_objects = utils.WeakObjectIdDict(
-        )  # type: MutableMapping[Any, records.SnapshotRef]
+        )  # type: MutableMapping[Any, records.SnapshotId]
         self._live_objects = LiveObjects()
 
         # Staged objects that have been created but not saved
@@ -277,7 +277,7 @@ class Historian:
         # Make sure creators is correct as well
         process.CreatorsRegistry.set_creator(new, process.CreatorsRegistry.get_creator(old))
 
-    def load_snapshot(self, reference: records.SnapshotRef) -> Any:
+    def load_snapshot(self, reference: records.SnapshotId) -> Any:
         return depositors.SnapshotLoader(self).load(reference)
 
     def load(self, *obj_ids_or_refs):
@@ -293,7 +293,7 @@ class Historian:
 
     def load_one(self, obj_id_or_ref):
         """Load one object or shot from the database"""
-        if isinstance(obj_id_or_ref, records.SnapshotRef):
+        if isinstance(obj_id_or_ref, records.SnapshotId):
             return self.load_snapshot(obj_id_or_ref)
 
         return self._load_object(obj_id_or_ref, depositors.LiveDepositor(self))
@@ -508,7 +508,7 @@ class Historian:
             except exceptions.NotFound:
                 pass
 
-        return self._live_objects.get_record(obj).get_reference()
+        return self._live_objects.get_record(obj).snapshot_id
 
     def hash(self, obj):
         return self._equator.hash(obj)

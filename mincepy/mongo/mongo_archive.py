@@ -48,7 +48,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     """MongoDB implementation of the mincepy archive"""
 
     ID_TYPE = bson.ObjectId
-    SnapshotRef = mincepy.SnapshotRef[bson.ObjectId]
+    SnapshotId = mincepy.SnapshotId[bson.ObjectId]
 
     DATA_COLLECTION = 'data'
     HISTORY_COLLECTION = 'history'
@@ -123,8 +123,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                     "You're trying to rewrite history, that's not allowed!")
             raise  # Otherwise just raise what we got
 
-    def load(self, reference: mincepy.SnapshotRef) -> mincepy.DataRecord:
-        if not isinstance(reference, mincepy.SnapshotRef):
+    def load(self, reference: mincepy.SnapshotId) -> mincepy.DataRecord:
+        if not isinstance(reference, mincepy.SnapshotId):
             raise TypeError(reference)
 
         results = tuple(
@@ -325,8 +325,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         return result['total']
 
-    def get_reference_graph(self,
-                            sids: Sequence[SnapshotRef]) -> Sequence[mincepy.Archive.RefGraph]:
+    def get_reference_graph(self, sids: Sequence[SnapshotId]) -> Sequence[mincepy.Archive.RefGraph]:
         return self._refman.get_reference_graphs(sids)
 
     def _get_pipeline(self,

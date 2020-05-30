@@ -72,7 +72,7 @@ def test_obj_ref_complex(historian: mincepy.Historian):
     parent_sref = historian.get_snapshot_ref(loaded)
     del loaded
 
-    loaded2 = historian.load_snapshot(mincepy.records.SnapshotRef(parent_id, 0))
+    loaded2 = historian.load_snapshot(mincepy.records.SnapshotId(parent_id, 0))
     assert loaded2.ns1().car().make == 'honda'
     assert loaded2.ns2().car().make == 'honda'
     del loaded2

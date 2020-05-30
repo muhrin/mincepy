@@ -4,6 +4,7 @@ from typing import Optional, MutableMapping, Any
 
 from pytray import tree
 
+import mincepy
 from . import archives
 from . import exceptions
 from . import operations
@@ -18,7 +19,7 @@ class Base(metaclass=ABCMeta):
     """Common base for loader and saver"""
 
     def __init__(self, historian):
-        self._historian = historian
+        self._historian = historian  # type: mincepy.Historian
 
     def get_archive(self) -> archives.Archive:
         return self._historian.archive
@@ -37,7 +38,7 @@ class Saver(Base, metaclass=ABCMeta):
     """A depositor that knows how to save records into the archive"""
 
     @abstractmethod
-    def ref(self, obj) -> records.SnapshotRef:
+    def ref(self, obj) -> records.SnapshotId:
         """Get a persistent reference for the given object"""
 
     def encode(self, obj, schema=None, path=()):
@@ -133,7 +134,7 @@ class Loader(Base, metaclass=ABCMeta):
 class LiveDepositor(Saver, Loader):
     """Depositor with strategy that all objects that get referenced should be saved"""
 
-    def ref(self, obj) -> Optional[records.SnapshotRef]:
+    def ref(self, obj) -> Optional[records.SnapshotId]:
         if obj is None:
             return None
 
@@ -144,9 +145,9 @@ class LiveDepositor(Saver, Loader):
             return self._historian.current_transaction().get_reference_for_live_object(obj)
         except exceptions.NotFound:
             # Then we have to save it and get the resulting reference
-            return self._historian._save_object(obj, self).get_reference()
+            return self._historian._save_object(obj, self).snapshot_id
 
-    def load(self, reference: records.SnapshotRef):
+    def load(self, reference: records.SnapshotId):
         try:
             return self._historian.get_obj(reference.obj_id)
         except exceptions.NotFound:
@@ -174,7 +175,7 @@ class LiveDepositor(Saver, Loader):
                 new_schema = []
                 new_state = self.encode(loaded, new_schema)
                 trans.stage(
-                    operations.Update(record.get_reference(), {
+                    operations.Update(record.snapshot_id, {
                         records.STATE: new_state,
                         records.STATE_TYPES: new_schema
                     }))
@@ -203,7 +204,7 @@ class LiveDepositor(Saver, Loader):
 
         with historian.transaction() as trans:
             # Insert the object into the transaction so others can refer to it
-            ref = records.SnapshotRef(builder.obj_id, builder.version)
+            ref = records.SnapshotId(builder.obj_id, builder.version)
             trans.insert_live_object_reference(ref, obj)
 
             # Deal with a possible object creator
@@ -231,10 +232,10 @@ class SnapshotLoader(Loader):
 
     def __init__(self, historian):
         super().__init__(historian)
-        self._snapshots = {}  # type: MutableMapping[records.SnapshotRef, Any]
+        self._snapshots = {}  # type: MutableMapping[records.SnapshotId, Any]
 
-    def load(self, ref: records.SnapshotRef):
-        if not isinstance(ref, records.SnapshotRef):
+    def load(self, ref: records.SnapshotId):
+        if not isinstance(ref, records.SnapshotId):
             raise TypeError(ref)
 
         try:
@@ -253,5 +254,5 @@ class SnapshotLoader(Loader):
     def load_from_record(self, record: records.DataRecord):
         with self._historian.transaction() as trans:
             obj = self.decode(record.state, record.get_state_schema())
-            trans.insert_snapshot(obj, record.get_reference())
+            trans.insert_snapshot(obj, record.snapshot_id)
             return obj

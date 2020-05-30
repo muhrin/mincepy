@@ -8,13 +8,15 @@ import typing
 from typing import Optional, Iterable, Sequence, Union, Tuple, Any, Mapping
 import uuid
 
+import deprecation
 import pytray.tree
 
 from . import utils
+from .version import __version__
 
 __all__ = 'OBJ_ID', 'TYPE_ID', 'CREATION_TIME', 'VERSION', 'STATE', 'SNAPSHOT_TIME', \
           'SNAPSHOT_HASH', 'EXTRAS', 'ExtraKeys', 'DELETED', 'DataRecord', 'SnapshotRef', \
-          'DataRecordBuilder', 'StateSchema'
+          'DataRecordBuilder', 'StateSchema', 'SnapshotId'
 
 OBJ_ID = 'obj_id'
 TYPE_ID = 'type_id'
@@ -67,7 +69,7 @@ class SnapshotId(typing.Generic[IdT]):
         return "{}#{}".format(self._obj_id, self._version)
 
     def __repr__(self):
-        return "SnapshotRef({}, {})".format(self.obj_id, self.version)
+        return "SnapshotId({}, {})".format(self.obj_id, self.version)
 
     def __hash__(self):
         return (self.obj_id, self.version).__hash__()
@@ -149,17 +151,21 @@ class DataRecord(
         """The snapshot id for this record"""
         return SnapshotId(self.obj_id, self.version)
 
+    @deprecation.deprecated(deprecated_in="0.13.2",
+                            removed_in="0.14.0",
+                            current_version=__version__,
+                            details="Use .snapshot_id instead")
     def get_reference(self) -> SnapshotId:
         """Get a reference for this data record"""
         return self.snapshot_id
 
-    def get_copied_from(self) -> Optional[SnapshotRef]:
+    def get_copied_from(self) -> Optional[SnapshotId]:
         """Get the reference of the data record this object was originally copied from"""
         obj_ref = self.get_extra(ExtraKeys.COPIED_FROM)
         if obj_ref is None:
             return None
 
-        return SnapshotRef(**obj_ref)
+        return SnapshotId(**obj_ref)
 
     def get_extra(self, name):
         """Convenience function to get an extra from the record, returns None if the extra doesn't
@@ -188,7 +194,7 @@ class DataRecord(
             SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
             EXTRAS: copy.deepcopy(self.extras)
         })
-        defaults[EXTRAS][ExtraKeys.COPIED_FROM] = self.get_reference().to_dict()
+        defaults[EXTRAS][ExtraKeys.COPIED_FROM] = self.snapshot_id.to_dict()
         defaults.update(kwargs)
 
         return DataRecordBuilder(type(self), defaults)
@@ -217,14 +223,14 @@ class DataRecord(
         defaults.update(kwargs)
         return DataRecordBuilder(type(self), defaults)
 
-    def get_references(self) -> Iterable[Tuple[EntryPath, SnapshotRef]]:
+    def get_references(self) -> Iterable[Tuple[EntryPath, SnapshotId]]:
         """Get all the references to other objects contained in this record"""
         references = []
         if self.state_types is not None and self.state is not None:
-            for entry_info in filter(lambda entry: entry[1] == SnapshotRef.TYPE_ID,
+            for entry_info in filter(lambda entry: entry[1] == SnapshotId.TYPE_ID,
                                      self.state_types):
                 path = entry_info[0]
-                references.append((path, SnapshotRef(**pytray.tree.get_by_path(self.state, path))))
+                references.append((path, SnapshotId(**pytray.tree.get_by_path(self.state, path))))
         return references
 
     def get_state_schema(self) -> 'StateSchema':

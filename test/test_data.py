@@ -161,7 +161,7 @@ def test_copy(historian: mincepy.Historian):
     copy_record = historian.get_current_record(car_copy)
 
     assert record is not copy_record
-    assert copy_record.get_copied_from() == record.get_reference()
+    assert copy_record.get_copied_from() == record.snapshot_id
 
 
 def test_load_unknown_object(mongodb_archive, historian: mincepy.Historian):

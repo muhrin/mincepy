@@ -157,13 +157,13 @@ class WrapperHelper(TypeHelper):
         self.TYPE.load_instance_state(obj, saved_state, loader)
 
 
-class SnapshotRefHelper(TypeHelper):
+class SnapshotIdHelper(TypeHelper):
     """Add ability to store references"""
-    TYPE = records.SnapshotRef
+    TYPE = records.SnapshotId
     TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
 
     def eq(self, one, other):
-        if not (isinstance(one, records.SnapshotRef) and isinstance(other, records.SnapshotRef)):
+        if not (isinstance(one, records.SnapshotId) and isinstance(other, records.SnapshotId)):
             return False
 
         return one.obj_id == other.obj_id and one.version == other.version

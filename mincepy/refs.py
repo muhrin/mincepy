@@ -9,7 +9,7 @@ __all__ = ('ObjRef',)
 
 class ObjRef(types.SavableObject):
     """A reference to an object instance"""
-    TYPE_ID = records.SnapshotRef.TYPE_ID
+    TYPE_ID = records.SnapshotId.TYPE_ID
     IMMUTABLE = True
 
     _obj = None
@@ -91,10 +91,10 @@ class ObjRef(types.SavableObject):
         if saved_state is not None:
             if isinstance(saved_state, list):
                 # Legacy version
-                self._ref = records.SnapshotRef(*saved_state)
+                self._ref = records.SnapshotId(*saved_state)
             else:
                 # New version is dict
-                self._ref = records.SnapshotRef(**saved_state)
+                self._ref = records.SnapshotId(**saved_state)
             self._loader = loader
 
 

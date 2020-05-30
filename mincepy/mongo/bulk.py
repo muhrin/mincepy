@@ -38,7 +38,7 @@ def _(op: mincepy.operations.Insert):
                                                 upsert=True)
 
     # History uses the sid as the document id
-    document['_id'] = str(record.get_reference())
+    document['_id'] = str(record.snapshot_id)
     history_op = pymongo.operations.InsertOne(document)
 
     return data_op, history_op
