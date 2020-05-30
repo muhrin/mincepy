@@ -71,3 +71,59 @@ def pipeline_match_metadata(meta: dict, meta_collection: str, local_field: str):
     pipeline.append({'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
 
     return pipeline
+
+
+class QueryBuilder:
+    """Simple MongoDB query builder.  Creates a compound query of one or more more terms"""
+
+    def __init__(self, *terms):
+        self._terms = []
+        for term in terms:
+            self.and_(term)
+
+    def and_(self, *term: dict):
+        for entry in term:
+            if not isinstance(entry, dict):
+                raise TypeError(entry)
+
+        self._terms.extend(term)
+
+    def build(self):
+        if not self._terms:
+            return {}
+        if len(self._terms) == 1:
+            return self._terms[0]
+
+        return {'$and': self._terms.copy()}
+
+
+def flatten_filter(entry_name: str, query) -> list:
+    """Expand nested search criteria, e.g. state={'color': 'red'} -> {'state.colour': 'red'}"""
+    if isinstance(query, dict):
+        transformed = _transform_query_keys(query, entry_name)
+        flattened = [{key: value} for key, value in transformed.items()]
+    else:
+        flattened = [{entry_name: query}]
+
+    return flattened
+
+
+def _transform_query_keys(entry, prefix: str):
+    """Transform a query entry into the correct syntax given a global prefix and the entry itself"""
+
+    if isinstance(entry, dict):
+        transformed = {}
+        for key, value in entry.items():
+            if key.startswith('$'):
+                if key in ('$and', '$not', '$nor', '$or'):
+                    transformed[key] = _transform_query_keys(value, prefix)
+                else:
+                    transformed[prefix] = {key: value}
+            else:
+                transformed['{}.{}'.format(prefix, key)] = _transform_query_keys(value, prefix)
+
+        return transformed
+    elif isinstance(entry, list):
+        return [_transform_query_keys(value, prefix) for value in entry]
+    else:
+        return entry

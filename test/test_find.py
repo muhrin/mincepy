@@ -95,3 +95,27 @@ def test_find_latest(historian: mincepy.Historian):
     # Now do a version-unrestricted search
     results = tuple(historian.archive.find(version=None, state=dict(make='fiat')))
     assert len(results) == 3
+
+
+def test_find_predicates(historian: mincepy.Historian):
+    """Test using the query predicates"""
+
+    skoda = Car('skoda', 'green')
+    ferrari = Car('ferrari', 'yellow')
+    bugatti = Car('bugatti', 'green')
+    historian.save(skoda, ferrari, bugatti)
+
+    # OR
+    results = tuple(
+        historian.find_records(state=mincepy.q.or_({'make': 'skoda'}, {'make': 'ferrari'})))
+    assert len(results) == 2
+    makes = [record.state['make'] for record in results]
+    assert 'skoda' in makes
+    assert 'ferrari' in makes
+
+    # AND
+    results = tuple(
+        historian.find_records(state=mincepy.q.and_({'make': 'skoda'}, {'colour': 'green'})))
+    assert len(results) == 1
+    makes = [record.state['make'] for record in results]
+    assert 'skoda' in makes

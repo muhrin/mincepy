@@ -4,7 +4,7 @@ import random
 import pytest
 
 import mincepy
-from mincepy.testing import mongodb_archive, historian, Car, Person, Garage
+from mincepy.testing import archive_uri, mongodb_archive, historian, Car, Person, Garage
 from . import utils
 
 

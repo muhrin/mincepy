@@ -238,6 +238,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
              _copied_from=None,
              version=None,
              state=None,
+             state_types=None,
              snapshot_hash=None,
              meta=None,
              limit=0,
@@ -249,6 +250,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                                       _copied_from=_copied_from,
                                       version=version,
                                       state=state,
+                                      state_types=state_types,
                                       snapshot_hash=snapshot_hash,
                                       meta=meta)
 
@@ -283,35 +285,23 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
               _copied_from=None,
               version=-1,
               state=None,
-              deleted=True,
               snapshot_hash=None,
               meta=None,
               limit=0):
-        mfilter = {}
-        if obj_id is not None:
-            mfilter['obj_id'] = obj_id
 
-        if type_id is not None:
-            mfilter['type_id'] = type_id
-
-        if state is not None:
-            mfilter.update(flatten_filter(db.STATE, state))
-
-        if not deleted:
-            condition = [q.ne_(mincepy.DELETED)]
-            if db.STATE in mfilter:
-                condition.append(mfilter[db.STATE])
-            mfilter.update(flatten_filter(db.STATE, q.and_(*condition)))
-
-        if snapshot_hash is not None:
-            mfilter[db.KEY_MAP[mincepy.SNAPSHOT_HASH]] = snapshot_hash
+        pipeline = self._get_pipeline(obj_id=obj_id,
+                                      type_id=type_id,
+                                      _created_by=_created_by,
+                                      _copied_from=_copied_from,
+                                      version=version,
+                                      state=state,
+                                      snapshot_hash=snapshot_hash,
+                                      meta=meta)
 
         if version == -1:
             coll = self._data_collection
         else:
             coll = self._history_collection
-
-        pipeline = [{'$match': mfilter}]
 
         if meta:
             pipeline.extend(
@@ -335,28 +325,34 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                       _copied_from=None,
                       version=None,
                       state=None,
+                      state_types=None,
                       snapshot_hash=None,
                       meta=None):
         """Get a pipeline that would perform the given search.  Can be used directly in an aggregate
          call"""
         pipeline = []
 
-        mfilter = {}
+        query = queries.QueryBuilder()
+
         if obj_id is not None:
-            mfilter[db.OBJ_ID] = scalar_query_spec(obj_id)
+            query.and_({db.OBJ_ID: scalar_query_spec(obj_id)})
 
         if version is not None and version != -1:
-            mfilter[db.VERSION] = version
+            query.and_({db.VERSION: version})
 
         if type_id is not None:
-            mfilter[db.TYPE_ID] = scalar_query_spec(type_id)
+            query.and_({db.TYPE_ID: scalar_query_spec(type_id)})
 
         if state is not None:
-            mfilter.update(flatten_filter(db.STATE, state))
+            query.and_(*queries.flatten_filter(db.STATE, state))
+
+        if state_types is not None:
+            query.and_(*queries.flatten_filter(db.STATE_TYPES, state_types))
 
         if snapshot_hash is not None:
-            mfilter[db.KEY_MAP[mincepy.SNAPSHOT_HASH]] = scalar_query_spec(snapshot_hash)
+            query.and_({db.SNAPSHOT_HASH: scalar_query_spec(snapshot_hash)})
 
+        mfilter = query.build()
         if mfilter:
             pipeline.append({'$match': mfilter})
 
@@ -365,24 +361,3 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                 queries.pipeline_match_metadata(meta, self._meta_collection.name, db.OBJ_ID))
 
         return pipeline
-
-
-def flatten_filter(entry_name: str, query) -> dict:
-    """Expand nested search criteria, e.g. state={'color': 'red'} -> {'state.colour': 'red'}"""
-    flattened = {}
-
-    if isinstance(query, dict):
-        predicates = []
-        # Sort out entries containing operators and those without
-        for key, value in query.items():
-            if key.startswith('$'):
-                predicates.append({key: value})
-            else:
-                flattened.update({"{}.{}".format(entry_name, key): value})
-        if predicates:
-            flattened.update(q.and_(*[{entry_name: predicate} for predicate in predicates]))
-
-    else:
-        flattened[entry_name] = query
-
-    return flattened

@@ -1,6 +1,5 @@
 import logging
 import sys
-import typing
 
 import click
 import pytray.pretty
@@ -59,3 +58,32 @@ def plugins():
         plugin_info.append(row)
 
     click.echo(tabulate.tabulate(plugin_info, headers))
+
+
+@mince.command()
+@click.option('--yes', is_flag=True, default=False, help="Yes to all prompts")
+@click.argument('uri', type=str)
+@click.pass_context
+def migrate(ctx, yes, uri):
+    try:
+        hist = mincepy.create_historian(uri)
+    except ValueError as exc:
+        click.echo(exc)
+        sys.exit(1)
+    else:
+        if isinstance(ctx.obj, dict) and 'helpers' in ctx.obj:
+            hist.register_types(ctx.obj['helpers'])
+
+        click.echo("Looking for records to migrate...")
+        records = tuple(mincepy.migrate.find_migratable_objects(hist))
+        if not records:
+            click.echo("No migrations necessary")
+            return
+
+        click.echo("Found {} records to migrate".format(len(records)))
+        if yes or click.confirm("Migrate all?"):
+            set_print_logging(logging.INFO)
+            for record in records:
+                hist.load_snapshot(record.snapshot_id)
+        else:
+            sys.exit(2)

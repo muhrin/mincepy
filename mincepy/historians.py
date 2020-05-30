@@ -530,6 +530,10 @@ class Historian:
         except TypeError:
             return False
 
+    @property
+    def type_registry(self) -> type_registry.TypeRegistry:
+        return self._type_registry
+
     def is_primitive(self, obj) -> bool:
         """Check if the object is one of the primitives and should be saved by value in the
         archive"""

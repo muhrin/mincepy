@@ -1,10 +1,12 @@
-from typing import Type, MutableMapping, Iterable, Any
+from typing import Type, MutableMapping, Iterable, Any, Union
 
 from . import helpers
 from . import types
 
 
 class TypeRegistry:
+    """The type registry.  This contains helpers that furnish mincepy with the necessary methods
+    to store and track objects in the archive"""
 
     def __init__(self):
         self._helpers = {}  # type: MutableMapping[Type, helpers.TypeHelper]
@@ -13,9 +15,15 @@ class TypeRegistry:
     def __contains__(self, item: Type) -> bool:
         return item in self._helpers
 
+    @property
+    def type_helpers(self) -> MutableMapping[Type, helpers.TypeHelper]:
+        """Get the mapping of registered type helpers"""
+        return self._helpers
+
     def register_type(
-            self, obj_class_or_helper: [helpers.TypeHelper,
-                                        Type[types.Object]]) -> helpers.WrapperHelper:
+        self, obj_class_or_helper: Union[helpers.TypeHelper,
+                                         Type[types.Object]]) -> helpers.WrapperHelper:
+        """Register a type new type"""
         if isinstance(obj_class_or_helper, helpers.TypeHelper):
             helper = obj_class_or_helper
         else:

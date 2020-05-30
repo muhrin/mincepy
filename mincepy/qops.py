@@ -46,8 +46,16 @@ def exists_(key) -> dict:
 
 
 def gt_(quantity) -> dict:
+    """Match values greater than quantity"""
     return {'$gt': quantity}
 
 
 def lt_(quantity) -> dict:
+    """Match values less than quantity"""
     return {'$lt': quantity}
+
+
+def elem_match_(**conditions) -> dict:
+    """Match an element that is an array and has at least one member that matches all the specified
+    conditions"""
+    return {'$elemMatch': conditions}

@@ -1,4 +1,5 @@
 """Classes and function useful for trying out mincepy functionality"""
+import os
 import random
 import uuid
 
@@ -8,12 +9,20 @@ import pytest
 
 import mincepy
 
+ENV_ARCHIVE_URI = 'MINCEPY_TEST_URI'
+DEFAULT_RMQ_URI = 'mongodb://localhost/mincepy-tests'
+
 
 @pytest.fixture
-def mongodb_archive():
-    client = pymongo.MongoClient()
-    client.drop_database('test_database')
-    db = client.test_database
+def archive_uri():
+    return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_RMQ_URI)
+
+
+@pytest.fixture
+def mongodb_archive(archive_uri):
+    client = pymongo.MongoClient(archive_uri)
+    db = client.get_default_database()
+    client.drop_database(db)
     mongo_archive = mincepy.mongo.MongoArchive(db)
     yield mongo_archive
     client.drop_database(db)

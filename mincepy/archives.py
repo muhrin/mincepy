@@ -143,6 +143,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
              copied_from=None,
              version=None,
              state=None,
+             state_types=None,
              snapshot_hash=None,
              meta=None,
              limit=0,
@@ -155,6 +156,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         :param copied_from: find records copied from the record with the given id
         :param version: restrict the search to this version, -1 for latest
         :param state: find objects with this state filter
+        :param state_types: file objects with this state types filter
         :param snapshot_hash: find objects with this snapshot hash
         :param meta: find objects with this meta filter
         :param limit: limit the results to this many records

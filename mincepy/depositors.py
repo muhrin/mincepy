@@ -73,6 +73,20 @@ class Saver(Base, metaclass=ABCMeta):
         saved_state = self.encode(obj, state_types)
         return {records.STATE: saved_state, records.STATE_TYPES: state_types}
 
+    def _migrate_record(self, record, new_obj, trans):
+        """Given the current record and the corresponding instance this will save an updated state
+        to the dictionary by re-saving the object.  The current transaction must be supplied."""
+        new_schema = []
+        new_state = self.encode(new_obj, new_schema)
+
+        trans.stage(
+            operations.Update(record.snapshot_id, {
+                records.STATE: new_state,
+                records.STATE_TYPES: new_schema
+            }))
+
+        logger.info("Snapshot %s has been migrated to the latest version", record.snapshot_id)
+
 
 class Loader(Base, metaclass=ABCMeta):
     """A loader that knows how to load objects from the archive"""
@@ -170,15 +184,7 @@ class LiveDepositor(Saver, Loader):
                                  migrated=migrated)
 
             if migrated:
-                logger.info("Snapshot %s has been migrated to the latest version",
-                            record.snapshot_id)
-                new_schema = []
-                new_state = self.encode(loaded, new_schema)
-                trans.stage(
-                    operations.Update(record.snapshot_id, {
-                        records.STATE: new_state,
-                        records.STATE_TYPES: new_schema
-                    }))
+                self._migrate_record(record, loaded, trans)
 
             return loaded
 
@@ -225,7 +231,7 @@ class LiveDepositor(Saver, Loader):
         return record
 
 
-class SnapshotLoader(Loader):
+class SnapshotLoader(Saver, Loader):
     """Responsible for loading snapshots.  This object should not be reused and only
     one external call to `load` should be made.  This is because it keeps an internal
     cache."""
@@ -234,25 +240,36 @@ class SnapshotLoader(Loader):
         super().__init__(historian)
         self._snapshots = {}  # type: MutableMapping[records.SnapshotId, Any]
 
-    def load(self, ref: records.SnapshotId):
-        if not isinstance(ref, records.SnapshotId):
-            raise TypeError(ref)
+    def ref(self, obj) -> Optional[records.SnapshotId]:
+        for sshot_obj, sid in self.get_historian()._snapshots_objects.items():
+            if obj is sshot_obj:
+                return sid
+
+        return None
+
+    def load(self, sid: records.SnapshotId):
+        if not isinstance(sid, records.SnapshotId):
+            raise TypeError(sid)
 
         try:
-            return self._snapshots[ref]
+            return self._snapshots[sid]
         except KeyError:
-            record = self.get_archive().load(ref)
+            record = self.get_archive().load(sid)
             if record.is_deleted_record():
                 snapshot = None
             else:
                 snapshot = self.load_from_record(record)
 
             # Cache it
-            self._snapshots[ref] = snapshot
+            self._snapshots[sid] = snapshot
             return snapshot
 
     def load_from_record(self, record: records.DataRecord):
         with self._historian.transaction() as trans:
-            obj = self.decode(record.state, record.get_state_schema())
+            migrated = {}
+            obj = self.decode(record.state, record.get_state_schema(), migrated=migrated)
             trans.insert_snapshot(obj, record.snapshot_id)
+            if migrated:
+                self._migrate_record(record, obj, trans)
+
             return obj
