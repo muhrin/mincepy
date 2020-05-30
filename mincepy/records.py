@@ -144,9 +144,14 @@ class DataRecord(
         """Does this record represent the object having been deleted"""
         return self.state == DELETED
 
-    def get_reference(self) -> SnapshotRef:
+    @property
+    def snapshot_id(self) -> SnapshotId:
+        """The snapshot id for this record"""
+        return SnapshotId(self.obj_id, self.version)
+
+    def get_reference(self) -> SnapshotId:
         """Get a reference for this data record"""
-        return SnapshotRef(self.obj_id, self.version)
+        return self.snapshot_id
 
     def get_copied_from(self) -> Optional[SnapshotRef]:
         """Get the reference of the data record this object was originally copied from"""

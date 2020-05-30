@@ -3,6 +3,8 @@ import logging
 from typing import Type, Optional, Sequence
 import uuid
 
+import pytray.pretty
+
 import mincepy  # pylint: disable=unused-import
 from . import migrations
 from . import process
@@ -89,13 +91,16 @@ class TypeHelper(metaclass=ABCMeta):
         if not to_apply:
             return None
 
+        total = len(to_apply)
         logger.info("Migrating saved state of '%s' from version %s to %i (%i migrations to apply)",
-                    self.TYPE, version, self.get_version(), len(to_apply))
-        for migration in to_apply:
+                    pytray.pretty.type_string(self.TYPE), version, self.get_version(), total)
+        for i, migration in enumerate(to_apply):
             saved_state = migration.upgrade(saved_state, loader)
-            logger.info("Migration %s applied", migration.NAME)
+            logger.info("Migration '%s' applied (%i/%i)", pytray.pretty.type_string(migration),
+                        i + 1, total)
 
-        logger.info("Migration of %s completed successfully", self.TYPE)
+        logger.info("Migration of '%s' completed successfully",
+                    pytray.pretty.type_string(self.TYPE))
 
         return saved_state
 

@@ -9,9 +9,12 @@ from . import types
 
 __all__ = 'BaseSavableObject', 'ConvenienceMixin', 'SimpleSavable', 'AsRef'
 
-AsRef = collections.namedtuple('AsRef', 'attr')
-
 AttrSpec = collections.namedtuple('AttrSpec', 'name as_ref')
+
+
+def AsRef(name: str) -> AttrSpec:  # pylint: disable=invalid-name
+    """Create an attribute specification for an attribute that should be stored by reference"""
+    return AttrSpec(name, True)
 
 
 class BaseSavableObject(types.SavableObject):
@@ -27,16 +30,19 @@ class BaseSavableObject(types.SavableObject):
         attrs = {}
         for entry in cls.__mro__:
             try:
-                for name in getattr(entry, 'ATTRS'):
-                    if name not in attrs:
-                        if isinstance(name, AsRef):
-                            spec = AttrSpec(name.attr, True)
-                        else:
-                            spec = AttrSpec(name, False)
-                        attrs[name] = spec
-
+                class_attrs = getattr(entry, 'ATTRS')
             except AttributeError:
                 pass
+            else:
+                for attr_spec in class_attrs:
+                    if isinstance(attr_spec, str):
+                        # If it's just a string then default to store by value
+                        attr_spec = AttrSpec(attr_spec, False)
+
+                    # Check that it's not already there so higher up in the MRO is always kept
+                    if attr_spec.name not in attrs:
+                        attrs[attr_spec.name] = attr_spec
+
         setattr(new_instance, '__attrs', attrs.values())
         return new_instance
 

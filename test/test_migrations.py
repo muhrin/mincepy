@@ -1,5 +1,4 @@
 """"Tests of migration"""
-import gc
 import logging
 import uuid
 
@@ -127,29 +126,31 @@ def test_multiple_migrations(historian: mincepy.Historian):
     assert loaded_car.reg == 'unknown'
 
 
-def test_migrate_to_reference(historian: mincepy.Historian):
+def test_migrate_to_reference(historian: mincepy.Historian, caplog):
+    caplog.set_level(logging.DEBUG)
+
     car = mincepy.testing.Car()
     by_val = StoreByValue(car)
-
     oid = historian.save(by_val)
     del by_val
-
-    loaded = historian.load(oid)
-    assert isinstance(loaded.ref, mincepy.testing.Car)
-    assert loaded.ref is not car
-    del loaded
-    gc.collect()  # Force garbage collection
 
     # Now, change my mind
     historian.register_type(StoreByRef)
     by_ref = historian.load(oid)
-    assert isinstance(by_ref.ref, mincepy.ObjRef)
-    assert isinstance(by_ref.ref(), mincepy.testing.Car)
-    assert by_ref.ref() is not car
+    assert isinstance(by_ref.ref, mincepy.testing.Car)
+    assert by_ref.ref is not car
+    loaded_car = by_ref.ref
+    del by_ref
+
+    # Reload and check that ref points to the same car
+    loaded = historian.load(oid)
+    assert loaded.ref is loaded_car
 
 
-def test_dependent_migrations(historian: mincepy.Historian):
+def test_dependent_migrations(historian: mincepy.Historian, caplog):
     """Test what happens when both a parent object and a contained object need migration"""
+    caplog.set_level(logging.DEBUG)
+
     car = CarV1('red', 'honda')
     by_val = StoreByValue(car)
 
@@ -160,16 +161,20 @@ def test_dependent_migrations(historian: mincepy.Historian):
     assert isinstance(loaded.ref, CarV1)
     assert loaded.ref is not car
     del loaded
-    gc.collect()  # Force garbage collection
 
     # Now, change my mind
     historian.register_type(StoreByRef)  # Store by reference instead
     historian.register_type(CarV3)  # And update the car
 
     by_ref = historian.load(oid)
-    assert isinstance(by_ref.ref, mincepy.ObjRef)
-    assert isinstance(by_ref.ref(), CarV3)
-    assert by_ref.ref() is not car
+    assert isinstance(by_ref.ref, CarV3)
+    loaded_car = by_ref.ref
+    assert by_ref is not car
+
+    # Now delete, load and check we have the same car
+    del by_ref
+    reloaded = historian.load(oid)
+    assert reloaded.ref is loaded_car
 
 
 def test_migrating_snapshot(historian: mincepy.Historian, caplog):

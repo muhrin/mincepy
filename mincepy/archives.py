@@ -147,7 +147,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
              meta=None,
              limit=0,
              sort=None,
-             skip=0):
+             skip=0) -> Iterator[DataRecord]:
         """Find records matching the given criteria
 
         :param type_id: the type id to look for

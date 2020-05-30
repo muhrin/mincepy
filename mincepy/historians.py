@@ -750,7 +750,7 @@ class Historian:
         for obj_id, meta in trans.metas.items():
             self._archive.meta_set(obj_id, meta)
 
-    def _get_latest_snapshot_reference(self, obj_id) -> records.SnapshotRef:
+    def _get_latest_snapshot_reference(self, obj_id) -> records.SnapshotId:
         """Given an object id this will return a reference to the latest snapshot"""
         try:
             return self._archive.get_snapshot_refs(obj_id)[-1]
@@ -782,11 +782,13 @@ class Historian:
             try:
                 obj = self._live_objects.get_object(obj_id)
             except exceptions.NotFound:
+                logger.debug("Loading object from record: %s", record.snapshot_id)
                 # Ok, just use the one from the archive
                 return depositor.load_from_record(record)
             else:
                 if record.version != self.get_snapshot_ref(obj).version:
                     # The one in the archive is newer, so use that
+                    logger.debug("Updating object from record: %s", record.snapshot_id)
                     depositor.update_from_record(obj, record)
 
                 return obj

@@ -169,11 +169,15 @@ class LiveDepositor(Saver, Loader):
                                  migrated=migrated)
 
             if migrated:
-                logger.info("Object with id %s has been migrated to the latest version",
-                            record.obj_id)
-                new_state = self.save_state(loaded)
-                record.copy_builder(**new_state)
-                trans.stage(operations.Update(record.get_reference(), record._asdict()))
+                logger.info("Snapshot %s has been migrated to the latest version",
+                            record.snapshot_id)
+                new_schema = []
+                new_state = self.encode(loaded, new_schema)
+                trans.stage(
+                    operations.Update(record.get_reference(), {
+                        records.STATE: new_state,
+                        records.STATE_TYPES: new_schema
+                    }))
 
             return loaded
 
