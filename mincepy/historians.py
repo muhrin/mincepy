@@ -173,9 +173,6 @@ class Historian:
         )  # type: MutableMapping[Any, records.SnapshotId]
         self._live_objects = LiveObjects()
 
-        # Staged objects that have been created but not saved
-        self._type_ids = {}
-
         self._transactions = None
 
         self._saving_set = set()
