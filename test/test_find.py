@@ -119,3 +119,18 @@ def test_find_predicates(historian: mincepy.Historian):
     assert len(results) == 1
     makes = [record.state['make'] for record in results]
     assert 'skoda' in makes
+
+
+@pytest.mark.skip(
+    reason="This test takes a long time and consumes a lot of memory but if a MongoDB issue occurs "
+    "that involves running out of memory it may be useful again")
+def test_sort_with_many_entries(historian: mincepy.Historian):
+    """Test for mincepy_gui issue #11 which was caused by a query with a large number of objects
+    that was sorted.  This exceeded MongoDBs memory limits.  The fix is to simply allow disk use."""
+    cars = []
+    for i in range(1000000):
+        cars.append(Car())
+
+    historian.save(*cars)
+
+    next(historian.find_records(Car, sort='state.make'))

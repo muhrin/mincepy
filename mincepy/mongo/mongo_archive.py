@@ -273,7 +273,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         else:
             coll = self._history_collection
 
-        results = coll.aggregate(pipeline)
+        results = coll.aggregate(pipeline, allowDiskUse=True)
 
         for result in results:
             yield db.to_record(result)

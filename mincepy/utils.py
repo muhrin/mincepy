@@ -1,6 +1,6 @@
 import collections
 import collections.abc
-from functools import wraps
+import functools
 from typing import TypeVar, Generic, Any, Type
 import weakref
 
@@ -36,7 +36,7 @@ class WeakObjectIdDict(collections.MutableMapping):
 
     def __setitem__(self, key, value):
         obj_id = id(key)
-        wref = weakref.ref(key, self._finalised)
+        wref = weakref.ref(key, functools.partial(self._finalised, obj_id))
         self._refs[obj_id] = wref
         self._values[obj_id] = value
 
@@ -52,15 +52,10 @@ class WeakObjectIdDict(collections.MutableMapping):
         for ref in self._refs.values():
             yield ref()
 
-    def _finalised(self, wref):
-        found_id = None
-        for obj_id, ref in self._refs.items():
-            if ref == wref:
-                found_id = obj_id
-                break
+    def _finalised(self, obj_id, _wref):
         # Delete both the object values and the reference itself
-        del self._values[found_id]
-        del self._refs[found_id]
+        del self._values[obj_id]
+        del self._refs[obj_id]
 
 
 T = TypeVar('T')  # Declare type variable pylint: disable=invalid-name
@@ -156,7 +151,7 @@ def sync(save=False):
 
     def inner(obj_method):
 
-        @wraps(obj_method)
+        @functools.wraps(obj_method)
         def wrapper(self, *args, **kwargs):
             # pylint: disable=protected-access
             try:
