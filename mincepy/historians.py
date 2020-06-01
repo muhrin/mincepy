@@ -186,7 +186,7 @@ class Historian:
 
         self._live_depositor = depositors.LiveDepositor(self)
         self._meta = Meta(self)
-        self._migrate = migrate.Migrate(self)
+        self._migrate = migrate.Migrations(self)
 
     @property
     def archive(self):
@@ -198,7 +198,7 @@ class Historian:
         return types.PRIMITIVE_TYPES + (self._archive.get_id_type(),)
 
     @property
-    def migrate(self) -> migrate.Migrate:
+    def migrations(self) -> migrate.Migrations:
         """Access the migration possibilities"""
         return self._migrate
 

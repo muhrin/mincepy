@@ -14,7 +14,7 @@ def test_find_migratable(historian: mincepy.Historian):
     historian.register_type(CarV2)
 
     # Now both car and by_val should need migration (because by_val stores a car)
-    migratable = tuple(historian.migrate.find_migratable_records())
+    migratable = tuple(historian.migrations.find_migratable_records())
     assert len(migratable) == 2
     ids = [record.obj_id for record in migratable]
     assert car_id in ids
@@ -24,7 +24,7 @@ def test_find_migratable(historian: mincepy.Historian):
     historian.register_type(StoreByRef)
 
     # There should still be the same to migratables as before
-    migratable = tuple(historian.migrate.find_migratable_records())
+    migratable = tuple(historian.migrations.find_migratable_records())
     assert len(migratable) == 2
     ids = [record.obj_id for record in migratable]
     assert car_id in ids

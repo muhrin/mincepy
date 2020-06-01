@@ -46,7 +46,7 @@ class CarV2(CarV1):
 class CarV3(CarV2):
 
     class V2toV3(mincepy.ObjectMigration):
-        VERSION = 1
+        VERSION = 2
         PREVIOUS = CarV2.V1toV2
 
         @classmethod

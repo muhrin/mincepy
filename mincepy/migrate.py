@@ -6,6 +6,8 @@ from . import helpers
 from . import qops
 from . import records
 
+__all__ = ('Migrations',)
+
 
 def _state_types_migration_condition(helper: helpers.TypeHelper) -> dict:
     return qops.elem_match_(
@@ -20,12 +22,14 @@ def _state_types_migration_condition(helper: helpers.TypeHelper) -> dict:
         })
 
 
-class Migrate:
+class Migrations:
+    """The historian migrations namespace"""
 
     def __init__(self, historian: 'mincepy.Historian'):
         self._historian = historian
 
     def find_migratable_records(self) -> Iterator[records.DataRecord]:
+        """Find archive records that can be migrated"""
         type_registry = self._historian.type_registry
         # Find all the types in the registry that have migrations
         have_migrations = [
@@ -42,9 +46,13 @@ class Migrate:
         return archive.find(state_types=query)
 
     def migrate_all(self) -> Sequence[records.DataRecord]:
+        """Migrate all records that can be updated"""
         to_migrate = self.find_migratable_records()
         return self.migrate_records(to_migrate)
 
-    def migrate_records(self, to_migrate: Iterable[records.DataRecord]):
+    def migrate_records(self,
+                        to_migrate: Iterable[records.DataRecord]) -> Sequence[records.DataRecord]:
+        """Migrate the given records (if possible).  Returns all the records that were actually
+        migrated."""
         migrator = depositors.Migrator(self._historian)
         return migrator.migrate_records(to_migrate)
