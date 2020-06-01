@@ -42,6 +42,10 @@ def test_migrate_to_reference(historian: mincepy.Historian, caplog):
 
     # Now, change my mind
     historian.register_type(StoreByRef)
+    # Migrate
+    migrated = historian.migrate.migrate_all()
+    assert len(migrated) == 1
+
     by_ref = historian.load(oid)
     assert isinstance(by_ref.ref, mincepy.testing.Car)
     assert by_ref.ref is not car
@@ -71,6 +75,9 @@ def test_dependent_migrations(historian: mincepy.Historian, caplog):
     # Now, change my mind
     historian.register_type(StoreByRef)  # Store by reference instead
     historian.register_type(CarV3)  # And update the car
+    # Migrate
+    migrated = historian.migrate.migrate_all()
+    assert len(migrated) == 1  # Just by_val
 
     by_ref = historian.load(oid)
     assert isinstance(by_ref.ref, CarV3)

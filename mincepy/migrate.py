@@ -1,25 +1,10 @@
-from typing import Iterator
+from typing import Iterator, Sequence, Iterable
 
-from . import historians
+import mincepy  # pylint: disable=unused-import
+from . import depositors
 from . import helpers
 from . import qops
 from . import records
-
-
-def find_migratable_objects(historian: historians.Historian) -> Iterator[records.DataRecord]:
-    type_registry = historian.type_registry
-    # Find all the types in the registry that have migrations
-    have_migrations = [
-        helper for helper in type_registry.type_helpers.values() if helper.get_version() is not None
-    ]
-
-    if not have_migrations:
-        return []
-
-    # Now, let's look for those records that would need migrating
-    archive = historian.archive
-    query = qops.or_(*list(map(_state_types_migration_condition, have_migrations)))
-    return archive.find(state_types=query)
 
 
 def _state_types_migration_condition(helper: helpers.TypeHelper) -> dict:
@@ -33,3 +18,33 @@ def _state_types_migration_condition(helper: helpers.TypeHelper) -> dict:
                 # there is no version number
                 {'2': None})
         })
+
+
+class Migrate:
+
+    def __init__(self, historian: 'mincepy.Historian'):
+        self._historian = historian
+
+    def find_migratable_records(self) -> Iterator[records.DataRecord]:
+        type_registry = self._historian.type_registry
+        # Find all the types in the registry that have migrations
+        have_migrations = [
+            helper for helper in type_registry.type_helpers.values()
+            if helper.get_version() is not None
+        ]
+
+        if not have_migrations:
+            return []
+
+        # Now, let's look for those records that would need migrating
+        archive = self._historian.archive
+        query = qops.or_(*list(map(_state_types_migration_condition, have_migrations)))
+        return archive.find(state_types=query)
+
+    def migrate_all(self) -> Sequence[records.DataRecord]:
+        to_migrate = self.find_migratable_records()
+        return self.migrate_records(to_migrate)
+
+    def migrate_records(self, to_migrate: Iterable[records.DataRecord]):
+        migrator = depositors.Migrator(self._historian)
+        return migrator.migrate_records(to_migrate)

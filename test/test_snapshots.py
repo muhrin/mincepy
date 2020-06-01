@@ -14,16 +14,16 @@ def test_list_basics(historian: mincepy.Historian):
         parking_lot.append(Car(str(i)))
 
     historian.save(parking_lot)
-    list_sref = historian.get_snapshot_ref(parking_lot)
+    list_sid = historian.get_snapshot_id(parking_lot)
 
     # Change one element
     parking_lot[0].make = 'ferrari'
     historian.save(parking_lot)
-    new_list_sref = historian.get_snapshot_ref(parking_lot)
+    new_list_sid = historian.get_snapshot_id(parking_lot)
 
-    assert list_sref != new_list_sref
+    assert list_sid != new_list_sid
 
-    old_list = historian.load_snapshot(list_sref)
+    old_list = historian.load_snapshot(list_sid)
     assert old_list is not parking_lot
 
     assert old_list[0].make == str(0)
@@ -34,19 +34,19 @@ def test_save_snapshot_change_load(historian: mincepy.Historian):
 
     # Saving twice without changing should produce the same snapshot id
     historian.save(car)
-    ferrari_ref = historian.get_snapshot_ref(car)
+    ferrari_sid = historian.get_snapshot_id(car)
     historian.save(car)
-    assert ferrari_ref == historian.get_snapshot_ref(car)
+    assert ferrari_sid == historian.get_snapshot_id(car)
 
     car.make = 'fiat'
     car.color = 'white'
 
     historian.save(car)
-    fiat_sref = historian.get_snapshot_ref(car)
+    fiat_sid = historian.get_snapshot_id(car)
 
-    assert fiat_sref != ferrari_ref
+    assert fiat_sid != ferrari_sid
 
-    ferrari = historian.load_snapshot(ferrari_ref)
+    ferrari = historian.load_snapshot(ferrari_sid)
 
     assert ferrari.make == 'ferrari'
     assert ferrari.colour == 'red'
@@ -55,12 +55,12 @@ def test_save_snapshot_change_load(historian: mincepy.Historian):
 def test_transaction_snapshots(historian: mincepy.Historian):
     ferrari = Car('ferrari')
     historian.save(ferrari)
-    ferrari_sref = historian.get_snapshot_ref(ferrari)
+    ferrari_sid = historian.get_snapshot_id(ferrari)
 
     with historian.transaction():
-        ferrari_snapshot_1 = historian.load_snapshot(ferrari_sref)
+        ferrari_snapshot_1 = historian.load_snapshot(ferrari_sid)
         with historian.transaction():
-            ferrari_snapshot_2 = historian.load_snapshot(ferrari_sref)
+            ferrari_snapshot_2 = historian.load_snapshot(ferrari_sid)
             # Reference wise they should be unequal
             assert ferrari_snapshot_1 is not ferrari_snapshot_2
             assert ferrari is not ferrari_snapshot_1
@@ -71,7 +71,7 @@ def test_transaction_snapshots(historian: mincepy.Historian):
             assert ferrari == ferrari_snapshot_2
 
         # Now check within the same transaction the result is the same
-        ferrari_snapshot_2 = historian.load_snapshot(ferrari_sref)
+        ferrari_snapshot_2 = historian.load_snapshot(ferrari_sid)
         # Reference wise they should be unequal
         assert ferrari_snapshot_1 is not ferrari_snapshot_2
         assert ferrari is not ferrari_snapshot_1
@@ -111,21 +111,21 @@ def test_get_latest(historian: mincepy.Historian):
     car.make = 'fiat'
     car.colour = 'white'
     historian.save(car)
-    fiat_sref = historian.get_snapshot_ref(car)
-    assert car_id != fiat_sref
+    fiat_sid = historian.get_snapshot_id(car)
+    assert car_id != fiat_sid
 
     # Change it again...
     car.make = 'honda'
     car.colour = 'wine red'
     historian.save(car)
-    honda_sref = historian.get_snapshot_ref(car)
-    assert honda_sref != fiat_sref
-    assert honda_sref != car_id
+    honda_sid = historian.get_snapshot_id(car)
+    assert honda_sid != fiat_sid
+    assert honda_sid != car_id
 
     # Now delete and reload
     del car
     latest = historian.load(car_id)
-    assert latest == historian.load_snapshot(honda_sref)
+    assert latest == historian.load_snapshot(honda_sid)
 
 
 def test_history(historian: mincepy.Historian):
@@ -158,24 +158,24 @@ def test_history(historian: mincepy.Historian):
 def test_loading_snapshot(historian: mincepy.Historian):
     honda = Car('honda', 'white')
     historian.save(honda)
-    white_honda_sref = historian.get_snapshot_ref(honda)
+    white_honda_sid = historian.get_snapshot_id(honda)
     honda.colour = 'red'
     historian.save(honda)
     del honda
 
     with historian.transaction():
-        white_honda = historian.load_snapshot(white_honda_sref)
+        white_honda = historian.load_snapshot(white_honda_sid)
         assert white_honda.colour == 'white'
         # Make sure that if we load it again we get a different object instance
-        assert white_honda is not historian.load_snapshot(white_honda_sref)
+        assert white_honda is not historian.load_snapshot(white_honda_sid)
 
 
 def test_loading_snapshot_cycle(historian: mincepy.Historian):
     a = Cycle()
     a.ref = a  # Close the cycle
     historian.save(a)
-    a_sref = historian.get_snapshot_ref(a)
+    a_sid = historian.get_snapshot_id(a)
     del a
 
-    loaded = historian.load_snapshot(a_sref)
+    loaded = historian.load_snapshot(a_sid)
     assert loaded.ref is loaded

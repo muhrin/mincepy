@@ -1,10 +1,13 @@
+"""This module contains various strategies for loading, saving and migrating objects in the archive
+"""
+
 from abc import ABCMeta, abstractmethod
 import logging
-from typing import Optional, MutableMapping, Any
+from typing import Optional, MutableMapping, Any, Iterable, Sequence
 
 from pytray import tree
 
-import mincepy
+import mincepy  # pylint: disable=unused-import
 from . import archives
 from . import exceptions
 from . import operations
@@ -35,7 +38,7 @@ class Base(metaclass=ABCMeta):
 
 
 class Saver(Base, metaclass=ABCMeta):
-    """A depositor that knows how to save records into the archive"""
+    """A depositor that knows how to save records to the archive"""
 
     @abstractmethod
     def ref(self, obj) -> records.SnapshotId:
@@ -43,9 +46,6 @@ class Saver(Base, metaclass=ABCMeta):
 
     def encode(self, obj, schema=None, path=()):
         """Encode a type for archiving"""
-        if schema is None:
-            schema = []
-
         historian = self.get_historian()
 
         if historian.is_primitive(obj):
@@ -63,29 +63,17 @@ class Saver(Base, metaclass=ABCMeta):
         if version is not None:
             schema_entry.append(version)
 
-        schema.append(schema_entry)
+        if schema is not None:
+            schema.append(schema_entry)
+
         return self.encode(save_state, schema, path)
 
     def save_state(self, obj):
         """Save the state of an object and return the encoded state ready to be archived in a
         record"""
-        state_types = []
-        saved_state = self.encode(obj, state_types)
-        return {records.STATE: saved_state, records.STATE_TYPES: state_types}
-
-    def _migrate_record(self, record, new_obj, trans):
-        """Given the current record and the corresponding instance this will save an updated state
-        to the dictionary by re-saving the object.  The current transaction must be supplied."""
-        new_schema = []
-        new_state = self.encode(new_obj, new_schema)
-
-        trans.stage(
-            operations.Update(record.snapshot_id, {
-                records.STATE: new_state,
-                records.STATE_TYPES: new_schema
-            }))
-
-        logger.info("Snapshot %s has been migrated to the latest version", record.snapshot_id)
+        schema = []
+        saved_state = self.encode(obj, schema)
+        return {records.STATE: saved_state, records.STATE_TYPES: schema}
 
 
 class Loader(Base, metaclass=ABCMeta):
@@ -96,7 +84,7 @@ class Loader(Base, metaclass=ABCMeta):
                schema: records.StateSchema = None,
                path=(),
                created_callback=None,
-               migrated=None):
+               updates=None):
         """Given the encoded state and an optional schema that defines the type of the encoded
         objects this method will decode the saved state and load the object."""
         try:
@@ -119,13 +107,14 @@ class Loader(Base, metaclass=ABCMeta):
 
             if not helper.IMMUTABLE:
                 saved_state = self._recursive_unpack(encoded, schema, path, created_callback,
-                                                     migrated)
+                                                     updates)
 
             updated = helper.ensure_up_to_date(saved_state, entry.version, self)
             if updated is not None:
+                # Use the current version of the record
                 saved_state = updated
-                if migrated is not None:
-                    migrated[path] = updated
+                if updates is not None:
+                    updates[path] = updated
 
             helper.load_instance_state(new_obj, saved_state, self)
             return new_obj
@@ -135,14 +124,14 @@ class Loader(Base, metaclass=ABCMeta):
                           schema: records.StateSchema = None,
                           path=(),
                           created_callback=None,
-                          migrated=None):
+                          updates=None):
         """Unpack a saved state expanding any contained objects"""
         return tree.transform(self.decode,
                               encoded_saved_state,
                               path,
                               schema=schema,
                               created_callback=created_callback,
-                              migrated=migrated)
+                              updates=updates)
 
 
 class LiveDepositor(Saver, Loader):
@@ -177,14 +166,17 @@ class LiveDepositor(Saver, Loader):
                 if not path:
                     trans.insert_live_object(new_obj, record)
 
-            migrated = {}
+            updates = {}
             loaded = self.decode(record.state,
                                  record.get_state_schema(),
                                  created_callback=created,
-                                 migrated=migrated)
+                                 updates=updates)
 
-            if migrated:
-                self._migrate_record(record, loaded, trans)
+            if updates:
+                logger.warning(
+                    "Object snapshot '%s' is at an older version that your current codebase.  It "
+                    "can be migrated by using `mince migrate` from the command line.  If this "
+                    "object is saved the new entry will use the new version.", record.snapshot_id)
 
             return loaded
 
@@ -231,7 +223,7 @@ class LiveDepositor(Saver, Loader):
         return record
 
 
-class SnapshotLoader(Saver, Loader):
+class SnapshotLoader(Loader):
     """Responsible for loading snapshots.  This object should not be reused and only
     one external call to `load` should be made.  This is because it keeps an internal
     cache."""
@@ -240,19 +232,13 @@ class SnapshotLoader(Saver, Loader):
         super().__init__(historian)
         self._snapshots = {}  # type: MutableMapping[records.SnapshotId, Any]
 
-    def ref(self, obj) -> Optional[records.SnapshotId]:
-        for sshot_obj, sid in self.get_historian()._snapshots_objects.items():
-            if obj is sshot_obj:
-                return sid
-
-        return None
-
-    def load(self, sid: records.SnapshotId):
+    def load(self, sid: records.SnapshotId) -> Any:
+        """Load an object from its snapshot id"""
         if not isinstance(sid, records.SnapshotId):
             raise TypeError(sid)
 
         try:
-            return self._snapshots[sid]
+            snapshot = self._snapshots[sid]
         except KeyError:
             record = self.get_archive().load(sid)
             if record.is_deleted_record():
@@ -262,14 +248,67 @@ class SnapshotLoader(Saver, Loader):
 
             # Cache it
             self._snapshots[sid] = snapshot
-            return snapshot
 
-    def load_from_record(self, record: records.DataRecord):
+        return snapshot
+
+    def load_from_record(self, record: records.DataRecord) -> Any:
         with self._historian.transaction() as trans:
-            migrated = {}
-            obj = self.decode(record.state, record.get_state_schema(), migrated=migrated)
+            updates = {}
+            obj = self.decode(record.state, record.get_state_schema(), updates=updates)
             trans.insert_snapshot(obj, record.snapshot_id)
-            if migrated:
-                self._migrate_record(record, obj, trans)
+            if updates:
+                logger.warning(
+                    "Object snapshot '%s' is at an older version that your current codebase.  It "
+                    "can be migrated by using `mince migrate` from the command line.",
+                    record.snapshot_id)
 
             return obj
+
+
+class Migrator(Saver, Loader):
+
+    def ref(self, obj) -> records.SnapshotId:
+        try:
+            return self.get_historian().get_snapshot_id(obj)
+        except exceptions.NotFound:
+            pass
+
+        # Ok, try the current transaction
+        trans = self.get_historian().current_transaction()
+        if trans is not None:
+            for sid, snapshot in trans.snapshots.items():
+                if obj is snapshot:
+                    return sid
+
+        # Ok, it's a brand new object that's never been saved, so save it
+        self._historian.save_one(obj)
+        return self.get_historian().get_snapshot_id(obj)
+
+    def migrate_records(self,
+                        to_migrate: Iterable[records.DataRecord]) -> Sequence[records.DataRecord]:
+        """Migrate multiple records.  This call will return an iterable of those that were migrated
+        """
+        migrated = []
+        with self._historian.transaction() as trans:
+            for record in to_migrate:
+                updates = {}
+                obj = self.decode(record.state, record.get_state_schema(), updates=updates)
+                if updates:
+                    self._migrate_record(record, obj, trans)
+                    migrated.append(record)
+
+        return migrated
+
+    def _migrate_record(self, record, new_obj, trans):
+        """Given the current record and the corresponding instance this will save an updated state
+        to the dictionary by re-saving the object.  The current transaction must be supplied."""
+        new_schema = []
+        new_state = self.encode(new_obj, new_schema)
+
+        trans.stage(
+            operations.Update(record.snapshot_id, {
+                records.STATE: new_state,
+                records.STATE_TYPES: new_schema
+            }))
+
+        logger.info("Snapshot %s has been migrated to the latest version", record.snapshot_id)

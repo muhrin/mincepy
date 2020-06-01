@@ -7,14 +7,14 @@ def test_get_ref_graph_simple(historian: mincepy.Historian):
     garage = Garage(mincepy.ObjRef(car))
 
     garage.save()
-    garage_sref = historian.get_snapshot_ref(garage)
+    garage_sid = historian.get_snapshot_id(garage)
 
-    ref_graphs = historian.archive.get_reference_graph((garage_sref,))
+    ref_graphs = historian.archive.get_reference_graph((garage_sid,))
 
     assert len(ref_graphs) == 1
     garage_graph = ref_graphs[0]
     assert len(garage_graph) == 1
-    assert garage_graph[0] == (garage_sref, historian.get_snapshot_ref(car))
+    assert garage_graph[0] == (garage_sid, historian.get_snapshot_id(car))
 
 
 def test_get_ref_self_cycle(historian: mincepy.Historian):
@@ -22,13 +22,13 @@ def test_get_ref_self_cycle(historian: mincepy.Historian):
     node.ref = node  # Cycle complete
     historian.save_one(node)
 
-    node_ref = historian.get_snapshot_ref(node)
-    ref_graphs = historian.archive.get_reference_graph((node_ref,))
+    node_sid = historian.get_snapshot_id(node)
+    ref_graphs = historian.archive.get_reference_graph((node_sid,))
     assert len(ref_graphs) == 1
 
     node_graph = ref_graphs[0]
     assert len(node_graph) == 1
-    assert node_graph[0] == (node_ref, node_ref)
+    assert node_graph[0] == (node_sid, node_sid)
 
 
 def test_get_ref_graph_cycle(historian: mincepy.Historian):
@@ -39,11 +39,11 @@ def test_get_ref_graph_cycle(historian: mincepy.Historian):
 
     historian.save(node1, node2, node3)
 
-    node1ref = historian.get_snapshot_ref(node1)
-    node2ref = historian.get_snapshot_ref(node2)
-    node3ref = historian.get_snapshot_ref(node3)
+    node1sid = historian.get_snapshot_id(node1)
+    node2sid = historian.get_snapshot_id(node2)
+    node3sid = historian.get_snapshot_id(node3)
 
-    ref_graphs = historian.archive.get_reference_graph((node1ref,))
+    ref_graphs = historian.archive.get_reference_graph((node1sid,))
 
     assert len(ref_graphs) == 1
 
@@ -51,9 +51,9 @@ def test_get_ref_graph_cycle(historian: mincepy.Historian):
     assert len(node1_graph) == 3
 
     # Created the edges to check
-    n13 = (node1ref, node3ref)
-    n21 = (node2ref, node1ref)
-    n32 = (node3ref, node2ref)
+    n13 = (node1sid, node3sid)
+    n21 = (node2sid, node1sid)
+    n32 = (node3sid, node2sid)
 
     assert n13 in node1_graph
     assert n21 in node1_graph

@@ -50,3 +50,15 @@ def test_find_cars(historian: mincepy.Historian, benchmark, num):
 
     result = benchmark(find, historian, state=dict(make='honda', colour='green'))
     assert len(result) == 1
+
+
+@pytest.mark.parametrize("num", [5**i for i in range(1, 4)])
+def test_load_cars(historian: mincepy.Historian, benchmark, num):
+    """Test finding a car as a function of the number of entries in the database"""
+    # Put in the correct number of random other entries
+    car_ids = []
+    for _ in range(num):
+        car_ids.append(historian.save(Car(utils.random_str(10), utils.random_str(5))))
+
+    result = benchmark(historian.load, *car_ids)
+    assert len(result) == len(car_ids)

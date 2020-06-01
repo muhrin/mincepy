@@ -8,6 +8,8 @@ import typing
 from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union, Iterator, Dict
 import weakref
 
+import deprecation
+
 from . import archives
 from . import builtins
 from . import defaults
@@ -15,12 +17,14 @@ from . import depositors
 from . import refs
 from . import exceptions
 from . import helpers
+from . import migrate
 from . import operations
 from . import process
 from . import records
 from . import types
 from . import type_registry
 from . import utils
+from .version import __version__
 from .transactions import RollbackTransaction, Transaction, LiveObjects
 
 __all__ = 'Historian', 'ObjectEntry'
@@ -180,7 +184,9 @@ class Historian:
         self._user = getpass.getuser()
         self._hostname = socket.gethostname()
 
+        self._live_depositor = depositors.LiveDepositor(self)
         self._meta = Meta(self)
+        self._migrate = migrate.Migrate(self)
 
     @property
     def archive(self):
@@ -190,6 +196,11 @@ class Historian:
     def primitives(self) -> tuple:
         """A tuple of all the primitive types"""
         return types.PRIMITIVE_TYPES + (self._archive.get_id_type(),)
+
+    @property
+    def migrate(self) -> migrate.Migrate:
+        """Access the migration possibilities"""
+        return self._migrate
 
     def create_file(self, filename: str = None, encoding: str = None) -> builtins.BaseFile:
         """Create a new file.  The historian will supply file type compatible with the archive in
@@ -241,7 +252,7 @@ class Historian:
 
         # Save the object and metadata
         with self.transaction():
-            record = self._save_object(obj, depositors.LiveDepositor(self))
+            record = self._save_object(obj, self._live_depositor)
             if meta:
                 self.meta.update(record.obj_id, meta)
 
@@ -275,7 +286,7 @@ class Historian:
         process.CreatorsRegistry.set_creator(new, process.CreatorsRegistry.get_creator(old))
 
     def load_snapshot(self, reference: records.SnapshotId) -> Any:
-        return depositors.SnapshotLoader(self).load(reference)
+        return self._new_snapshot_depositor().load(reference)
 
     def load(self, *obj_ids_or_refs):
         """Load object(s) or snapshot(s)."""
@@ -293,7 +304,7 @@ class Historian:
         if isinstance(obj_id_or_ref, records.SnapshotId):
             return self.load_snapshot(obj_id_or_ref)
 
-        return self._load_object(obj_id_or_ref, depositors.LiveDepositor(self))
+        return self._load_object(obj_id_or_ref, self._live_depositor)
 
     def sync(self, obj) -> bool:
         """Update an object with the latest state in the database.
@@ -307,23 +318,27 @@ class Historian:
             # Never saved so the object is as up to date as can be!
             return False
 
-        ref = self._get_latest_snapshot_reference(obj_id)
-        archive_record = self._archive.load(ref)
-        if archive_record.is_deleted_record():
+        sid = self._get_latest_snapshot_reference(obj_id)
+
+        try:
+            record = next(self._archive.find(obj_id=obj_id, version=-1))
+        except StopIteration:
+            raise exceptions.NotFound(obj_id)
+
+        if record.is_deleted_record():
             raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(obj_id))
 
-        if ref.version == self.get_snapshot_ref(obj).version:
+        if sid.version == self.get_snapshot_id(obj).version:
             # Nothing has changed
             return False
 
         # The one in the archive is newer, so use that
-        depositor = depositors.LiveDepositor(self)
-        return depositor.update_from_record(obj, archive_record)
+        return self._live_depositor.update_from_record(obj, record)
 
     def copy(self, obj):
         """Create a shallow copy of the object, save that copy and return it"""
         with self.transaction() as trans:
-            record = self._save_object(obj, depositors.LiveDepositor(self))
+            record = self._save_object(obj, self._live_depositor)
             copy_builder = record.copy_builder(obj_id=self._archive.create_archive_id())
             self._record_builder_created(copy_builder)
 
@@ -496,7 +511,15 @@ class Historian:
         # Out of options
         return None
 
-    def get_snapshot_ref(self, obj):
+    @deprecation.deprecated(deprecated_in="0.13.2",
+                            removed_in="0.14.0",
+                            current_version=__version__,
+                            details="Use .get_snapshot_id instead")
+    def get_snapshot_ref(self, obj) -> records.SnapshotId:
+        """Get a reference for this data record"""
+        return self.get_snapshot_id(obj)
+
+    def get_snapshot_id(self, obj) -> records.SnapshotId:
         """Get the current snapshot reference for a live object"""
         trans = self.current_transaction()
         if trans:
@@ -676,7 +699,11 @@ class Historian:
         except exceptions.NotFound:
             if not self.is_obj_id(obj_or_identifier):
                 raise
-            record = self._archive.load(self._get_latest_snapshot_reference(obj_or_identifier))
+
+            try:
+                record = next(self._archive.find(obj_id=obj_or_identifier, version=-1))
+            except StopIteration:
+                raise exceptions.NotFound(obj_or_identifier)
 
         return record.created_by
 
@@ -787,7 +814,7 @@ class Historian:
                 # Ok, just use the one from the archive
                 return depositor.load_from_record(record)
             else:
-                if record.version != self.get_snapshot_ref(obj).version:
+                if record.version != self.get_snapshot_id(obj).version:
                     # The one in the archive is newer, so use that
                     logger.debug("Updating object from record: %s", record.snapshot_id)
                     depositor.update_from_record(obj, record)
@@ -831,7 +858,7 @@ class Historian:
 
                     # Check if our record is up to date
                     with self.transaction() as transaction:
-                        loaded_obj = depositors.SnapshotLoader(self).load_from_record(record)
+                        loaded_obj = self._new_snapshot_depositor().load_from_record(record)
 
                         if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
                             # Objects identical
@@ -893,3 +920,6 @@ class Historian:
         """Update a data record builder with standard information."""
         builder.extras.update(self.get_user_info())
         return builder
+
+    def _new_snapshot_depositor(self):
+        return depositors.SnapshotLoader(self)
