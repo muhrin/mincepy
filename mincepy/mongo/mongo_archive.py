@@ -66,9 +66,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         self._history_collection = database[self.HISTORY_COLLECTION]
         self._meta_collection = database[self.META_COLLECTION]
         self._file_bucket = gridfs.GridFSBucket(database)
-        self._refman = references.ReferenceManager(
-            self._data_collection[DEFAULT_REFERENCES_COLLECTION], self._data_collection,
-            self._history_collection)
+        self._refman = references.ReferenceManager(database[DEFAULT_REFERENCES_COLLECTION],
+                                                   self._data_collection, self._history_collection)
         self._create_indices()
 
     @property

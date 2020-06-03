@@ -60,6 +60,27 @@ def test_get_ref_graph_cycle(historian: mincepy.Historian):
     assert n32 in node1_graph
 
 
+def test_get_ref_graph_twice(historian: mincepy.Historian):
+    """Check for a bug that arise when asking for references twice"""
+    car = Car()
+    garage = Garage(mincepy.ObjRef(car))
+    garage.save()
+    garage_sref = historian.get_snapshot_ref(garage)
+
+    def make_checks(graph):
+        assert len(graph) == 1
+        garage_graph = graph[0]
+        assert len(garage_graph) == 1
+        assert garage_graph[0] == (garage_sref, historian.get_snapshot_ref(car))
+
+    ref_graphs = historian.archive.get_reference_graph((garage_sref,))
+    make_checks(ref_graphs)
+
+    # Check again
+    ref_graphs = historian.archive.get_reference_graph((garage_sref,))
+    make_checks(ref_graphs)
+
+
 def test_meta_set_update_many(historian: mincepy.Historian):
     car1 = Car()
     car2 = Car()

@@ -78,7 +78,8 @@ class ReferenceManager:
             to_insert.append(ref_entry)
 
         # Now insert all the calculated refs
-        self._references.insert_many(to_insert)
+        if to_insert:
+            self._references.insert_many(to_insert)
 
 
 def _generate_ref_entry(data_entry: dict) -> dict:
