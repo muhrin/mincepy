@@ -63,7 +63,7 @@ class CarV3(CarV2):
         self.reg = reg
 
     def save_instance_state(self, saver: mincepy.Saver):
-        # I've changed my mind, I'd like to store it as a dict
+        # We now add a reg field
         return dict(colour=self.colour, make=self.make, reg=self.reg)
 
     def load_instance_state(self, saved_state, loader: mincepy.Loader):

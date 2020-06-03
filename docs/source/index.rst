@@ -121,6 +121,7 @@ Table Of Contents
    :maxdepth: 3
 
    examples/quick-start.ipynb
+   storing-objects
    apidoc
 
 
