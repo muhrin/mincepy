@@ -1,9 +1,13 @@
 import abc
 from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Iterable, Dict, \
-    Iterator, Any, Type, Optional  # pylint: disable=unused-import
+    Iterator, Any, Type, Optional
 
+import deprecation
+
+from mincepy.version import __version__
 from . import qops as q
-from .records import DataRecord, SnapshotId
+from . import records
+from .records import DataRecord
 from . import operations
 
 __all__ = 'Archive', 'BaseArchive', 'ASCENDING', 'DESCENDING'
@@ -21,8 +25,12 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
     # pylint: disable=too-many-public-methods
 
-    RefEdge = NamedTuple('RefEdge', [('source', SnapshotId[IdT]), ('target', SnapshotId[IdT])])
-    RefGraph = Iterable[RefEdge]
+    SnapshotId = records.SnapshotId[IdT]
+    ObjRefEdge = NamedTuple('SnapshotRefEdge', [('source', IdT), ('target', IdT)])
+    ObjRefGraph = Iterable[ObjRefEdge]
+    SnapshotRefEdge = NamedTuple('SnapshotRefEdge', [('source', SnapshotId),
+                                                     ('target', SnapshotId)])
+    SnapshotRefGraph = Iterable[SnapshotRefEdge]
     MetaEntry = NamedTuple('MetaEntry', [('obj_id', IdT), ['meta', dict]])
 
     @classmethod
@@ -57,7 +65,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         """Save a data record to the archive"""
 
     @abc.abstractmethod
-    def save_many(self, records: Sequence[DataRecord]):
+    def save_many(self, data_records: Sequence[DataRecord]):
         """Save many data records to the archive"""
 
     @abc.abstractmethod
@@ -122,7 +130,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     # endregion
 
     @abc.abstractmethod
-    def load(self, reference: SnapshotId[IdT]) -> DataRecord:
+    def load(self, reference: SnapshotId) -> DataRecord:
         """Load a snapshot of an object with the given reference"""
 
     @abc.abstractmethod
@@ -130,9 +138,17 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         """Load the snapshot records for a particular object, can return a single or multiple
         records"""
 
+    @deprecation.deprecated(deprecated_in="0.13.2",
+                            removed_in="0.14.0",
+                            current_version=__version__,
+                            details="Use get_snapshot_ref_graph() instead")
+    def get_snapshot_refs(self, obj_id: IdT) -> 'Sequence[Archive.SnapshotId]':
+        """Returns a list of time ordered snapshot ids"""
+        return self.get_snapshot_ids(obj_id)
+
     @abc.abstractmethod
-    def get_snapshot_refs(self, obj_id: IdT) -> Sequence[SnapshotId[IdT]]:
-        """Returns a list of time ordered snapshot references"""
+    def get_snapshot_ids(self, obj_id: IdT) -> 'Sequence[Archive.SnapshotId]':
+        """Returns a list of time ordered snapshot ids"""
 
     # pylint: disable=too-many-arguments
     @abc.abstractmethod
@@ -181,8 +197,24 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
               limit=0):
         """Count the number of entries that match the given query"""
 
+    @deprecation.deprecated(deprecated_in="0.13.2",
+                            removed_in="0.14.0",
+                            current_version=__version__,
+                            details="Use get_snapshot_ref_graph() instead")
+    def get_reference_graph(
+            self, snapshot_ids: Sequence[SnapshotId]) -> 'Sequence[Archive.SnapshotRefGraph]':
+        """Given one or more object ids the archive will supply the corresponding reference graph(s)
+        """
+        return self.get_snapshot_ref_graph(snapshot_ids)
+
     @abc.abstractmethod
-    def get_reference_graph(self, sids: Sequence[SnapshotId[IdT]]) -> 'Sequence[Archive.RefGraph]':
+    def get_snapshot_ref_graph(
+            self, snapshot_ids: Sequence[SnapshotId]) -> 'Sequence[Archive.SnapshotRefGraph]':
+        """Given one or more object ids the archive will supply the corresponding reference graph(s)
+        """
+
+    @abc.abstractmethod
+    def get_obj_ref_graph(self, obj_ids: Sequence[IdT]) -> 'Sequence[Archive.ObjRefGraph]':
         """Given one or more object ids the archive will supply the corresponding reference graph(s)
         """
 
@@ -198,12 +230,12 @@ class BaseArchive(Archive[IdT]):
     def save(self, record: DataRecord):
         return self.bulk_write([operations.Insert(record)])
 
-    def save_many(self, records: Sequence[DataRecord]):
+    def save_many(self, data_records: Sequence[DataRecord]):
         """
         This will save records one by one but subclass may want to override this behaviour if
         they can save multiple records at once.
         """
-        self.bulk_write([operations.Insert(record) for record in records])
+        self.bulk_write([operations.Insert(record) for record in data_records])
 
     def meta_get_many(self, obj_ids: Iterable[IdT]) -> Dict[IdT, dict]:
         metas = {}

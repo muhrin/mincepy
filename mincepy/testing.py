@@ -12,6 +12,8 @@ import mincepy
 ENV_ARCHIVE_URI = 'MINCEPY_TEST_URI'
 DEFAULT_RMQ_URI = 'mongodb://localhost/mincepy-tests'
 
+# pylint: disable=redefined-outer-name
+
 
 @pytest.fixture
 def archive_uri():
@@ -21,7 +23,7 @@ def archive_uri():
 @pytest.fixture
 def mongodb_archive(archive_uri):
     client = pymongo.MongoClient(archive_uri)
-    db = client.get_default_database()
+    db = client.get_default_database()  # pylint: disable=invalid-name
     client.drop_database(db)
     mongo_archive = mincepy.mongo.MongoArchive(db)
     yield mongo_archive
@@ -54,6 +56,10 @@ class Garage(mincepy.SimpleSavable):
     def __init__(self, car=None):
         super(Garage, self).__init__()
         self.car = car
+
+    def save_instance_state(self, saver: mincepy.Saver):
+        state = super().save_instance_state(saver)
+        return state
 
 
 class Person(mincepy.SimpleSavable):

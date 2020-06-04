@@ -6,8 +6,18 @@ from . import records
 __all__ = 'Operation', 'Insert', 'Update', 'Delete'
 
 
-class Operation(metaclass=abc.ABCMeta):  # pylint: disable=too-few-public-methods
+class Operation(metaclass=abc.ABCMeta):
     """Base class for all operations"""
+
+    @property
+    @abc.abstractmethod
+    def obj_id(self):
+        """The is of the object being operated on"""
+
+    @property
+    @abc.abstractmethod
+    def snapshot_id(self):
+        """The snapshot id of the object being operated on"""
 
 
 class Insert(Operation):
@@ -18,6 +28,14 @@ class Insert(Operation):
 
     def __init__(self, record: records.DataRecord):
         self._record = record
+
+    @property
+    def obj_id(self):
+        return self._record.obj_id
+
+    @property
+    def snapshot_id(self):
+        return self._record.snapshot_id
 
     @property
     def record(self) -> records.DataRecord:
@@ -37,6 +55,10 @@ class Update(Operation):
         self._update = update
 
     @property
+    def obj_id(self):
+        return self._sid.obj_id
+
+    @property
     def snapshot_id(self) -> records.SnapshotId:
         """The snapshot being updated"""
         return self._sid
@@ -52,6 +74,10 @@ class Delete(Operation):
 
     def __init__(self, sid: records.SnapshotId):
         self._sid = sid
+
+    @property
+    def obj_id(self):
+        return self._sid.obj_id
 
     @property
     def snapshot_id(self) -> records.SnapshotId:

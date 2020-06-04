@@ -104,10 +104,10 @@ def to_id_dict(sref: mincepy.SnapshotId) -> dict:
     return {OBJ_ID: sref.obj_id, VERSION: sref.version}
 
 
-def sref_from_dict(record: dict):
+def sid_from_dict(record: dict):
     return mincepy.SnapshotId(record[OBJ_ID], record[VERSION])
 
 
-def sref_from_str(sref_str: str):
+def sid_from_str(sref_str: str):
     parts = sref_str.split('#')
     return mincepy.SnapshotId(bson.ObjectId(parts[0]), int(parts[1]))

@@ -8,6 +8,8 @@ import typing
 from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union, Iterator, Dict
 import weakref
 
+import deprecation
+
 from . import archives
 from . import builtins
 from . import defaults
@@ -22,6 +24,7 @@ from . import types
 from . import type_registry
 from . import utils
 from .transactions import RollbackTransaction, Transaction, LiveObjects
+from .version import __version__
 
 __all__ = 'Historian', 'ObjectEntry'
 
@@ -496,7 +499,15 @@ class Historian:
         # Out of options
         return None
 
+    @deprecation.deprecated(deprecated_in="0.13.2",
+                            removed_in="0.14.0",
+                            current_version=__version__,
+                            details="Use get_snapshot_id() instead")
     def get_snapshot_ref(self, obj):
+        """Get the current snapshot reference for a live object"""
+        return self.get_snapshot_id(obj)
+
+    def get_snapshot_id(self, obj):
         """Get the current snapshot reference for a live object"""
         trans = self.current_transaction()
         if trans:

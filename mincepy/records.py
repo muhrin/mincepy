@@ -230,7 +230,10 @@ class DataRecord(
             for entry_info in filter(lambda entry: entry[1] == SnapshotId.TYPE_ID,
                                      self.state_types):
                 path = entry_info[0]
-                references.append((path, SnapshotId(**pytray.tree.get_by_path(self.state, path))))
+                sid_info = pytray.tree.get_by_path(self.state, path)
+                if sid_info is not None:
+                    sid = SnapshotId(**sid_info)
+                    references.append((path, sid))
         return references
 
     def get_state_schema(self) -> 'StateSchema':

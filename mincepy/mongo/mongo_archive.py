@@ -19,6 +19,7 @@ from . import files
 from . import db
 from . import references
 from . import queries
+from . import types
 
 __all__ = ('MongoArchive',)
 
@@ -46,6 +47,8 @@ class ObjectIdHelper(mincepy.TypeHelper):
 
 class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     """MongoDB implementation of the mincepy archive"""
+
+    # pylint: disable=too-many-public-methods
 
     ID_TYPE = bson.ObjectId
     SnapshotId = mincepy.SnapshotId[bson.ObjectId]
@@ -106,6 +109,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         # objects into 'data' and 'history' we have to perform these operations on both
         data_ops = []
         history_ops = []
+
         for data_op, history_op in map(bulk.to_mongo_op, ops):
             data_ops.append(data_op)
             history_ops.append(history_op)
@@ -122,6 +126,9 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                     "You're trying to rewrite history, that's not allowed!")
             raise  # Otherwise just raise what we got
 
+        self._refman.invalidate(obj_ids=[op.obj_id for op in ops],
+                                snapshot_ids=[op.snapshot_id for op in ops])
+
     def load(self, reference: mincepy.SnapshotId) -> mincepy.DataRecord:
         if not isinstance(reference, mincepy.SnapshotId):
             raise TypeError(reference)
@@ -135,7 +142,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             raise mincepy.NotFound("Snapshot id '{}' not found".format(reference))
         return db.to_record(results[0])
 
-    def get_snapshot_refs(self, obj_id: bson.ObjectId):
+    def get_snapshot_ids(self, obj_id: bson.ObjectId):
         results = self._history_collection.find({db.OBJ_ID: obj_id},
                                                 projection={
                                                     db.OBJ_ID: 1,
@@ -145,7 +152,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         if not results:
             return []
 
-        return list(map(db.sref_from_dict, results))
+        return list(map(db.sid_from_dict, results))
 
     # region Meta
 
@@ -314,8 +321,12 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         return result['total']
 
-    def get_reference_graph(self, sids: Sequence[SnapshotId]) -> Sequence[mincepy.Archive.RefGraph]:
-        return self._refman.get_reference_graphs(sids)
+    def get_snapshot_ref_graph(
+            self, snapshot_ids: Sequence[SnapshotId]) -> Sequence[types.SnapshotRefGraph]:
+        return self._refman.get_reference_graphs(snapshot_ids)
+
+    def get_obj_ref_graph(self, obj_ids: Sequence[bson.ObjectId]) -> Sequence[types.ObjRefGraph]:
+        return self._refman.get_object_ref_graphs(obj_ids)
 
     def _get_pipeline(self,
                       obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
