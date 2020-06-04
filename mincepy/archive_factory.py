@@ -33,7 +33,7 @@ def create_archive(uri: str):
     return archive
 
 
-def create_historian(archive_uri: str, apply_plugins=True):
+def create_historian(archive_uri: str, apply_plugins=True) -> historians.Historian:
     """Convenience function to create a standard historian directly from an archive URI"""
     historian = historians.Historian(create_archive(archive_uri))
     if apply_plugins:

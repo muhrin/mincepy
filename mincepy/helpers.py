@@ -6,6 +6,7 @@ import uuid
 import pytray.pretty
 
 import mincepy  # pylint: disable=unused-import
+from . import exceptions
 from . import migrations
 from . import process
 from . import records
@@ -84,9 +85,19 @@ class TypeHelper(metaclass=ABCMeta):
 
         return version
 
-    def ensure_up_to_date(self, saved_state, version: int, loader: 'mincepy.Loader'):
+    def ensure_up_to_date(self, saved_state, version: Optional[int], loader: 'mincepy.Loader'):
         """Apply any migrations that are necessary to this saved state.  If no migrations are
         necessary then None is returned"""
+        latest_version = None if self.LATEST_MIGRATION is None else self.LATEST_MIGRATION.VERSION
+        if latest_version == version:
+            return None
+
+        if latest_version is None or (version is not None and latest_version < version):
+            raise exceptions.MigrationError(
+                "This codebase's version of '{}' is older ({}) than the saved version ({}).  Check "
+                "for updates.".format(pytray.pretty.type_string(self.TYPE), latest_version,
+                                      version))
+
         to_apply = self._get_migrations(version)
         if not to_apply:
             return None
@@ -107,7 +118,7 @@ class TypeHelper(metaclass=ABCMeta):
     def _get_migrations(self, version: Optional[int]) -> Sequence[migrations.ObjectMigration]:
         """Get the sequence of migrations that needs to be applied to a given version"""
         if self.LATEST_MIGRATION is None:
-            return []
+            return []  # No migrations we can apply
 
         to_apply = []
         current = self.LATEST_MIGRATION

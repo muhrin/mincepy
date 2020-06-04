@@ -1,5 +1,8 @@
 """"Tests of migrations"""
 import logging
+import uuid
+
+import pytest
 
 import mincepy
 import mincepy.testing
@@ -42,6 +45,10 @@ def test_migrate_to_reference(historian: mincepy.Historian, caplog):
 
     # Now, change my mind
     historian.register_type(StoreByRef)
+    # Migrate
+    migrated = historian.migrations.migrate_all()
+    assert len(migrated) == 1
+
     by_ref = historian.load(oid)
     assert isinstance(by_ref.ref, mincepy.testing.Car)
     assert by_ref.ref is not car
@@ -71,6 +78,9 @@ def test_dependent_migrations(historian: mincepy.Historian, caplog):
     # Now, change my mind
     historian.register_type(StoreByRef)  # Store by reference instead
     historian.register_type(CarV3)  # And update the car
+    # Migrate
+    migrated = historian.migrations.migrate_all()
+    assert len(migrated) == 1  # Just by_val
 
     by_ref = historian.load(oid)
     assert isinstance(by_ref.ref, CarV3)
@@ -104,3 +114,76 @@ def test_migrating_snapshot(historian: mincepy.Historian, caplog):
     current = historian.load(car_id)
     assert current.colour == 'brown'
     assert current.make == 'bugatti'
+
+
+def test_migrating_live_object(historian: mincepy.Historian):
+    """Test that a migration including a live object works fine"""
+
+    class V1(mincepy.SimpleSavable):
+        TYPE_ID = uuid.UUID('8b1620f6-dd6d-4d39-b8b1-4433dc2a54df')
+        ATTRS = ('ref',)
+
+        def __init__(self, obj):
+            super().__init__()
+            self.ref = obj
+
+    car = mincepy.testing.Car()
+    car.save()
+
+    class V2(V1):
+
+        class V1toV2(mincepy.ObjectMigration):
+            VERSION = 1
+
+            @classmethod
+            def upgrade(cls, saved_state, loader: 'mincepy.Loader'):
+                # Create a reference to the live car object
+                saved_state['ref'] = mincepy.ObjRef(car)
+                return saved_state
+
+        ATTRS = (mincepy.AsRef('ref'),)
+        LATEST_MIGRATION = V1toV2
+
+    martin = mincepy.testing.Person('martin', 35)
+    my_obj = V1(martin)
+    my_obj_id = my_obj.save()
+    del my_obj
+
+    # Now change my mind
+    historian.register_type(V2)
+    assert len(historian.migrations.migrate_all()) == 1
+
+    migrated = historian.load(my_obj_id)
+    assert migrated.ref is car
+
+
+def test_loading_newer_version_no_migrations(historian: mincepy.Historian):
+    """Test loading an object that has a newer version when we have no migrations what so ever"""
+    car = CarV2('blue', 'honda')
+    car_id = car.save()
+    del car
+
+    # Now, pretend we're a user with an older codebase
+    historian.register_type(CarV1)
+
+    with pytest.raises(mincepy.MigrationError):
+        historian.load(car_id)
+
+    # This shouldn't raise as there are no migrations to be done from _this_ codebase
+    historian.migrations.migrate_all()
+
+
+def test_loading_newer_version_older_migrations(historian: mincepy.Historian):
+    """Test loading an object that has a newer version than our latest migration"""
+    car = CarV3('blue', 'honda')
+    car_id = car.save()
+    del car
+
+    # Now, pretend we're a user with an older codebase
+    historian.register_type(CarV2)
+
+    with pytest.raises(mincepy.MigrationError):
+        historian.load(car_id)
+
+    # This shouldn't raise as there are no migrations to be done from _this_ codebase
+    historian.migrations.migrate_all()

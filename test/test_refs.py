@@ -23,28 +23,28 @@ def test_obj_ref_snapshot(historian: mincepy.Historian):
     car = Car('honda', 'white')
     ns.car = mincepy.ObjRef(car)
     historian.save(ns)
-    honda_ns_ref = historian.get_snapshot_ref(ns)
+    honda_ns_sid = historian.get_snapshot_id(ns)
 
     car.make = 'fiat'
     historian.save(ns)
-    fiat_ns_ref = historian.get_snapshot_ref(ns)
+    fiat_ns_sid = historian.get_snapshot_id(ns)
     del ns
 
-    assert fiat_ns_ref.version == honda_ns_ref.version + 1
+    assert fiat_ns_sid.version == honda_ns_sid.version + 1
 
-    loaded = historian.load(honda_ns_ref)
+    loaded = historian.load(honda_ns_sid)
     assert loaded.car().make == 'honda'
 
-    loaded2 = historian.load(fiat_ns_ref)
+    loaded2 = historian.load(fiat_ns_sid)
     assert loaded2.car().make == 'fiat'
     assert loaded2.car() is not car
 
     # Load the 'live' namespace
-    loaded3 = historian.load(honda_ns_ref.obj_id)
+    loaded3 = historian.load(honda_ns_sid.obj_id)
     assert loaded3.car() is car
 
 
-def test_obj_ref_complex(historian: mincepy.Historian):
+def test_obj_sid_complex(historian: mincepy.Historian):
     honda = Car('honda')
     nested1 = Namespace()
     nested2 = Namespace()
@@ -69,7 +69,7 @@ def test_obj_ref_complex(historian: mincepy.Historian):
     fiat = Car('fiat')
     loaded.ns2().car = mincepy.ObjRef(fiat)
     historian.save(loaded)
-    parent_sref = historian.get_snapshot_ref(loaded)
+    parent_sid = historian.get_snapshot_id(loaded)
     del loaded
 
     loaded2 = historian.load_snapshot(mincepy.records.SnapshotId(parent_id, 0))
@@ -77,7 +77,7 @@ def test_obj_ref_complex(historian: mincepy.Historian):
     assert loaded2.ns2().car().make == 'honda'
     del loaded2
 
-    loaded3 = historian.load_snapshot(parent_sref)
+    loaded3 = historian.load_snapshot(parent_sid)
     assert loaded3.ns1().car().make == 'honda'
     assert loaded3.ns2().car().make == 'fiat'
 

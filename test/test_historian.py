@@ -6,12 +6,12 @@ from mincepy.testing import Car
 def test_transaction_snapshots(historian: mincepy.Historian):
     ferrari = Car('ferrari')
     historian.save(ferrari)
-    ferrari_ref = historian.get_snapshot_ref(ferrari)
+    ferrari_sid = historian.get_snapshot_id(ferrari)
 
     with historian.transaction():
-        ferrari_snapshot_1 = historian.load_snapshot(ferrari_ref)
+        ferrari_snapshot_1 = historian.load_snapshot(ferrari_sid)
         with historian.transaction():
-            ferrari_snapshot_2 = historian.load_snapshot(ferrari_ref)
+            ferrari_snapshot_2 = historian.load_snapshot(ferrari_sid)
             # Reference wise they should be unequal
             assert ferrari_snapshot_1 is not ferrari_snapshot_2
             assert ferrari is not ferrari_snapshot_1
@@ -22,7 +22,7 @@ def test_transaction_snapshots(historian: mincepy.Historian):
             assert ferrari == ferrari_snapshot_2
 
         # Now check within the same transaction the result is the same
-        ferrari_snapshot_2 = historian.load_snapshot(ferrari_ref)
+        ferrari_snapshot_2 = historian.load_snapshot(ferrari_sid)
         # Reference wise they should be unequal
         assert ferrari_snapshot_1 is not ferrari_snapshot_2
         assert ferrari is not ferrari_snapshot_1

@@ -11,6 +11,7 @@ from . import utils
 
 
 class LiveObjects:
+    """A container for storing live objects"""
 
     def __init__(self):
         # Live object -> data records
@@ -62,6 +63,14 @@ class LiveObjects:
         except KeyError:
             raise exceptions.NotFound("No live object with id '{}'".format(obj_id))
 
+    def get_snapshot_id(self, obj) -> records.SnapshotId:
+        """Given an object, get the snapshot reference"""
+        for stored, record in self._records:
+            if obj is stored:
+                return record.snapshot_id
+
+        raise exceptions.NotFound(obj)
+
 
 class RollbackTransaction(Exception):
     pass
@@ -86,7 +95,7 @@ class Transaction:
         # Ref -> obj
         self._live_object_references = {}
 
-        # Snapshots: ref -> obj
+        # Snapshots: snapshot id -> obj
         self._snapshots = {}  # type: Dict[records.SnapshotId, Any]
         # Maps from object id -> metadata dictionary
         self._metas = {}  # type: Dict[Any, dict]
@@ -119,11 +128,11 @@ class Transaction:
         if self.is_deleted(record.obj_id):
             raise ValueError("Object with id '{}' has already been deleted!".format(record.obj_id))
 
-        ref = record.snapshot_id
-        if ref not in self._live_object_references:
-            self._live_object_references[ref] = obj
+        sid = record.snapshot_id
+        if sid not in self._live_object_references:
+            self._live_object_references[sid] = obj
         else:
-            assert self._live_object_references[ref] is obj
+            assert self._live_object_references[sid] is obj
 
         self._live_objects.insert(obj, record)
 
@@ -140,19 +149,21 @@ class Transaction:
     def get_record_for_live_object(self, obj) -> records.DataRecord:
         return self._live_objects.get_record(obj)
 
-    def get_live_object_from_reference(self, ref: records.SnapshotId):
-        if self.is_deleted(ref.obj_id):
-            raise exceptions.ObjectDeleted(ref.obj_id)
+    def get_live_object_from_reference(self, snapshot_id: records.SnapshotId):
+        if self.is_deleted(snapshot_id.obj_id):
+            raise exceptions.ObjectDeleted(snapshot_id.obj_id)
 
         try:
-            return self._live_object_references[ref]
+            return self._live_object_references[snapshot_id]
         except KeyError:
-            raise exceptions.NotFound("No live object with reference '{}' found".format(ref))
+            raise exceptions.NotFound(
+                "No live object with reference '{}' found".format(snapshot_id))
 
     def get_reference_for_live_object(self, obj):
         for ref, cached in self._live_object_references.items():
             if obj is cached:
                 return ref
+
         raise exceptions.NotFound("Live object '{} not found".format(obj))
 
     def delete(self, obj_id):
@@ -197,14 +208,14 @@ class Transaction:
 
     # endregion
 
-    def insert_snapshot(self, obj, ref):
-        self._snapshots[ref] = obj
+    def insert_snapshot(self, obj, snapshot_id):
+        self._snapshots[snapshot_id] = obj
 
-    def get_snapshot(self, ref):
+    def get_snapshot(self, snapshot_id):
         try:
-            return self._snapshots[ref]
+            return self._snapshots[snapshot_id]
         except KeyError:
-            raise exceptions.NotFound("No snapshot with reference '{}' found".format(ref))
+            raise exceptions.NotFound("No snapshot with id '{}' found".format(snapshot_id))
 
     def stage(self, op: operations.Operation):  # pylint: disable=invalid-name
         """Stage an operation to be carried out on completion of this transaction"""
@@ -257,11 +268,11 @@ class NestedTransaction(Transaction):
         except exceptions.NotFound:
             return self._parent.get_live_object(obj_id)
 
-    def get_live_object_from_reference(self, ref):
+    def get_live_object_from_reference(self, snapshot_id):
         try:
-            return super().get_live_object_from_reference(ref)
+            return super().get_live_object_from_reference(snapshot_id)
         except exceptions.NotFound:
-            return self._parent.get_live_object_from_reference(ref)
+            return self._parent.get_live_object_from_reference(snapshot_id)
 
     def get_reference_for_live_object(self, obj):
         try:
@@ -275,11 +286,11 @@ class NestedTransaction(Transaction):
         except exceptions.NotFound:
             return self._parent.get_record_for_live_object(obj)
 
-    def get_snapshot(self, ref):
+    def get_snapshot(self, snapshot_id):
         try:
-            return super(NestedTransaction, self).get_snapshot(ref)
+            return super(NestedTransaction, self).get_snapshot(snapshot_id)
         except exceptions.NotFound:
-            return self._parent.get_snapshot(ref)
+            return self._parent.get_snapshot(snapshot_id)
 
     def get_meta(self, obj_id) -> dict:
         try:

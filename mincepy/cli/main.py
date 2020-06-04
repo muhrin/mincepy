@@ -75,7 +75,7 @@ def migrate(ctx, yes, uri):
             hist.register_types(ctx.obj['helpers'])
 
         click.echo("Looking for records to migrate...")
-        records = tuple(mincepy.migrate.find_migratable_objects(hist))
+        records = tuple(hist.migrations.find_migratable_records())
         if not records:
             click.echo("No migrations necessary")
             return
@@ -83,7 +83,6 @@ def migrate(ctx, yes, uri):
         click.echo("Found {} records to migrate".format(len(records)))
         if yes or click.confirm("Migrate all?"):
             set_print_logging(logging.INFO)
-            for record in records:
-                hist.load_snapshot(record.snapshot_id)
+            hist.migrations.migrate_records(records)
         else:
             sys.exit(2)

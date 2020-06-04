@@ -1,25 +1,34 @@
 from typing import Any, Optional
 
+import pytray.pretty
+
 import mincepy  # pylint: disable=unused-import
 
-__all__ = ('ObjectMigration',)
+__all__ = 'ObjectMigration', 'ObjectMigrationMeta'
 
 
 class ObjectMigrationMeta(type):
+    PARENT = None
 
-    def __call__(cls, *args, **kwargs):
+    def __init__(cls, name, bases, dct):
+        super().__init__(name, bases, dct)
+
+        if cls.PARENT is None or cls == cls.PARENT:
+            # This one is the parent class for others and doesn't need to pass the checks
+            return
+
         if cls.VERSION is None:
             raise RuntimeError("Migration version not set")
 
         if cls.PREVIOUS is not None and cls.VERSION <= cls.PREVIOUS.VERSION:
             raise RuntimeError(
-                "A migration must have a version number higher than the previous migration.  Our"
-                "version is {} while the migration is {}".format(cls.VERSION, cls.PREVIOUS.VERSION))
+                "A migration must have a version number higher than the previous migration.  {}"
+                ".VERSION is {} while {}.VERSION is {}".format(
+                    pytray.pretty.type_string(cls.PREVIOUS), cls.PREVIOUS.VERSION,
+                    pytray.pretty.type_string(cls), cls.VERSION))
 
         if cls.NAME is None:
             cls.NAME = cls.__class__.__name__
-
-        return super().__call__(cls, *args, **kwargs)
 
 
 class ObjectMigration(metaclass=ObjectMigrationMeta):
@@ -36,3 +45,6 @@ class ObjectMigration(metaclass=ObjectMigrationMeta):
         :raises mincepy.MigrationError: if a problem is encountered during migration
         """
         raise NotImplementedError
+
+
+ObjectMigrationMeta.PARENT = ObjectMigration
