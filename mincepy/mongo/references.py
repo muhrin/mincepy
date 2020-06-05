@@ -1,10 +1,11 @@
 import logging
-from typing import Sequence, Union, Callable, Iterator, Iterable, List
+from typing import Sequence, Union, Callable, Iterator, Iterable
 
 import bson
 import pymongo.collection
 
 import mincepy
+from mincepy import FORWARDS
 from mincepy import q
 from . import db
 from . import types
@@ -27,27 +28,21 @@ class ReferenceManager:
         self._data_collection = data_collection
         self._history_collection = history_collection
 
-    def get_object_ref_graphs(self,
-                              obj_ids: Sequence[bson.ObjectId]) -> Sequence[types.ObjRefGraph]:
-        ref_graph = []  # type: List[types.ObjRefGraph]
-        for graph in self._get_edges(obj_ids):
-            transformed = [types.ObjRefEdge(source, target) for source, target in graph]
-            ref_graph.append(transformed)
+    def get_obj_ref_graphs(
+            self, obj_ids: Sequence[bson.ObjectId], direction=FORWARDS, max_dist: int = None) \
+            -> Iterable[types.ObjRefGraph]:
+        for graph in self._get_edges(obj_ids, direction=direction, max_dist=max_dist):
+            yield [types.ObjRefEdge(source, target) for source, target in graph]
 
-        return ref_graph
-
-    def get_reference_graphs(self,
-                             ids: Sequence[mincepy.SnapshotId]) -> Sequence[types.SnapshotRefGraph]:
+    def get_snapshot_ref_graph(
+            self, ids: Sequence[mincepy.SnapshotId], direction=FORWARDS, max_dist: int = None) \
+            -> Sequence[types.SnapshotRefGraph]:
         """Get the reference graph for a sequence of ids"""
-        ref_graph = []  # type: List[types.SnapshotRefGraph]
-        for graph in self._get_edges(ids):
-            transformed = [
+        for graph in self._get_edges(ids, direction=direction, max_dist=max_dist):
+            yield [
                 types.SnapshotRefEdge(db.sid_from_str(source), db.sid_from_str(target))
                 for source, target in graph
             ]
-            ref_graph.append(transformed)
-
-        return ref_graph
 
     def invalidate(self, obj_ids: Iterable[bson.ObjectId],
                    snapshot_ids: Iterable[types.SnapshotId]):
@@ -57,19 +52,31 @@ class ReferenceManager:
             to_delete.append(str(sid))
         self._references.delete_many({'_id': q.in_(*to_delete)})
 
-    def _get_edges(self, ids: Sequence[Union[bson.ObjectId, types.SnapshotId]]) -> Iterator[tuple]:
+    def _get_edges(
+            self,
+            ids: Sequence[Union[bson.ObjectId, types.SnapshotId]],
+            direction=FORWARDS,
+            max_dist: int = None) \
+            -> Iterator[tuple]:
         """Get the reference graph for a sequence of ids"""
         ids = self._prepare_for_ref_search(ids)
-        pipeline = self._get_pipeline(ids)
+
+        search_max_dist = max_dist
+        if max_dist is not None and direction == FORWARDS:
+            search_max_dist = max(max_dist - 1, 0)
+
+        pipeline = self._get_ref_pipeline(ids, direction=direction, max_dist=search_max_dist)
 
         for result in self._references.aggregate(pipeline):
             edge_list = []
-            # Do the first entry as special case
             my_id = result['_id']
-            for neighbour_id in result['refs']:
-                edge_list.append((my_id, neighbour_id))
 
-            for entry in result['references']:
+            if direction == FORWARDS and (max_dist is None or max_dist > 0):
+                # Do the first entry as special case
+                for neighbour_id in result['refs']:
+                    edge_list.append((my_id, neighbour_id))
+
+            for entry in result.get('references', []):
                 entry_id = entry['_id']
                 if entry_id == my_id:
                     # Prevent double counting when there are cyclic refs
@@ -80,20 +87,33 @@ class ReferenceManager:
 
             yield edge_list
 
-    def _get_pipeline(self, ids: Sequence) -> list:
-        return [{
-            '$match': {
-                '_id': q.in_(*ids)
-            }
-        }, {
-            '$graphLookup': {
+    def _get_ref_pipeline(self, ids: Sequence, direction=FORWARDS, max_dist: int = None) -> list:
+        """Get the reference lookup pipeline."""
+        if max_dist is not None and max_dist < 0:
+            raise ValueError("max_dist must be positive, got '{}'".format(max_dist))
+
+        pipeline = [{'$match': {'_id': q.in_(*ids)}}]
+
+        if max_dist is None or max_dist != 0:
+            lookup_params = {
                 'from': self._references.name,
-                'startWith': '$refs',
-                'connectFromField': 'refs',
-                'connectToField': '_id',
-                'as': 'references'
+                'as': 'references',
+                'depthField': 'depth'
             }
-        }]
+            if direction == FORWARDS:
+                lookup_params.update(
+                    dict(startWith='$refs', connectFromField='refs', connectToField='_id'))
+            else:
+                lookup_params.update(
+                    dict(startWith='$_id', connectFromField='_id', connectToField='refs'))
+
+            if max_dist is not None:
+                lookup_params['maxDepth'] = max_dist - 1
+
+            # Only do graph lookup if checking depth that involves a hop
+            pipeline.append({'$graphLookup': lookup_params})
+
+        return pipeline
 
     def _prepare_for_ref_search(self, ids: Sequence[Union[bson.ObjectId, mincepy.SnapshotId]]):
         hist_updated = False

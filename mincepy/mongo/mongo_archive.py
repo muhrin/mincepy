@@ -322,11 +322,20 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         return result['total']
 
     def get_snapshot_ref_graph(
-            self, snapshot_ids: Sequence[SnapshotId]) -> Sequence[types.SnapshotRefGraph]:
-        return self._refman.get_reference_graphs(snapshot_ids)
+            self,
+            *snapshot_ids: Sequence[SnapshotId],
+            direction=mincepy.FORWARDS,
+            max_depth: int = None) \
+            -> Iterable[types.SnapshotRefGraph]:
+        yield from self._refman.get_snapshot_ref_graph(snapshot_ids,
+                                                       direction=direction,
+                                                       max_dist=max_depth)
 
-    def get_obj_ref_graph(self, obj_ids: Sequence[bson.ObjectId]) -> Sequence[types.ObjRefGraph]:
-        return self._refman.get_object_ref_graphs(obj_ids)
+    def get_obj_ref_graph(self,
+                          *obj_ids: Sequence[bson.ObjectId],
+                          direction=mincepy.FORWARDS,
+                          max_depth: int = None) -> Iterable[types.ObjRefGraph]:
+        yield from self._refman.get_obj_ref_graphs(obj_ids, direction=direction, max_dist=max_depth)
 
     def _get_pipeline(self,
                       obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
