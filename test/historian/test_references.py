@@ -29,7 +29,7 @@ def test_references_simple(historian: mincepy.Historian):
     assert address_book.obj_id in refs
 
 
-def test_references_in_transaction(historian: mincepy.Historian):
+def test_remove_references_in_transaction(historian: mincepy.Historian):
     car = Car()
     garage = Garage(mincepy.ObjRef(car))
     gid = historian.save(garage)
@@ -59,6 +59,42 @@ def test_references_in_transaction(historian: mincepy.Historian):
 
     assert len(historian.references.referenced_by(car.obj_id)) == 0
     assert len(historian.references.references(gid)) == 0
+
+
+def test_add_references_in_transaction(historian: mincepy.Historian):
+    car = Car()
+    garage = mincepy.RefList()
+    garage.append(car)
+    historian.save(garage)
+
+    refs = historian.references.references(garage.obj_id)
+    assert len(refs) == 1
+    assert car.obj_id in refs
+
+    # Now add a car
+    with historian.transaction():
+        car2 = Car()
+        garage.append(car2)
+        garage.save()
+
+        # Still in a transaction, check the references are correct
+        refs = historian.references.references(garage.obj_id)
+        assert len(refs) == 2
+        assert car.obj_id in refs
+        assert car2.obj_id in refs
+
+        reffed_by = historian.references.referenced_by(car2.obj_id)
+        assert len(reffed_by) == 1
+        assert garage.obj_id in reffed_by
+
+    refs = historian.references.references(garage.obj_id)
+    assert len(refs) == 2
+    assert car.obj_id in refs
+    assert car2.obj_id in refs
+
+    reffed_by = historian.references.referenced_by(car2.obj_id)
+    assert len(reffed_by) == 1
+    assert garage.obj_id in reffed_by
 
 
 def test_snapshot_references(historian: mincepy.Historian):

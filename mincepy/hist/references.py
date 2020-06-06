@@ -84,12 +84,13 @@ class References(Generic[IdT]):
                     if isinstance(op, operations.Insert):
                         # Modify the graph to reflect the insertion
                         obj_id = op.obj_id
-                        # Remove all out outgoing edges from this node
-                        out_edges = tuple(graph.out_edges(obj_id))
-                        graph.remove_edges_from(out_edges)
+                        if obj_id in graph.nodes:
+                            # Remove all out outgoing edges from this node
+                            out_edges = tuple(graph.out_edges(obj_id))
+                            graph.remove_edges_from(out_edges)
                         # And add in the current ones
                         for refs in op.record.get_references():
-                            graph.add_edge(obj_id, refs[1])
+                            graph.add_edge(obj_id, refs[1].obj_id)
 
                 # Now, get the subgraph we're interested in
                 if direction == archives.OUTGOING:

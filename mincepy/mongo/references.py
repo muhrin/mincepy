@@ -33,13 +33,13 @@ class ReferenceManager:
     def get_obj_ref_graphs(
             self, obj_ids: Sequence[bson.ObjectId], direction=OUTGOING, max_dist: int = None) \
             -> Iterator[networkx.DiGraph]:
-        yield from self._get_edges(obj_ids, direction=direction, max_dist=max_dist)
+        yield from self._get_graph(obj_ids, direction=direction, max_dist=max_dist)
 
     def get_snapshot_ref_graph(
             self, ids: Sequence[mincepy.SnapshotId], direction=OUTGOING, max_dist: int = None) \
             -> Iterator[networkx.DiGraph]:
         """Get the reference graph for a sequence of ids"""
-        yield from self._get_edges(ids,
+        yield from self._get_graph(ids,
                                    direction=direction,
                                    max_dist=max_dist,
                                    node_factory=db.sid_from_str)
@@ -52,7 +52,7 @@ class ReferenceManager:
             to_delete.append(str(sid))
         self._references.delete_many({'_id': q.in_(*to_delete)})
 
-    def _get_edges(self,
+    def _get_graph(self,
                    ids: Sequence[Union[bson.ObjectId, types.SnapshotId]],
                    direction=OUTGOING,
                    max_dist: int = None,
@@ -65,34 +65,39 @@ class ReferenceManager:
                 graph.add_node(entry_id)
                 yield graph
 
-        ids = self._prepare_for_ref_search(ids)
         node_factory = node_factory or (lambda x: x)
 
         search_max_dist = max_dist
         if max_dist is not None and direction == OUTGOING:
             search_max_dist = max(max_dist - 1, 0)
 
-        pipeline = self._get_ref_pipeline(ids, direction=direction, max_dist=search_max_dist)
+        search_ids = self._prepare_for_ref_search(ids)
+        pipeline = self._get_ref_pipeline(search_ids, direction=direction, max_dist=search_max_dist)
+        ref_results = {result['_id']: result for result in self._references.aggregate(pipeline)}
 
-        for result in self._references.aggregate(pipeline):
-            my_node = node_factory(result['_id'])
-            refs = result.get('references', [])
+        for entry_id in search_ids:
+            this_id = node_factory(entry_id)
 
             graph = networkx.DiGraph()
-            # First add all the nodes
-            graph.add_node(my_node)
-            for ref in refs:
-                neighbour = node_factory(ref['_id'])
-                graph.add_node(neighbour)
+            graph.add_node(this_id)
+            result = ref_results.get(entry_id, None)
+            if result:
+                refs = result.get('references', [])
 
-            for entry in itertools.chain([result], refs):
-                this = node_factory(entry['_id'])
+                # First add all the nodes
+                for ref in refs:
+                    neighbour = node_factory(ref['_id'])
+                    graph.add_node(neighbour)
 
-                for neighbour_id in entry['refs']:
-                    neighbour = node_factory(neighbour_id)
+                # Then the edges
+                for entry in itertools.chain([result], refs):
+                    this = node_factory(entry['_id'])
 
-                    if direction == OUTGOING or neighbour in graph.nodes:
-                        graph.add_edge(this, neighbour)
+                    for neighbour_id in entry['refs']:
+                        neighbour = node_factory(neighbour_id)
+
+                        if direction == OUTGOING or neighbour in graph.nodes:
+                            graph.add_edge(this, neighbour)
 
             yield graph
 
