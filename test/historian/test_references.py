@@ -1,5 +1,5 @@
 import mincepy
-from mincepy.testing import Person
+from mincepy.testing import Person, Car, Garage
 
 
 def test_references_simple(historian: mincepy.Historian):
@@ -14,4 +14,33 @@ def test_references_simple(historian: mincepy.Historian):
 
     refs = historian.references.referenced_by(address_book[0].obj_id)
     assert len(refs) == 1
-    assert refs[0] == address_book.obj_id
+    assert address_book.obj_id in refs
+
+
+def test_references_in_transaction(historian: mincepy.Historian):
+    car = Car()
+    garage = Garage(mincepy.ObjRef(car))
+    gid = historian.save(garage)
+
+    graph = next(historian.references.get_obj_ref_graph(gid))
+    assert len(graph.nodes) == 2
+    assert len(graph.edges) == 1
+    assert (gid, car.obj_id) in graph.edges
+
+    reffed_by = historian.references.referenced_by(car.obj_id)
+    assert len(reffed_by) == 1
+    assert gid in reffed_by
+
+    # Now, change the reference in a transaction
+    with historian.transaction():
+        garage.car = None
+        garage.save()
+        # Still in a transaction, check the references are correct, i.e. None
+        graph = next(historian.references.get_obj_ref_graph(gid))
+
+        assert len(graph.nodes) == 1
+        assert gid in graph.nodes
+        assert len(graph.edges) == 0
+
+    assert len(historian.references.referenced_by(car.obj_id)) == 0
+    assert len(historian.references.references(gid)) == 0

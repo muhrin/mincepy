@@ -188,7 +188,7 @@ class Historian:
         self._live_depositor = depositors.LiveDepositor(self)
         self._meta = Meta(self)
         self._migrate = migrate.Migrations(self)
-        self._references = hist.References(self._archive)
+        self._references = hist.References(self)
 
     @property
     def archive(self):

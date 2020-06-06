@@ -202,8 +202,8 @@ class LiveDepositor(Saver, Loader):
 
         with historian.transaction() as trans:
             # Insert the object into the transaction so others can refer to it
-            ref = records.SnapshotId(builder.obj_id, builder.version)
-            trans.insert_live_object_reference(ref, obj)
+            sid = records.SnapshotId(builder.obj_id, builder.version)
+            trans.insert_live_object_reference(sid, obj)
 
             # Deal with a possible object creator
             if builder.version == 0:
@@ -266,6 +266,7 @@ class SnapshotLoader(Loader):
 
 
 class Migrator(Saver, Loader):
+    """A migrating depositor used to make migrations to database records"""
 
     def ref(self, obj) -> records.SnapshotId:
         try:
