@@ -1,7 +1,9 @@
+import itertools
 import logging
 from typing import Sequence, Union, Callable, Iterator, Iterable
 
 import bson
+import networkx
 import pymongo.collection
 
 import mincepy
@@ -59,6 +61,11 @@ class ReferenceManager:
             max_dist: int = None) \
             -> Iterator[tuple]:
         """Get the reference graph for a sequence of ids"""
+        if max_dist == 0:
+            # Special case for 0 distance, can't be any references
+            for _ in ids:
+                yield []
+
         ids = self._prepare_for_ref_search(ids)
 
         search_max_dist = max_dist
@@ -68,24 +75,25 @@ class ReferenceManager:
         pipeline = self._get_ref_pipeline(ids, direction=direction, max_dist=search_max_dist)
 
         for result in self._references.aggregate(pipeline):
-            edge_list = []
             my_id = result['_id']
+            refs = result.get('references', [])
 
-            if direction == FORWARDS and (max_dist is None or max_dist > 0):
-                # Do the first entry as special case
-                for neighbour_id in result['refs']:
-                    edge_list.append((my_id, neighbour_id))
+            graph = networkx.DiGraph()
+            # First add all the nodes
+            graph.add_node(my_id)
+            for ref in refs:
+                graph.add_node(ref['_id'])
 
-            for entry in result.get('references', []):
+            for entry in itertools.chain([result], refs):
                 entry_id = entry['_id']
-                if entry_id == my_id:
-                    # Prevent double counting when there are cyclic refs
-                    continue
-
                 for neighbour_id in entry['refs']:
-                    edge_list.append((entry_id, neighbour_id))
+                    if direction == FORWARDS or neighbour_id in graph.nodes:
+                        graph.add_edge(entry_id, neighbour_id)
 
-            yield edge_list
+            if direction == FORWARDS:
+                yield tuple(graph.in_edges)
+            else:
+                yield tuple(graph.in_edges)
 
     def _get_ref_pipeline(self, ids: Sequence, direction=FORWARDS, max_dist: int = None) -> list:
         """Get the reference lookup pipeline."""
