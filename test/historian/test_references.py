@@ -1,10 +1,22 @@
+import pytest
+
 import mincepy
 from mincepy.testing import Person, Car, Garage
 
 
+def test_references_wrong_type(historian: mincepy.Historian):
+    with pytest.raises(TypeError):
+        historian.references.references(1234)
+
+
+def test_referenced_by_wrong_type(historian: mincepy.Historian):
+    with pytest.raises(TypeError):
+        historian.references.referenced_by(1234)
+
+
 def test_references_simple(historian: mincepy.Historian):
     address_book = mincepy.RefList()
-    for i in range(10):
+    for i in range(3):
         address_book.append(Person(name='test', age=i))
     address_book.save()
 
@@ -42,5 +54,32 @@ def test_references_in_transaction(historian: mincepy.Historian):
         assert gid in graph.nodes
         assert len(graph.edges) == 0
 
+        reffed_by = historian.references.referenced_by(car.obj_id)
+        assert len(reffed_by) == 0
+
     assert len(historian.references.referenced_by(car.obj_id)) == 0
     assert len(historian.references.references(gid)) == 0
+
+
+def test_snapshot_references(historian: mincepy.Historian):
+    address_book = mincepy.RefList()
+    for i in range(3):
+        address_book.append(Person(name='test', age=i))
+    address_book.save()
+    sid = historian.get_snapshot_id(address_book)
+
+    refs = historian.references.references(sid)
+    assert len(refs) == len(address_book)
+    assert not set(historian.get_snapshot_id(person) for person in address_book) - set(refs)
+
+
+def test_snapshot_referenced_by(historian: mincepy.Historian):
+    address_book = mincepy.RefList()
+    for i in range(3):
+        address_book.append(Person(name='test', age=i))
+    address_book.save()
+    sid = historian.get_snapshot_id(address_book)
+
+    refs = historian.references.referenced_by(historian.get_snapshot_id(address_book[0]))
+    assert len(refs) == 1
+    assert sid in refs

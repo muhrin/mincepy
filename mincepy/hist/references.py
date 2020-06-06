@@ -1,4 +1,4 @@
-from typing import Union, Generic, TypeVar, Iterator, Set  # pylint: disable=unused-import
+from typing import Union, Generic, TypeVar, Iterator, Set, overload  # pylint: disable=unused-import
 
 import networkx
 from networkx.algorithms import dag
@@ -21,7 +21,15 @@ class References(Generic[IdT]):
 
     SnapshotId = records.SnapshotId[IdT]
 
-    def references(self, identifier: 'Union[IdT, SnapshotId]') -> 'Set[Union[IdT, SnapshotId]]':
+    @overload
+    def references(self, identifier: IdT) -> Set[IdT]:  # pylint: disable=no-self-use
+        ...
+
+    @overload
+    def references(self, identifier: 'SnapshotId') -> 'Set[SnapshotId]':  # pylint: disable=no-self-use
+        ...
+
+    def references(self, identifier):
         """Get the ids of the objects referred to by the passed object"""
         if isinstance(identifier, records.SnapshotId):
             graph = next(self.get_snapshot_ref_graph(identifier, max_dist=1))
@@ -32,7 +40,15 @@ class References(Generic[IdT]):
 
         return set(edge[1] for edge in graph.edges)
 
-    def referenced_by(self, identifier: 'Union[IdT, SnapshotId]') -> 'Set[Union[IdT, SnapshotId]]':
+    @overload
+    def referenced_by(self, identifier: IdT) -> 'Set[IdT]':  # pylint: disable=no-self-use
+        ...
+
+    @overload
+    def referenced_by(self, identifier: 'SnapshotId') -> 'Set[SnapshotId]':  # pylint: disable=no-self-use
+        ...
+
+    def referenced_by(self, identifier):
         """Get the ids of the objects that refer to the passed object"""
         if isinstance(identifier, records.SnapshotId):
             graph = next(
