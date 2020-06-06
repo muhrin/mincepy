@@ -17,6 +17,7 @@ from . import depositors
 from . import refs
 from . import exceptions
 from . import helpers
+from . import hist
 from . import migrate
 from . import operations
 from . import process
@@ -187,6 +188,7 @@ class Historian:
         self._live_depositor = depositors.LiveDepositor(self)
         self._meta = Meta(self)
         self._migrate = migrate.Migrations(self)
+        self._references = hist.References(self._archive)
 
     @property
     def archive(self):
@@ -201,6 +203,11 @@ class Historian:
     def migrations(self) -> migrate.Migrations:
         """Access the migration possibilities"""
         return self._migrate
+
+    @property
+    def references(self) -> hist.References:
+        """Access the references possibilities"""
+        return self._references
 
     def create_file(self, filename: str = None, encoding: str = None) -> builtins.BaseFile:
         """Create a new file.  The historian will supply file type compatible with the archive in

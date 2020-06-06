@@ -44,7 +44,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
             self, snapshot_ids: Sequence[SnapshotId]) -> 'Sequence[Archive.SnapshotRefGraph]':
         """Given one or more object ids the archive will supply the corresponding reference graph(s)
         """
-        return self.get_snapshot_ref_graph(snapshot_ids)
+        return tuple(self.get_snapshot_ref_graph(*snapshot_ids))
 
     @classmethod
     def get_types(cls) -> Sequence:
@@ -212,9 +212,9 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_snapshot_ref_graph(self,
-                               *snapshot_ids: Sequence[SnapshotId],
+                               *snapshot_ids: SnapshotId,
                                direction=FORWARDS,
-                               max_depth: int = None) -> 'Iterable[Archive.SnapshotRefGraph]':
+                               max_depth: int = None) -> 'Iterator[Archive.SnapshotRefGraph]':
         """Given one or more snapshot ids the archive will supply the corresponding reference
         graph(s).  The graphs start at the given id and contains all snapshots that it references,
         all snapshots they reference and so on.
@@ -222,9 +222,9 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def get_obj_ref_graph(self,
-                          *obj_ids: Sequence[IdT],
+                          *obj_ids: IdT,
                           direction=FORWARDS,
-                          max_depth: int = None) -> 'Iterable[Archive.ObjRefGraph]':
+                          max_depth: int = None) -> 'Iterator[Archive.ObjRefGraph]':
         """Given one or more object ids the archive will supply the corresponding reference
         graph(s).  The graphs start at the given id and contains all object ids that it references,
         all object ids they reference and so on.
