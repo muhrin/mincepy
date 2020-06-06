@@ -7,7 +7,7 @@ import networkx
 import pymongo.collection
 
 import mincepy
-from mincepy import FORWARDS
+from mincepy import OUTGOING
 from mincepy import q
 from . import db
 from . import types
@@ -31,20 +31,18 @@ class ReferenceManager:
         self._history_collection = history_collection
 
     def get_obj_ref_graphs(
-            self, obj_ids: Sequence[bson.ObjectId], direction=FORWARDS, max_dist: int = None) \
-            -> Iterable[types.ObjRefGraph]:
-        for graph in self._get_edges(obj_ids, direction=direction, max_dist=max_dist):
-            yield [types.ObjRefEdge(source, target) for source, target in graph]
+            self, obj_ids: Sequence[bson.ObjectId], direction=OUTGOING, max_dist: int = None) \
+            -> Iterator[networkx.DiGraph]:
+        yield from self._get_edges(obj_ids, direction=direction, max_dist=max_dist)
 
     def get_snapshot_ref_graph(
-            self, ids: Sequence[mincepy.SnapshotId], direction=FORWARDS, max_dist: int = None) \
-            -> Sequence[types.SnapshotRefGraph]:
+            self, ids: Sequence[mincepy.SnapshotId], direction=OUTGOING, max_dist: int = None) \
+            -> Iterator[networkx.DiGraph]:
         """Get the reference graph for a sequence of ids"""
-        for graph in self._get_edges(ids, direction=direction, max_dist=max_dist):
-            yield [
-                types.SnapshotRefEdge(db.sid_from_str(source), db.sid_from_str(target))
-                for source, target in graph
-            ]
+        yield from self._get_edges(ids,
+                                   direction=direction,
+                                   max_dist=max_dist,
+                                   node_factory=db.sid_from_str)
 
     def invalidate(self, obj_ids: Iterable[bson.ObjectId],
                    snapshot_ids: Iterable[types.SnapshotId]):
@@ -54,48 +52,51 @@ class ReferenceManager:
             to_delete.append(str(sid))
         self._references.delete_many({'_id': q.in_(*to_delete)})
 
-    def _get_edges(
-            self,
-            ids: Sequence[Union[bson.ObjectId, types.SnapshotId]],
-            direction=FORWARDS,
-            max_dist: int = None) \
-            -> Iterator[tuple]:
+    def _get_edges(self,
+                   ids: Sequence[Union[bson.ObjectId, types.SnapshotId]],
+                   direction=OUTGOING,
+                   max_dist: int = None,
+                   node_factory: Callable = None) -> Iterator[networkx.DiGraph]:
         """Get the reference graph for a sequence of ids"""
         if max_dist == 0:
             # Special case for 0 distance, can't be any references
-            for _ in ids:
-                yield []
+            for entry_id in ids:
+                graph = networkx.DiGraph()
+                graph.add_node(entry_id)
+                yield graph
 
         ids = self._prepare_for_ref_search(ids)
+        node_factory = node_factory or (lambda x: x)
 
         search_max_dist = max_dist
-        if max_dist is not None and direction == FORWARDS:
+        if max_dist is not None and direction == OUTGOING:
             search_max_dist = max(max_dist - 1, 0)
 
         pipeline = self._get_ref_pipeline(ids, direction=direction, max_dist=search_max_dist)
 
         for result in self._references.aggregate(pipeline):
-            my_id = result['_id']
+            my_node = node_factory(result['_id'])
             refs = result.get('references', [])
 
             graph = networkx.DiGraph()
             # First add all the nodes
-            graph.add_node(my_id)
+            graph.add_node(my_node)
             for ref in refs:
-                graph.add_node(ref['_id'])
+                neighbour = node_factory(ref['_id'])
+                graph.add_node(neighbour)
 
             for entry in itertools.chain([result], refs):
-                entry_id = entry['_id']
+                this = node_factory(entry['_id'])
+
                 for neighbour_id in entry['refs']:
-                    if direction == FORWARDS or neighbour_id in graph.nodes:
-                        graph.add_edge(entry_id, neighbour_id)
+                    neighbour = node_factory(neighbour_id)
 
-            if direction == FORWARDS:
-                yield tuple(graph.in_edges)
-            else:
-                yield tuple(graph.in_edges)
+                    if direction == OUTGOING or neighbour in graph.nodes:
+                        graph.add_edge(this, neighbour)
 
-    def _get_ref_pipeline(self, ids: Sequence, direction=FORWARDS, max_dist: int = None) -> list:
+            yield graph
+
+    def _get_ref_pipeline(self, ids: Sequence, direction=OUTGOING, max_dist: int = None) -> list:
         """Get the reference lookup pipeline."""
         if max_dist is not None and max_dist < 0:
             raise ValueError("max_dist must be positive, got '{}'".format(max_dist))
@@ -108,7 +109,7 @@ class ReferenceManager:
                 'as': 'references',
                 'depthField': 'depth'
             }
-            if direction == FORWARDS:
+            if direction == OUTGOING:
                 lookup_params.update(
                     dict(startWith='$refs', connectFromField='refs', connectToField='_id'))
             else:

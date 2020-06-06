@@ -3,6 +3,7 @@ from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Itera
     Iterator, Any, Type, Optional
 
 import deprecation
+import networkx
 
 from mincepy.version import __version__
 from . import qops as q
@@ -10,7 +11,7 @@ from . import records
 from .records import DataRecord
 from . import operations
 
-__all__ = 'Archive', 'BaseArchive', 'ASCENDING', 'DESCENDING', 'FORWARDS', 'BACKWARDS'
+__all__ = 'Archive', 'BaseArchive', 'ASCENDING', 'DESCENDING', 'OUTGOING', 'INCOMING'
 
 IdT = TypeVar('IdT')  # The archive ID type
 
@@ -18,8 +19,8 @@ IdT = TypeVar('IdT')  # The archive ID type
 ASCENDING = 1
 DESCENDING = -1
 
-FORWARDS = 1
-BACKWARDS = -1
+OUTGOING = 1
+INCOMING = -1
 
 
 class Archive(Generic[IdT], metaclass=abc.ABCMeta):
@@ -29,22 +30,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     # pylint: disable=too-many-public-methods
 
     SnapshotId = records.SnapshotId[IdT]
-    ObjRefEdge = NamedTuple('SnapshotRefEdge', [('source', IdT), ('target', IdT)])
-    ObjRefGraph = Iterable[ObjRefEdge]
-    SnapshotRefEdge = NamedTuple('SnapshotRefEdge', [('source', SnapshotId),
-                                                     ('target', SnapshotId)])
-    SnapshotRefGraph = Iterable[SnapshotRefEdge]
     MetaEntry = NamedTuple('MetaEntry', [('obj_id', IdT), ['meta', dict]])
-
-    @deprecation.deprecated(deprecated_in="0.13.2",
-                            removed_in="0.14.0",
-                            current_version=__version__,
-                            details="Use get_snapshot_ref_graph() instead")
-    def get_reference_graph(
-            self, snapshot_ids: Sequence[SnapshotId]) -> 'Sequence[Archive.SnapshotRefGraph]':
-        """Given one or more object ids the archive will supply the corresponding reference graph(s)
-        """
-        return tuple(self.get_snapshot_ref_graph(*snapshot_ids))
 
     @classmethod
     def get_types(cls) -> Sequence:
@@ -213,8 +199,8 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_snapshot_ref_graph(self,
                                *snapshot_ids: SnapshotId,
-                               direction=FORWARDS,
-                               max_depth: int = None) -> 'Iterator[Archive.SnapshotRefGraph]':
+                               direction=OUTGOING,
+                               max_dist: int = None) -> Iterator[networkx.DiGraph]:
         """Given one or more snapshot ids the archive will supply the corresponding reference
         graph(s).  The graphs start at the given id and contains all snapshots that it references,
         all snapshots they reference and so on.
@@ -223,8 +209,8 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def get_obj_ref_graph(self,
                           *obj_ids: IdT,
-                          direction=FORWARDS,
-                          max_depth: int = None) -> 'Iterator[Archive.ObjRefGraph]':
+                          direction=OUTGOING,
+                          max_dist: int = None) -> Iterator[networkx.DiGraph]:
         """Given one or more object ids the archive will supply the corresponding reference
         graph(s).  The graphs start at the given id and contains all object ids that it references,
         all object ids they reference and so on.

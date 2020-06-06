@@ -3,6 +3,7 @@ import uuid
 
 import bson
 import gridfs
+import networkx
 import pymongo
 import pymongo.uri_parser
 import pymongo.database
@@ -19,7 +20,6 @@ from . import files
 from . import db
 from . import references
 from . import queries
-from . import types
 
 __all__ = ('MongoArchive',)
 
@@ -321,21 +321,19 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         return result['total']
 
-    def get_snapshot_ref_graph(
-            self,
-            *snapshot_ids: SnapshotId,
-            direction=mincepy.FORWARDS,
-            max_depth: int = None) \
-            -> Iterator[types.SnapshotRefGraph]:
+    def get_snapshot_ref_graph(self,
+                               *snapshot_ids: SnapshotId,
+                               direction=mincepy.OUTGOING,
+                               max_dist: int = None) -> Iterator[networkx.DiGraph]:
         yield from self._refman.get_snapshot_ref_graph(snapshot_ids,
                                                        direction=direction,
-                                                       max_dist=max_depth)
+                                                       max_dist=max_dist)
 
     def get_obj_ref_graph(self,
                           *obj_ids: bson.ObjectId,
-                          direction=mincepy.FORWARDS,
-                          max_depth: int = None) -> Iterator[types.ObjRefGraph]:
-        yield from self._refman.get_obj_ref_graphs(obj_ids, direction=direction, max_dist=max_depth)
+                          direction=mincepy.OUTGOING,
+                          max_dist: int = None) -> Iterator[networkx.DiGraph]:
+        yield from self._refman.get_obj_ref_graphs(obj_ids, direction=direction, max_dist=max_dist)
 
     def _get_pipeline(self,
                       obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,

@@ -8,12 +8,9 @@ def test_get_snapshot_graph_simple(historian: mincepy.Historian):
     garage.save()
     garage_sid = historian.get_snapshot_id(garage)
 
-    ref_graphs = tuple(historian.archive.get_snapshot_ref_graph(garage_sid))
-
-    assert len(ref_graphs) == 1
-    garage_graph = ref_graphs[0]
-    assert len(garage_graph) == 1
-    assert garage_graph[0] == (garage_sid, historian.get_snapshot_id(car))
+    garage_graph = next(historian.archive.get_snapshot_ref_graph(garage_sid))
+    assert len(garage_graph.edges) == 1
+    assert (garage_sid, historian.get_snapshot_id(car)) in garage_graph.edges
 
 
 def test_get_snapshot_self_cycle(historian: mincepy.Historian):
@@ -23,8 +20,8 @@ def test_get_snapshot_self_cycle(historian: mincepy.Historian):
 
     node_ref = historian.get_snapshot_id(node)
     node_graph = next(historian.archive.get_snapshot_ref_graph(node_ref))
-    assert len(node_graph) == 1
-    assert node_graph[0] == (node_ref, node_ref)
+    assert len(node_graph.edges) == 1
+    assert (node_ref, node_ref) in node_graph.edges
 
 
 def test_get_snapshot_graph_cycle(historian: mincepy.Historian):
@@ -39,17 +36,17 @@ def test_get_snapshot_graph_cycle(historian: mincepy.Historian):
     node2ref = historian.get_snapshot_id(node2)
     node3ref = historian.get_snapshot_id(node3)
 
-    node1_graph = next(historian.archive.get_snapshot_ref_graph(node1ref))
-    assert len(node1_graph) == 3
+    graph = next(historian.archive.get_snapshot_ref_graph(node1ref))
+    assert len(graph.edges) == 3
 
     # Created the edges to check
     n13 = (node1ref, node3ref)
     n21 = (node2ref, node1ref)
     n32 = (node3ref, node2ref)
 
-    assert n13 in node1_graph
-    assert n21 in node1_graph
-    assert n32 in node1_graph
+    assert n13 in graph.edges
+    assert n21 in graph.edges
+    assert n32 in graph.edges
 
 
 def test_get_snapshot_graph_twice(historian: mincepy.Historian):
@@ -60,16 +57,14 @@ def test_get_snapshot_graph_twice(historian: mincepy.Historian):
     garage_sref = historian.get_snapshot_id(garage)
 
     def make_checks(graph):
-        assert len(graph) == 1
-        garage_graph = graph[0]
-        assert len(garage_graph) == 1
-        assert garage_graph[0] == (garage_sref, historian.get_snapshot_id(car))
+        assert len(graph.edges) == 1
+        assert (garage_sref, historian.get_snapshot_id(car)) in graph.edges
 
-    ref_graphs = tuple(historian.archive.get_snapshot_ref_graph(garage_sref))
+    ref_graphs = next(historian.archive.get_snapshot_ref_graph(garage_sref))
     make_checks(ref_graphs)
 
     # Check again
-    ref_graphs = tuple(historian.archive.get_snapshot_ref_graph(garage_sref))
+    ref_graphs = next(historian.archive.get_snapshot_ref_graph(garage_sref))
     make_checks(ref_graphs)
 
 
@@ -79,11 +74,9 @@ def test_get_object_graph(historian: mincepy.Historian):
     garage = Garage(mincepy.ObjRef(car))
     gid = garage.save()
 
-    graph = tuple(historian.archive.get_obj_ref_graph(gid))
-    assert len(graph) == 1
-    garage_graph = graph[0]
-    assert len(garage_graph) == 1
-    assert garage_graph[0] == (gid, car.obj_id)
+    garage_graph = next(historian.archive.get_obj_ref_graph(gid))
+    assert len(garage_graph.edges) == 1
+    assert (gid, car.obj_id) in garage_graph.edges
 
 
 def test_get_obj_graph_current(historian: mincepy.Historian):
@@ -93,8 +86,8 @@ def test_get_obj_graph_current(historian: mincepy.Historian):
     gid = garage.save()
 
     garage_graph = next(historian.archive.get_obj_ref_graph(gid))
-    assert len(garage_graph) == 1
-    assert garage_graph[0] == (gid, car.obj_id)
+    assert len(garage_graph.edges) == 1
+    assert (gid, car.obj_id) in garage_graph.edges
 
     # Now, modify the garage
     car2 = Car()
@@ -103,8 +96,8 @@ def test_get_obj_graph_current(historian: mincepy.Historian):
 
     # Check that the reference graph is correct
     garage_graph = next(historian.archive.get_obj_ref_graph(gid))
-    assert len(garage_graph) == 1
-    assert garage_graph[0] == (gid, car2.obj_id)
+    assert len(garage_graph.edges) == 1
+    assert (gid, car2.obj_id) in garage_graph.edges
 
     # Finally, set the reference to None
     garage.car = mincepy.ObjRef()
@@ -112,7 +105,8 @@ def test_get_obj_graph_current(historian: mincepy.Historian):
 
     # Check that the reference graph is correct
     garage_graph = next(historian.archive.get_obj_ref_graph(gid))
-    assert len(garage_graph) == 0
+    assert len(garage_graph.edges) == 0
+    assert len(garage_graph.nodes) == 1
 
 
 def test_get_obj_referencing_simple(historian: mincepy.Historian):
@@ -120,20 +114,21 @@ def test_get_obj_referencing_simple(historian: mincepy.Historian):
     garage = Garage(mincepy.ObjRef(car))
     gid = garage.save()
 
-    car_graph = next(historian.archive.get_obj_ref_graph(car.obj_id, direction=mincepy.BACKWARDS))
-    assert len(car_graph) == 1
-    assert car_graph[0] == (gid, car.obj_id)
+    car_graph = next(historian.archive.get_obj_ref_graph(car.obj_id, direction=mincepy.INCOMING))
+    assert len(car_graph.edges) == 1
+    assert len(car_graph.nodes) == 2
+    assert (gid, car.obj_id) in car_graph.edges
 
     # Now, create a new garage
     garage2 = Garage(mincepy.ObjRef(car))
     g2id = garage2.save()
 
     # Check that the reference graph is correct
-    car_graph = next(historian.archive.get_obj_ref_graph(car.obj_id, direction=mincepy.BACKWARDS))
-    assert len(car_graph) == 2
-    referenced_by = [edge.source for edge in car_graph]
-    assert gid in referenced_by
-    assert g2id in referenced_by
+    car_graph = next(historian.archive.get_obj_ref_graph(car.obj_id, direction=mincepy.INCOMING))
+    assert len(car_graph.nodes) == 3
+    assert len(car_graph.edges) == 2
+    assert (gid, car.obj_id) in car_graph.edges
+    assert (g2id, car.obj_id) in car_graph.edges
 
     # Finally, set the references to None
     garage.car = mincepy.ObjRef()
@@ -143,7 +138,8 @@ def test_get_obj_referencing_simple(historian: mincepy.Historian):
 
     # Check that the reference graph is correct
     car_graph = next(historian.archive.get_obj_ref_graph(gid))
-    assert len(car_graph) == 0
+    assert len(car_graph.edges) == 0
+    assert len(car_graph.nodes) == 1
 
 
 def test_obj_ref_max_depth(historian: mincepy.Historian):
@@ -157,25 +153,25 @@ def test_obj_ref_max_depth(historian: mincepy.Historian):
 
     # No max depth
     graph = next(historian.archive.get_obj_ref_graph(two_id))
-    assert len(graph) == 2
-    ids = [edge.target for edge in graph]
-    assert one_id in ids
-    assert zero_id in ids
+    assert len(graph.nodes) == 3
+    assert len(graph.edges) == 2
+    assert (one_id, zero_id) in graph.edges
+    assert (two_id, one_id) in graph.edges
 
-    graph = next(historian.archive.get_obj_ref_graph(three_id, max_depth=3))
-    assert len(graph) == 3
-    ids = [edge.target for edge in graph]
-    assert zero_id in ids
-    assert one_id in ids
-    assert two_id in ids
+    graph = next(historian.archive.get_obj_ref_graph(three_id, max_dist=3))
+    assert len(graph.nodes) == 4
+    assert len(graph.edges) == 3
+    assert (one_id, zero_id) in graph.edges
+    assert (two_id, one_id) in graph.edges
+    assert (three_id, two_id) in graph.edges
 
-    graph = next(historian.archive.get_obj_ref_graph(two_id, max_depth=1))
-    assert len(graph) == 1
-    ids = [edge.target for edge in graph]
-    assert one_id in ids
+    graph = next(historian.archive.get_obj_ref_graph(two_id, max_dist=1))
+    assert len(graph.edges) == 1
+    assert (two_id, one_id) in graph.edges
 
-    graph = next(historian.archive.get_obj_ref_graph(two_id, max_depth=0))
-    assert len(graph) == 0
+    graph = next(historian.archive.get_obj_ref_graph(two_id, max_dist=0))
+    assert len(graph.nodes) == 1
+    assert len(graph.edges) == 0
 
 
 def test_obj_referencing_max_depth(historian: mincepy.Historian):
@@ -188,25 +184,26 @@ def test_obj_referencing_max_depth(historian: mincepy.Historian):
     zero_id, one_id, two_id, three_id = historian.save(zero, one, two, three)
 
     # No max depth
-    graph = next(historian.archive.get_obj_ref_graph(one_id, direction=mincepy.BACKWARDS))
-    assert len(graph) == 2
-    ids = [edge.source for edge in graph]
-    assert three_id in ids
-    assert two_id in ids
+    graph = next(historian.archive.get_obj_ref_graph(one_id, direction=mincepy.INCOMING))
+    assert len(graph.edges) == 2
+    assert len(graph.nodes) == 3
+    assert (three_id, two_id) in graph.edges
+    assert (two_id, one_id) in graph.edges
 
     graph = next(
-        historian.archive.get_obj_ref_graph(zero_id, direction=mincepy.BACKWARDS, max_depth=2))
-    assert len(graph) == 2
-    ids = [edge.source for edge in graph]
-    assert one_id in ids
-    assert two_id in ids
+        historian.archive.get_obj_ref_graph(zero_id, direction=mincepy.INCOMING, max_dist=2))
+    assert len(graph.edges) == 2
+    assert len(graph.nodes) == 3
+    assert (one_id, zero_id) in graph.edges
+    assert (two_id, one_id) in graph.edges
 
-    graph = next(
-        historian.archive.get_obj_ref_graph(one_id, direction=mincepy.BACKWARDS, max_depth=1))
-    assert len(graph) == 1
-    ids = [edge.source for edge in graph]
-    assert two_id in ids
+    graph = next(historian.archive.get_obj_ref_graph(one_id, direction=mincepy.INCOMING,
+                                                     max_dist=1))
+    assert len(graph.edges) == 1
+    assert len(graph.nodes) == 2
+    assert (two_id, one_id) in graph.edges
 
-    graph = next(
-        historian.archive.get_obj_ref_graph(two_id, direction=mincepy.BACKWARDS, max_depth=0))
-    assert len(graph) == 0
+    graph = next(historian.archive.get_obj_ref_graph(two_id, direction=mincepy.INCOMING,
+                                                     max_dist=0))
+    assert len(graph.edges) == 0
+    assert len(graph.nodes) == 1
