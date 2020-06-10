@@ -59,7 +59,7 @@ setup(
             'sphinx-autobuild',
         ],
     },
-    packages=['mincepy', 'mincepy.cli', 'mincepy.mongo'],
+    packages=['mincepy', 'mincepy.cli', 'mincepy.mongo', 'mincepy.hist'],
     include_package_data=True,
     test_suite='test',
     provides=['mincepy.plugins'],
