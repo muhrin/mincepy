@@ -1,11 +1,12 @@
 """"Tests of migrations"""
+import gc
 import logging
 import uuid
 
 import pytest
 
 import mincepy
-import mincepy.testing
+from mincepy import testing
 from .common import CarV1, CarV2, CarV3, StoreByValue, StoreByRef
 
 
@@ -38,7 +39,7 @@ def test_multiple_migrations(historian: mincepy.Historian):
 def test_migrate_to_reference(historian: mincepy.Historian, caplog):
     caplog.set_level(logging.DEBUG)
 
-    car = mincepy.testing.Car()
+    car = testing.Car()
     by_val = StoreByValue(car)
     oid = historian.save(by_val)
     del by_val
@@ -50,7 +51,7 @@ def test_migrate_to_reference(historian: mincepy.Historian, caplog):
     assert len(migrated) == 1
 
     by_ref = historian.load(oid)
-    assert isinstance(by_ref.ref, mincepy.testing.Car)
+    assert isinstance(by_ref.ref, testing.Car)
     assert by_ref.ref is not car
     loaded_car = by_ref.ref
     del by_ref
@@ -127,7 +128,7 @@ def test_migrating_live_object(historian: mincepy.Historian):
             super().__init__()
             self.ref = obj
 
-    car = mincepy.testing.Car()
+    car = testing.Car()
     car.save()
 
     class V2(V1):
@@ -136,7 +137,7 @@ def test_migrating_live_object(historian: mincepy.Historian):
             VERSION = 1
 
             @classmethod
-            def upgrade(cls, saved_state, loader: 'mincepy.Loader'):
+            def upgrade(cls, saved_state, migrator: 'mincepy.Migrator'):
                 # Create a reference to the live car object
                 saved_state['ref'] = mincepy.ObjRef(car)
                 return saved_state
@@ -144,7 +145,7 @@ def test_migrating_live_object(historian: mincepy.Historian):
         ATTRS = (mincepy.AsRef('ref'),)
         LATEST_MIGRATION = V1toV2
 
-    martin = mincepy.testing.Person('martin', 35)
+    martin = testing.Person('martin', 35)
     my_obj = V1(martin)
     my_obj_id = my_obj.save()
     del my_obj
@@ -187,3 +188,51 @@ def test_loading_newer_version_older_migrations(historian: mincepy.Historian):
 
     # This shouldn't raise as there are no migrations to be done from _this_ codebase
     historian.migrations.migrate_all()
+
+
+def test_loading_nested_migrations(historian: mincepy.Historian):
+    """Test migrating an object that itself contains an instance of its own type, both need
+    migration"""
+    car = testing.Car()
+    obj = StoreByValue(car)
+    parent = StoreByValue(obj)
+    obj_id = parent.save()
+    del parent, obj, car
+
+    historian.register_type(StoreByRef)
+    parent = historian.load(obj_id)
+    assert isinstance(parent.ref, StoreByRef)
+    assert isinstance(parent.ref.ref, testing.Car)
+
+
+def test_lazy_migrating_with_saved(historian: mincepy.Historian):
+    """Test migrating an object that has saved references"""
+
+    class V3(StoreByRef):
+        ATTRS = ('description',)
+
+        class Migration(mincepy.ObjectMigration):
+            VERSION = 2
+            PREVIOUS = StoreByRef.ToRefMigration
+
+            @classmethod
+            def upgrade(cls, saved_state, migrator: 'mincepy.Migrator'):
+                saved_state['description'] = None
+
+        LATEST_MIGRATION = Migration
+
+        def __init__(self, ref):
+            super(V3, self).__init__(ref)
+            self.description = None
+
+    obj = StoreByRef(testing.Car())
+    obj_id = obj.save()
+    del obj
+    gc.collect()
+
+    historian.register_type(V3)
+    obj = historian.load(obj_id)
+
+    assert isinstance(obj, V3)
+    assert hasattr(obj, 'description')
+    assert obj.description is None

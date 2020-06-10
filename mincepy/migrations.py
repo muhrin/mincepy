@@ -37,7 +37,7 @@ class ObjectMigration(metaclass=ObjectMigrationMeta):
     PREVIOUS = None  # type: Optional[ObjectMigration]
 
     @classmethod
-    def upgrade(cls, saved_state, loader: 'mincepy.Loader') -> Any:
+    def upgrade(cls, saved_state, migrator: 'mincepy.Migrator') -> Any:
         """
         This method should take the saved state, which will have been created with the previous
         version, and return a new saved state that is compatible with this version.

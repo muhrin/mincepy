@@ -13,7 +13,7 @@ from . import exceptions
 from . import operations
 from . import records
 
-__all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor'
+__all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor', 'Migrator'
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -265,7 +265,7 @@ class SnapshotLoader(Loader):
             return obj
 
 
-class Migrator(Saver, Loader):
+class Migrator(Saver, SnapshotLoader):
     """A migrating depositor used to make migrations to database records"""
 
     def ref(self, obj) -> records.SnapshotId:

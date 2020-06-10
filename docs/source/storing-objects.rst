@@ -89,7 +89,7 @@ To update the state of all objects in your database you can use the command line
 
 .. code-block:: python
 
-    minki migrate mongodb://localhost/my-database
+    mince migrate mongodb://localhost/my-database
 
 Where the databases URI is supplied as the argument.  This will inform you how many records are to be migrated and allow you to perform the migration.
 

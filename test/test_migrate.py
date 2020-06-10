@@ -1,6 +1,8 @@
 """"Tests of migration"""
+import gc
+
 import mincepy
-import mincepy.testing
+from mincepy import testing
 from .common import CarV1, CarV2, StoreByValue, StoreByRef
 
 
@@ -29,3 +31,41 @@ def test_find_migratable(historian: mincepy.Historian):
     ids = [record.obj_id for record in migratable]
     assert car_id in ids
     assert by_val_id in ids
+
+
+def test_migrate_with_saved(historian: mincepy.Historian):
+    """Test migrating an object that has saved references"""
+
+    class V3(StoreByRef):
+        ATTRS = ('description',)
+
+        class Migration(mincepy.ObjectMigration):
+            VERSION = 2
+            PREVIOUS = StoreByRef.ToRefMigration
+
+            @classmethod
+            def upgrade(cls, saved_state, migrator: 'mincepy.Migrator'):
+                saved_state['description'] = None
+                return saved_state
+
+        LATEST_MIGRATION = Migration
+
+        def __init__(self, ref):
+            super(V3, self).__init__(ref)
+            self.description = None
+
+    obj = StoreByRef(testing.Car())
+    obj_id = obj.save()
+    del obj
+    gc.collect()
+
+    historian.register_type(V3)
+    migrated = historian.migrations.migrate_all()
+    assert len(migrated) == 1
+    assert migrated[0].obj_id == obj_id
+
+    obj = historian.load(obj_id)
+
+    assert isinstance(obj, V3)
+    assert hasattr(obj, 'description')
+    assert obj.description is None
