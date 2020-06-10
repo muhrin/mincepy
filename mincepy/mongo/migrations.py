@@ -134,4 +134,18 @@ class CollectionsSplit(migrate.Migration):
         return pipeline
 
 
+class DropReferencesCache(migrate.Migration):
+    """Here we reset the references cache (if present) as some of the code has changed"""
+
+    NAME = 'drop-references-cache'
+    VERSION = 2
+    PREVIOUS = CollectionsSplit
+
+    def upgrade(self, database: pymongo.database.Database):  # pylint: disable=no-self-use
+        # This is an old one that was created by accident
+        database.drop_collection("data.references")
+        # And this will drop the current one
+        database.drop_collection("references")
+
+
 LATEST = CollectionsSplit
