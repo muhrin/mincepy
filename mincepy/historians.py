@@ -287,8 +287,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # Make sure creators is correct as well
         process.CreatorsRegistry.set_creator(new, process.CreatorsRegistry.get_creator(old))
 
-    def load_snapshot(self, reference: records.SnapshotId) -> Any:
-        return self._new_snapshot_depositor().load(reference)
+    def load_snapshot(self, snapshot_id: records.SnapshotId) -> Any:
+        return self._new_snapshot_depositor().load(snapshot_id)
 
     def load(self, *obj_ids_or_refs):
         """Load object(s) or snapshot(s)."""

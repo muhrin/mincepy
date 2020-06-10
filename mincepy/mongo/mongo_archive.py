@@ -129,17 +129,17 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         self._refman.invalidate(obj_ids=[op.obj_id for op in ops],
                                 snapshot_ids=[op.snapshot_id for op in ops])
 
-    def load(self, reference: mincepy.SnapshotId) -> mincepy.DataRecord:
-        if not isinstance(reference, mincepy.SnapshotId):
-            raise TypeError(reference)
+    def load(self, snapshot_id: mincepy.SnapshotId) -> mincepy.DataRecord:
+        if not isinstance(snapshot_id, mincepy.SnapshotId):
+            raise TypeError(snapshot_id)
 
         results = tuple(
             self._history_collection.find({
-                db.OBJ_ID: reference.obj_id,
-                db.VERSION: reference.version
+                db.OBJ_ID: snapshot_id.obj_id,
+                db.VERSION: snapshot_id.version
             }))
         if not results:
-            raise mincepy.NotFound("Snapshot id '{}' not found".format(reference))
+            raise mincepy.NotFound("Snapshot id '{}' not found".format(snapshot_id))
         return db.to_record(results[0])
 
     def get_snapshot_ids(self, obj_id: bson.ObjectId):

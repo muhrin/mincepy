@@ -54,17 +54,17 @@ def test_get_snapshot_graph_twice(historian: mincepy.Historian):
     car = Car()
     garage = Garage(mincepy.ObjRef(car))
     garage.save()
-    garage_sref = historian.get_snapshot_id(garage)
+    garage_sid = historian.get_snapshot_id(garage)
 
     def make_checks(graph):
         assert len(graph.edges) == 1
-        assert (garage_sref, historian.get_snapshot_id(car)) in graph.edges
+        assert (garage_sid, historian.get_snapshot_id(car)) in graph.edges
 
-    ref_graphs = next(historian.archive.get_snapshot_ref_graph(garage_sref))
+    ref_graphs = next(historian.archive.get_snapshot_ref_graph(garage_sid))
     make_checks(ref_graphs)
 
     # Check again
-    ref_graphs = next(historian.archive.get_snapshot_ref_graph(garage_sref))
+    ref_graphs = next(historian.archive.get_snapshot_ref_graph(garage_sid))
     make_checks(ref_graphs)
 
 

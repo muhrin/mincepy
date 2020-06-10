@@ -100,14 +100,14 @@ def remap(record_dict: dict) -> dict:
     return remapped
 
 
-def to_id_dict(sref: mincepy.SnapshotId) -> dict:
-    return {OBJ_ID: sref.obj_id, VERSION: sref.version}
+def to_id_dict(sid: mincepy.SnapshotId) -> dict:
+    return {OBJ_ID: sid.obj_id, VERSION: sid.version}
 
 
 def sid_from_dict(record: dict):
     return mincepy.SnapshotId(record[OBJ_ID], record[VERSION])
 
 
-def sid_from_str(sref_str: str):
-    parts = sref_str.split('#')
+def sid_from_str(sid_str: str):
+    parts = sid_str.split('#')
     return mincepy.SnapshotId(bson.ObjectId(parts[0]), int(parts[1]))

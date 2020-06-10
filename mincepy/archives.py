@@ -127,7 +127,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     # endregion
 
     @abc.abstractmethod
-    def load(self, reference: SnapshotId) -> DataRecord:
+    def load(self, snapshot_id: SnapshotId) -> DataRecord:
         """Load a snapshot of an object with the given reference"""
 
     @abc.abstractmethod
@@ -240,7 +240,7 @@ class BaseArchive(Archive[IdT]):
             self.meta_set(*entry)
 
     def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, Sequence[DataRecord]]:
-        refs = self.get_snapshot_refs(obj_id)[idx_or_slice]
+        refs = self.get_snapshot_ids(obj_id)[idx_or_slice]
         if len(refs) > 1:
             return [self.load(ref) for ref in refs]
 
