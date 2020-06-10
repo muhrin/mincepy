@@ -8,11 +8,9 @@ import typing
 from typing import Optional, Iterable, Sequence, Union, Tuple, Any, Mapping
 import uuid
 
-import deprecation
 import pytray.tree
 
 from . import utils
-from .version import __version__
 
 __all__ = 'OBJ_ID', 'TYPE_ID', 'CREATION_TIME', 'VERSION', 'STATE', 'SNAPSHOT_TIME', \
           'SNAPSHOT_HASH', 'EXTRAS', 'ExtraKeys', 'DELETED', 'DataRecord', 'SnapshotRef', \
@@ -150,14 +148,6 @@ class DataRecord(
     def snapshot_id(self) -> SnapshotId:
         """The snapshot id for this record"""
         return SnapshotId(self.obj_id, self.version)
-
-    @deprecation.deprecated(deprecated_in="0.13.2",
-                            removed_in="0.14.0",
-                            current_version=__version__,
-                            details="Use .snapshot_id instead")
-    def get_reference(self) -> SnapshotId:
-        """Get a reference for this data record"""
-        return self.snapshot_id
 
     def get_copied_from(self) -> Optional[SnapshotId]:
         """Get the reference of the data record this object was originally copied from"""

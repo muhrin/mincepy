@@ -8,8 +8,6 @@ import typing
 from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union, Iterator, Dict
 import weakref
 
-import deprecation
-
 from . import archives
 from . import builtins
 from . import defaults
@@ -26,7 +24,6 @@ from . import types
 from . import type_registry
 from . import utils
 from .transactions import RollbackTransaction, Transaction, LiveObjects
-from .version import __version__
 
 __all__ = 'Historian', 'ObjectEntry'
 
@@ -156,13 +153,11 @@ class Meta:
         self._hist.archive.meta_create_index(keys, unique=unique, where_exist=where_exist)
 
 
-class Historian:
+class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-attributes
     """The historian acts as a go-between between your python objects and the archive which is
     a persistent store of the records.  It will keep track of all live objects (i.e. those that
     have active references to them) that have been loaded and/or saved as well as enabling the
     user to lookup objects in the archive."""
-
-    # pylint: disable=too-many-public-methods
 
     def __init__(self, archive: archives.Archive, equators=()):
         self._archive = archive
@@ -416,7 +411,7 @@ class Historian:
         >>> history[1].obj is car
         """
         obj_id = self._ensure_obj_id(obj_or_obj_id)
-        snapshot_refs = self._archive.get_snapshot_refs(obj_id)
+        snapshot_refs = self._archive.get_snapshot_ids(obj_id)
         indices = utils.to_slice(idx_or_slice)
         to_get = snapshot_refs[indices]
         if as_objects:
@@ -518,16 +513,8 @@ class Historian:
         # Out of options
         return None
 
-    @deprecation.deprecated(deprecated_in="0.13.2",
-                            removed_in="0.14.0",
-                            current_version=__version__,
-                            details="Use get_snapshot_id() instead")
-    def get_snapshot_ref(self, obj):
-        """Get a reference for this data record"""
-        return self.get_snapshot_id(obj)
-
     def get_snapshot_id(self, obj) -> records.SnapshotId:
-        """Get the current snapshot reference for a live object"""
+        """Get the current snapshot id for a live object"""
         trans = self.current_transaction()
         if trans:
             try:
@@ -788,7 +775,7 @@ class Historian:
     def _get_latest_snapshot_reference(self, obj_id) -> records.SnapshotId:
         """Given an object id this will return a reference to the latest snapshot"""
         try:
-            return self._archive.get_snapshot_refs(obj_id)[-1]
+            return self._archive.get_snapshot_ids(obj_id)[-1]
         except IndexError:
             raise exceptions.NotFound("Object with id '{}' not found.".format(obj_id))
 

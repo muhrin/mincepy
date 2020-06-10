@@ -2,10 +2,8 @@ import abc
 from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Iterable, Dict, \
     Iterator, Any, Type, Optional
 
-import deprecation
 import networkx
 
-from mincepy.version import __version__
 from . import qops as q
 from . import records
 from .records import DataRecord
@@ -136,14 +134,6 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     def history(self, obj_id: IdT, idx_or_slice) -> [DataRecord, Sequence[DataRecord]]:
         """Load the snapshot records for a particular object, can return a single or multiple
         records"""
-
-    @deprecation.deprecated(deprecated_in="0.13.2",
-                            removed_in="0.14.0",
-                            current_version=__version__,
-                            details="Use get_snapshot_ref_graph() instead")
-    def get_snapshot_refs(self, obj_id: IdT) -> 'Sequence[Archive.SnapshotId]':
-        """Returns a list of time ordered snapshot ids"""
-        return self.get_snapshot_ids(obj_id)
 
     @abc.abstractmethod
     def get_snapshot_ids(self, obj_id: IdT) -> 'Sequence[Archive.SnapshotId]':
