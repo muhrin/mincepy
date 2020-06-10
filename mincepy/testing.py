@@ -10,14 +10,14 @@ import pytest
 import mincepy
 
 ENV_ARCHIVE_URI = 'MINCEPY_TEST_URI'
-DEFAULT_RMQ_URI = 'mongodb://localhost/mincepy-tests'
+DEFAULT_ARCHIVE_URI = 'mongodb://localhost/mincepy-tests'
 
 # pylint: disable=redefined-outer-name
 
 
 @pytest.fixture
 def archive_uri():
-    return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_RMQ_URI)
+    return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
 
 
 @pytest.fixture
