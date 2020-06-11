@@ -137,7 +137,7 @@ def test_migrating_live_object(historian: mincepy.Historian):
             VERSION = 1
 
             @classmethod
-            def upgrade(cls, saved_state, migrator: 'mincepy.Migrator'):
+            def upgrade(cls, saved_state, loader: 'mincepy.Loader'):
                 # Create a reference to the live car object
                 saved_state['ref'] = mincepy.ObjRef(car)
                 return saved_state
@@ -216,7 +216,7 @@ def test_lazy_migrating_with_saved(historian: mincepy.Historian):
             PREVIOUS = StoreByRef.ToRefMigration
 
             @classmethod
-            def upgrade(cls, saved_state, migrator: 'mincepy.Migrator'):
+            def upgrade(cls, saved_state, loader: 'mincepy.Loader'):
                 saved_state['description'] = None
 
         LATEST_MIGRATION = Migration

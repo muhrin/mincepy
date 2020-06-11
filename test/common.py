@@ -28,7 +28,7 @@ class CarV2(CarV1):
         VERSION = 1
 
         @classmethod
-        def upgrade(cls, saved_state, migrator: 'mincepy.Migrator') -> dict:
+        def upgrade(cls, saved_state, loader: 'mincepy.Loader') -> dict:
             return dict(colour=saved_state[0], make=saved_state[1])
 
     # Set the migration
@@ -50,7 +50,7 @@ class CarV3(CarV2):
         PREVIOUS = CarV2.V1toV2
 
         @classmethod
-        def upgrade(cls, saved_state, migrator: 'mincepy.Migrator') -> dict:
+        def upgrade(cls, saved_state, loader: 'mincepy.Loader') -> dict:
             # Augment the saved state
             saved_state['reg'] = 'unknown'
             return saved_state
@@ -87,7 +87,7 @@ class StoreByRef(StoreByValue):
         VERSION = 1
 
         @classmethod
-        def upgrade(cls, saved_state, migrator: 'mincepy.Migrator') -> dict:
+        def upgrade(cls, saved_state, loader: 'mincepy.Loader') -> dict:
             # Replace the value stored version with a reference
             saved_state['ref'] = mincepy.ObjRef(saved_state['ref'])
             return saved_state

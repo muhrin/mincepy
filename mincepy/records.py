@@ -241,6 +241,11 @@ class DataRecord(
         return schema
 
 
+# State schema is a mapping where they key is a tuple containing a path to the entry in the schema
+# and the value is information about that entry, including its type
+# The reason a tuple used (instead of, say, a string) is that this way we can preserve the python
+# type of they key e.g. (str, int, int str) could be used to reference a dictionary, then index in
+# list, then index in list and then a string in a dictionary.
 StateSchema = Mapping[tuple, SchemaEntry]
 DataRecordBuilder = utils.NamedTupleBuilder[DataRecord]  # pylint: disable=invalid-name
 

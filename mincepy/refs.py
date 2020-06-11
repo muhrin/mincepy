@@ -77,12 +77,12 @@ class ObjRef(types.SavableObject):
 
     def save_instance_state(self, saver):
         if self._obj is not None:
-            ref = saver.ref(self._obj)
+            sid = saver.get_snapshot_id(self._obj)
         else:
-            ref = self._sid
+            sid = self._sid
 
-        if ref is not None:
-            return ref.to_dict()
+        if sid is not None:
+            return sid.to_dict()
 
         return None
 

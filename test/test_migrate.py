@@ -44,7 +44,7 @@ def test_migrate_with_saved(historian: mincepy.Historian):
             PREVIOUS = StoreByRef.ToRefMigration
 
             @classmethod
-            def upgrade(cls, saved_state, migrator: 'mincepy.Migrator'):
+            def upgrade(cls, saved_state, loader: 'mincepy.Loader'):
                 saved_state['description'] = None
                 return saved_state
 

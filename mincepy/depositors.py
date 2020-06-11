@@ -5,6 +5,7 @@ from abc import ABCMeta, abstractmethod
 import logging
 from typing import Optional, MutableMapping, Any, Iterable, Sequence
 
+import deprecation
 from pytray import tree
 
 import mincepy  # pylint: disable=unused-import
@@ -12,6 +13,7 @@ from . import archives
 from . import exceptions
 from . import operations
 from . import records
+from .version import __version__
 
 __all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor', 'Migrator'
 
@@ -40,8 +42,16 @@ class Base(metaclass=ABCMeta):
 class Saver(Base, metaclass=ABCMeta):
     """A depositor that knows how to save records to the archive"""
 
-    @abstractmethod
+    @deprecation.deprecated(deprecated_in="0.14.2",
+                            removed_in="0.15.0",
+                            current_version=__version__,
+                            details="Use get_snapshot_id() instead")
     def ref(self, obj) -> records.SnapshotId:
+        """Get a persistent reference for the given object"""
+        return self.get_snapshot_id(obj)
+
+    @abstractmethod
+    def get_snapshot_id(self, obj) -> records.SnapshotId:
         """Get a persistent reference for the given object"""
 
     def encode(self, obj, schema=None, path=()):
@@ -78,6 +88,10 @@ class Saver(Base, metaclass=ABCMeta):
 
 class Loader(Base, metaclass=ABCMeta):
     """A loader that knows how to load objects from the archive"""
+
+    @abstractmethod
+    def load(self, snapshot_id: records.SnapshotId):
+        """Load an object"""
 
     def decode(self,
                encoded,
@@ -137,7 +151,7 @@ class Loader(Base, metaclass=ABCMeta):
 class LiveDepositor(Saver, Loader):
     """Depositor with strategy that all objects that get referenced should be saved"""
 
-    def ref(self, obj) -> Optional[records.SnapshotId]:
+    def get_snapshot_id(self, obj) -> Optional[records.SnapshotId]:
         if obj is None:
             return None
 
@@ -150,11 +164,11 @@ class LiveDepositor(Saver, Loader):
             # Then we have to save it and get the resulting reference
             return self._historian._save_object(obj, self).snapshot_id
 
-    def load(self, reference: records.SnapshotId):
+    def load(self, snapshot_id: records.SnapshotId):
         try:
-            return self._historian.get_obj(reference.obj_id)
+            return self._historian.get_obj(snapshot_id.obj_id)
         except exceptions.NotFound:
-            return self._historian._load_object(reference.obj_id, self)
+            return self._historian._load_object(snapshot_id.obj_id, self)
 
     def load_from_record(self, record: records.DataRecord):
         """Load an object from a record"""
@@ -232,22 +246,22 @@ class SnapshotLoader(Loader):
         super().__init__(historian)
         self._snapshots = {}  # type: MutableMapping[records.SnapshotId, Any]
 
-    def load(self, sid: records.SnapshotId) -> Any:
+    def load(self, snapshot_id: records.SnapshotId) -> Any:
         """Load an object from its snapshot id"""
-        if not isinstance(sid, records.SnapshotId):
-            raise TypeError(sid)
+        if not isinstance(snapshot_id, records.SnapshotId):
+            raise TypeError(snapshot_id)
 
         try:
-            snapshot = self._snapshots[sid]
+            snapshot = self._snapshots[snapshot_id]
         except KeyError:
-            record = self.get_archive().load(sid)
+            record = self.get_archive().load(snapshot_id)
             if record.is_deleted_record():
                 snapshot = None
             else:
                 snapshot = self.load_from_record(record)
 
             # Cache it
-            self._snapshots[sid] = snapshot
+            self._snapshots[snapshot_id] = snapshot
 
         return snapshot
 
@@ -268,7 +282,7 @@ class SnapshotLoader(Loader):
 class Migrator(Saver, SnapshotLoader):
     """A migrating depositor used to make migrations to database records"""
 
-    def ref(self, obj) -> records.SnapshotId:
+    def get_snapshot_id(self, obj) -> records.SnapshotId:
         try:
             return self.get_historian().get_snapshot_id(obj)
         except exceptions.NotFound:
