@@ -194,14 +194,14 @@ def test_set_meta_in_save(historian: mincepy.Historian):
     assert meta == {'msg': 'good news'}
 
 
-def test_set_meta_in_save_simple(historian: mincepy.Historian):
+def test_update_meta_in_save(historian: mincepy.Historian):
 
     class Info(mincepy.SimpleSavable):
         TYPE_ID = uuid.UUID('6744689d-5f88-482e-bb42-2bec5f139cc2')
 
         def save_instance_state(self, saver: mincepy.Saver) -> dict:
             state = super().save_instance_state(saver)
-            self.set_meta(dict(msg='good news'))
+            saver.get_historian().meta.update(self, dict(msg='good news'))
             return state
 
     info = Info()
@@ -209,6 +209,26 @@ def test_set_meta_in_save_simple(historian: mincepy.Historian):
 
     meta = historian.meta.get(info)
     assert meta == {'msg': 'good news'}
+
+
+def test_update_meta_in_save_with_sticky(historian: mincepy.Historian):
+
+    class Info(mincepy.SimpleSavable):
+        TYPE_ID = uuid.UUID('6744689d-5f88-482e-bb42-2bec5f139cc2')
+
+        def save_instance_state(self, saver: mincepy.Saver) -> dict:
+            state = super().save_instance_state(saver)
+            saver.get_historian().meta.update(self, dict(msg='good news'))
+            return state
+
+    historian = mincepy.get_historian()
+    historian.meta.sticky['all'] = 'good'
+
+    info = Info()
+    info.save()
+
+    meta = historian.meta.get(info)
+    assert meta == {'all': 'good', 'msg': 'good news'}
 
 
 def test_set_meta_in_save_fail(historian: mincepy.Historian):

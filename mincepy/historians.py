@@ -845,7 +845,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                     record = depositor.save_from_builder(obj, builder)
                     if self.meta.sticky:
                         # Apply the sticky meta
-                        trans.set_meta(record.obj_id, self.meta.sticky)
+                        self.meta.update(record.obj_id, self.meta.sticky)
                     return record
                 else:
                     if helper.IMMUTABLE:
