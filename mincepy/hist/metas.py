@@ -1,6 +1,6 @@
 from typing import Any, Optional, Mapping, Dict
 
-from .. import exceptions
+import mincepy
 
 __all__ = ('Meta',)
 
@@ -11,7 +11,7 @@ class Meta:
     # Meta is a 'friend' of Historian and so can access privates pylint: disable=protected-access
 
     def __init__(self, historian, archive):
-        self._hist = historian  # type: 'mincepy.Historian'
+        self._hist = historian  # type: mincepy.Historian
         self._archive = archive
         self._sticky = {}
 
@@ -38,7 +38,7 @@ class Meta:
             for obj_id in obj_ids:
                 try:
                     found[obj_id] = trans.get_meta(obj_id)
-                except exceptions.NotFound:
+                except mincepy.NotFound:
                     pass
 
             # Now get anything else from the archive
@@ -89,7 +89,7 @@ class Meta:
             # Update the metadata in the transaction
             try:
                 current = trans.get_meta(obj_id)
-            except exceptions.NotFound:
+            except mincepy.NotFound:
                 current = self._archive.meta_get(obj_id)  # Try the archive
                 if current is None:
                     current = {}  # Ok, no meta
