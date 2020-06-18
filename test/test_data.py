@@ -7,6 +7,8 @@ import mincepy
 import mincepy.builtins
 from mincepy.testing import Car, Garage, Cycle
 
+# pylint: disable=invalid-name, too-few-public-methods
+
 
 def test_basic_save_load(historian: mincepy.Historian):
     car = Car('nissan', 'white')
@@ -147,21 +149,6 @@ def test_storing_internal_object(historian: mincepy.Historian):
     # Default is to save by value so two cars should not be the same
     assert loaded_mike.car is not ferrari
     assert loaded_mike.car == ferrari  # But values should match
-
-
-def test_copy(historian: mincepy.Historian):
-    car = Car('zonda')
-
-    historian.save(car)
-    car_copy = historian.copy(car)
-    assert car == car_copy
-    assert car is not car_copy
-
-    record = historian.get_current_record(car)
-    copy_record = historian.get_current_record(car_copy)
-
-    assert record is not copy_record
-    assert copy_record.get_copied_from() == record.snapshot_id
 
 
 def test_load_unknown_object(mongodb_archive, historian: mincepy.Historian):

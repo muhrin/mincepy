@@ -224,6 +224,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     def copy(self, obj):
         """Create a shallow copy of the object, save that copy and return it"""
+        if not self.is_known(obj):
+            return copy.copy(obj)
+
         with self.transaction() as trans:
             record = self._save_object(obj, self._live_depositor)
             copy_builder = record.copy_builder(obj_id=self._archive.create_archive_id())

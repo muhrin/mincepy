@@ -104,3 +104,30 @@ def test_to_obj_id(historian: mincepy.Historian):
     assert historian.to_obj_id(car_id) == car_id
     assert historian.to_obj_id(car) == car_id
     assert historian.to_obj_id(str(car_id)) == car_id
+
+
+def test_copy(historian: mincepy.Historian):
+    car = Car('zonda')
+
+    historian.save(car)
+    car_copy = historian.copy(car)
+    assert car == car_copy
+    assert car is not car_copy
+
+    record = historian.get_current_record(car)
+    copy_record = historian.get_current_record(car_copy)
+
+    assert record is not copy_record
+    assert copy_record.get_copied_from() == record.snapshot_id
+
+
+def test_copy_unsaved(historian: mincepy.Historian):
+    car = Car('porsche', 'silver')
+    car_copy = historian.copy(car)
+
+    assert car_copy is not car
+    assert car == car_copy
+
+    # The cars should not be saved
+    assert not historian.is_known(car)
+    assert not historian.is_known(car_copy)
