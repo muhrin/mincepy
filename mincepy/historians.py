@@ -5,7 +5,7 @@ import getpass
 import logging
 import socket
 import typing
-from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union, Iterator, Dict
+from typing import MutableMapping, Any, Optional, Mapping, Iterable, Union, Iterator, Dict, Type
 import weakref
 
 from . import archives
@@ -165,7 +165,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # Register default types
         self._type_registry = type_registry.TypeRegistry()
         self.register_type(refs.ObjRef)
-        self.register_type(helpers.SnapshotIdHelper())
+        self.register_type(builtins.SnapshotIdHelper())
         self.register_types(archive.get_types())
 
         # Snapshot objects -> reference. Objects that were loaded from historical snapshots
@@ -642,6 +642,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                      version: int = -1,
                      state=None,
                      meta: dict = None,
+                     extras: dict = None,
                      sort=None,
                      limit=0,
                      skip=0) -> Iterator[records.DataRecord]:
@@ -653,6 +654,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         :param state: the criteria on the state of the object to apply
         :type state: must be subclass of historian.primitive
         :param meta: the search criteria to apply on the metadata of the object
+        :param extras: the search criteria to apply on the data record extras
         :param sort: the sort criteria
         :param limit: the maximum number of results to return, 0 means unlimited
         :param skip: the page to get results from
@@ -669,6 +671,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                                      state=state,
                                      version=version,
                                      meta=meta,
+                                     extras=extras,
                                      sort=sort,
                                      limit=limit,
                                      skip=skip)
@@ -867,6 +870,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
     def _create_builder(self, obj, additional=None):
         additional = additional or {}
         helper = self._ensure_compatible(type(obj))
+
         builder = records.DataRecord.new_builder(type_id=helper.TYPE_ID,
                                                  obj_id=self._archive.create_archive_id(),
                                                  version=0)
@@ -890,9 +894,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return obj_id
 
-    def _ensure_compatible(self, obj_type) -> helpers.TypeHelper:
+    def _ensure_compatible(self, obj_type: Type[types.SavableObject]) -> helpers.TypeHelper:
         if obj_type not in self._type_registry:
-            return self.register_type(obj_type)
+            self.register_type(obj_type)
 
         return self._type_registry.get_helper_from_obj_type(obj_type)
 

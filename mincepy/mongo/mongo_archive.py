@@ -246,7 +246,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
              state=None,
              state_types=None,
              snapshot_hash=None,
-             meta=None,
+             meta: dict = None,
+             extras: dict = None,
              limit=0,
              sort=None,
              skip=0):
@@ -258,7 +259,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                                       state=state,
                                       state_types=state_types,
                                       snapshot_hash=snapshot_hash,
-                                      meta=meta)
+                                      meta=meta,
+                                      extras=extras)
 
         if skip:
             pipeline.append({'$skip': skip})
@@ -344,7 +346,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                       state=None,
                       state_types=None,
                       snapshot_hash=None,
-                      meta=None):
+                      meta: dict = None,
+                      extras: dict = None):
         """Get a pipeline that would perform the given search.  Can be used directly in an aggregate
          call"""
         pipeline = []
@@ -368,6 +371,9 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         if snapshot_hash is not None:
             query.and_({db.SNAPSHOT_HASH: scalar_query_spec(snapshot_hash)})
+
+        if extras:
+            query.and_(*queries.flatten_filter(db.EXTRAS, extras))
 
         mfilter = query.build()
         if mfilter:

@@ -40,9 +40,10 @@ def ne_(value) -> dict:
     return {'$ne': value}
 
 
-def exists_(key) -> dict:
-    """Return condition for the existence of a key"""
-    return {key: {'$exists': True}}
+def exists_(key, value: bool = True) -> dict:
+    """Return condition for the existence of a key.  If True, matches if key exists, if False
+    matches if it does not."""
+    return {key: {'$exists': value}}
 
 
 def gt_(quantity) -> dict:

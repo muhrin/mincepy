@@ -1,7 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import logging
 from typing import Type, Optional, Sequence
-import uuid
 
 import pytray.pretty
 
@@ -9,7 +8,6 @@ import mincepy  # pylint: disable=unused-import
 from . import exceptions
 from . import migrations
 from . import process
-from . import records
 from . import types
 
 __all__ = 'TypeHelper', 'WrapperHelper', 'BaseHelper'
@@ -41,7 +39,7 @@ class TypeHelper(metaclass=ABCMeta):
     """This interface provides the basic methods necessary to enable a type to be compatible with
     the historian."""
     TYPE = None  # The type this helper corresponds to
-    TYPE_ID = None  # The unique id for this type of objects
+    TYPE_ID = None  # The unique id for this type of object
     IMMUTABLE = False  # If set to true then the object is decoded straight away
     INJECT_CREATION_TRACKING = False
     # The latest migration, if there is one
@@ -93,7 +91,7 @@ class TypeHelper(metaclass=ABCMeta):
             return None
 
         if latest_version is None or (version is not None and latest_version < version):
-            raise exceptions.MigrationError(
+            raise exceptions.VersionError(
                 "This codebase's version of '{}' is older ({}) than the saved version ({}).  Check "
                 "for updates.".format(pytray.pretty.type_string(self.TYPE), latest_version,
                                       version))
@@ -166,30 +164,3 @@ class WrapperHelper(TypeHelper):
 
     def load_instance_state(self, obj, saved_state: types.Savable, loader):
         self.TYPE.load_instance_state(obj, saved_state, loader)
-
-
-class SnapshotIdHelper(TypeHelper):
-    """Add ability to store references"""
-    TYPE = records.SnapshotId
-    TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
-
-    def eq(self, one, other):
-        if not (isinstance(one, records.SnapshotId) and isinstance(other, records.SnapshotId)):
-            return False
-
-        return one.obj_id == other.obj_id and one.version == other.version
-
-    def yield_hashables(self, obj, hasher):
-        yield from hasher.yield_hashables(obj.obj_id)
-        yield from hasher.yield_hashables(obj.version)
-
-    def save_instance_state(self, obj, saver):
-        return obj.to_dict()
-
-    def load_instance_state(self, obj, saved_state, loader):
-        if isinstance(saved_state, list):
-            # Legacy version
-            obj.__init__(*saved_state)
-        else:
-            # New version is a dictionary
-            obj.__init__(**saved_state)

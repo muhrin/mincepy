@@ -150,7 +150,8 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
              state=None,
              state_types=None,
              snapshot_hash=None,
-             meta=None,
+             meta: dict = None,
+             extras: dict = None,
              limit=0,
              sort=None,
              skip=0) -> Iterator[DataRecord]:
@@ -164,6 +165,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         :param state_types: file objects with this state types filter
         :param snapshot_hash: find objects with this snapshot hash
         :param meta: find objects with this meta filter
+        :param extras: the search criteria to apply on the data record extras
         :param limit: limit the results to this many records
         :param obj_id: an optional restriction on the object ids to search.  This ben be either:
             1. a single object id

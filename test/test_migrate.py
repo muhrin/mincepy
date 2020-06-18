@@ -36,8 +36,9 @@ def test_find_migratable(historian: mincepy.Historian):
 def test_migrate_with_saved(historian: mincepy.Historian):
     """Test migrating an object that has saved references"""
 
-    class V3(StoreByRef):
-        ATTRS = ('description',)
+    class V3(mincepy.SimpleSavable):
+        ATTRS = (mincepy.AsRef('ref'), 'description')
+        TYPE_ID = StoreByRef.TYPE_ID
 
         class Migration(mincepy.ObjectMigration):
             VERSION = 2
@@ -51,7 +52,8 @@ def test_migrate_with_saved(historian: mincepy.Historian):
         LATEST_MIGRATION = Migration
 
         def __init__(self, ref):
-            super(V3, self).__init__(ref)
+            super().__init__()
+            self.ref = ref
             self.description = None
 
     obj = StoreByRef(testing.Car())

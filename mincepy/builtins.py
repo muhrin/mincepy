@@ -8,6 +8,8 @@ from typing import BinaryIO, Optional
 import uuid
 
 from . import base_savable
+from . import helpers
+from . import records
 from . import refs
 from .utils import sync
 from . import types
@@ -431,6 +433,34 @@ class File(base_savable.SimpleSavable, metaclass=ABCMeta):
 
 
 BaseFile = File
+
+
+class SnapshotIdHelper(helpers.TypeHelper):
+    """Add ability to store references"""
+    TYPE = records.SnapshotId
+    TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
+
+    def eq(self, one, other):  # pylint: disable=invalid-name, no-self-use
+        if not (isinstance(one, records.SnapshotId) and isinstance(other, records.SnapshotId)):
+            return False
+
+        return one.obj_id == other.obj_id and one.version == other.version
+
+    def yield_hashables(self, obj, hasher):  # pylint: disable=no-self-use
+        yield from hasher.yield_hashables(obj.obj_id)
+        yield from hasher.yield_hashables(obj.version)
+
+    def save_instance_state(self, obj, _saver):  # pylint: disable=no-self-use
+        return obj.to_dict()
+
+    def load_instance_state(self, obj, saved_state, _loader):  # pylint: disable=no-self-use
+        if isinstance(saved_state, list):
+            # Legacy version
+            obj.__init__(*saved_state)
+        else:
+            # New version is a dictionary
+            obj.__init__(**saved_state)
+
 
 HISTORIAN_TYPES = (Str, List, RefList, LiveList, LiveRefList, Dict, RefDict, LiveDict, LiveRefDict,
                    ObjProxy)

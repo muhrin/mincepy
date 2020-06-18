@@ -1,6 +1,7 @@
 import numbers
 import collections.abc
 from operator import itemgetter
+import uuid
 
 from .helpers import TypeHelper
 
@@ -118,3 +119,10 @@ class TupleEquator(SimpleHelper):
 
     def yield_hashables(self, obj, hasher):
         yield from hasher.yield_hashables(obj)
+
+
+class UuidEquator(SimpleHelper):
+    TYPE = uuid.UUID
+
+    def yield_hashables(self, obj: uuid.UUID, hasher):
+        yield obj.bytes

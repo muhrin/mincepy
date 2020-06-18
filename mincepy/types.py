@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import datetime
+from typing import Type, List
 import uuid
 
 try:  # Python3
@@ -50,11 +51,11 @@ class Comparable(metaclass=ABCMeta):
         """Produce a hash representing the value"""
 
 
-class Object(Comparable, metaclass=ABCMeta):
+class Object(Comparable, metaclass=ABCMeta):  # pylint: disable=abstract-method
     """A simple object that is comparable"""
 
 
-class SavableObject(Object, Savable, metaclass=ABCMeta):
+class SavableObject(Object, Savable, metaclass=ABCMeta):  # pylint: disable=abstract-method
     """A class that is both savable and comparable"""
 
     _historian = None
@@ -136,3 +137,13 @@ class Equator:
         """
         fmt = u'{{:.{}g}}'.format(sig)
         return fmt.format(value)
+
+
+def is_savable_type(obj_type: Type) -> bool:
+    return issubclass(obj_type, SavableObject) and obj_type.TYPE_ID is not None
+
+
+def savable_mro(obj_type: Type[SavableObject]) -> List[Type[SavableObject]]:
+    """Given a SavableObject type this will give the mro of the savable types in the hierarchy"""
+    mro = obj_type.mro()
+    return list(filter(is_savable_type, mro))

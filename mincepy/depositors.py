@@ -224,7 +224,8 @@ class LiveDepositor(Saver, Loader):
                 creator = process.CreatorsRegistry.get_creator(obj)
                 if creator is not None:
                     # Found one
-                    builder.extras[records.ExtraKeys.CREATED_BY] = self.ref(creator).obj_id
+                    builder.extras[records.ExtraKeys.CREATED_BY] = \
+                        self.get_snapshot_id(creator).obj_id
 
             # Now ask the object to save itself and create the record
             builder.update(self.save_state(obj))

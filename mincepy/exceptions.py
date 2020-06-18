@@ -1,4 +1,5 @@
-__all__ = 'NotFound', 'ModificationError', 'ObjectDeleted', 'DuplicateKeyError', 'MigrationError'
+__all__ = ('NotFound', 'ModificationError', 'ObjectDeleted', 'DuplicateKeyError', 'MigrationError',
+           'VersionError')
 
 
 class NotFound(Exception):
@@ -19,3 +20,7 @@ class DuplicateKeyError(Exception):
 
 class MigrationError(Exception):
     """Indicates that an error occurred during migration"""
+
+
+class VersionError(Exception):
+    """Indicates a version mismatch between the code and the database"""

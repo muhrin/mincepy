@@ -1,3 +1,5 @@
+import functools
+
 from mincepy import q
 from . import db
 
@@ -108,22 +110,30 @@ def flatten_filter(entry_name: str, query) -> list:
     return flattened
 
 
-def _transform_query_keys(entry, prefix: str):
+@functools.singledispatch
+def _transform_query_keys(entry, prefix: str = ''):  # pylint: disable=unused-argument
     """Transform a query entry into the correct syntax given a global prefix and the entry itself"""
+    return entry
 
-    if isinstance(entry, dict):
-        transformed = {}
-        for key, value in entry.items():
-            if key.startswith('$'):
-                if key in ('$and', '$not', '$nor', '$or'):
-                    transformed[key] = _transform_query_keys(value, prefix)
-                else:
-                    transformed[prefix] = {key: value}
+
+@_transform_query_keys.register(list)
+def _(entry: list, prefix: str = ''):
+    return [_transform_query_keys(value, prefix) for value in entry]
+
+
+@_transform_query_keys.register(dict)
+def _(entry: dict, prefix: str = ''):
+    transformed = {}
+    for key, value in entry.items():
+        if key.startswith('$'):
+            if key in ('$and', '$not', '$nor', '$or'):
+                transformed[key] = _transform_query_keys(value, prefix)
             else:
-                transformed['{}.{}'.format(prefix, key)] = _transform_query_keys(value, prefix)
+                update = {prefix: {key: value}} if prefix else {key: value}
+                transformed.update(update)
+        else:
+            to_join = [prefix, key] if prefix else [key]
+            # Don't pass the prefix on, we've consumed it here
+            transformed['.'.join(to_join)] = _transform_query_keys(value)
 
-        return transformed
-    elif isinstance(entry, list):
-        return [_transform_query_keys(value, prefix) for value in entry]
-    else:
-        return entry
+    return transformed

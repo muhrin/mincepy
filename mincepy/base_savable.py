@@ -28,7 +28,7 @@ class BaseSavableObject(types.SavableObject):
     def __new__(cls, *_args, **_kwargs):
         new_instance = super(BaseSavableObject, cls).__new__(cls)
         attrs = {}
-        for entry in cls.__mro__:
+        for entry in cls.mro():
             try:
                 class_attrs = getattr(entry, 'ATTRS')
             except AttributeError:
