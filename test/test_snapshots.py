@@ -1,3 +1,5 @@
+"""Module for testing saved snapshots"""
+
 import time
 
 import pytest

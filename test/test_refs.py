@@ -1,3 +1,5 @@
+"""Module for testing object references"""
+
 from argparse import Namespace
 
 import mincepy
