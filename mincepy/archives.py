@@ -263,7 +263,7 @@ def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> \
         {'$in': list(iterable)}
     3. it is a raw item item in which case it is matched directly
     """
-    if isinstance(specifier, Mapping):
+    if isinstance(specifier, dict):  # This has to be first as dict is iterable
         return specifier
     if isinstance(specifier, Iterable):
         return q.in_(*specifier)

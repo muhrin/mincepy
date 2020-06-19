@@ -80,7 +80,10 @@ class BaseSavableObject(types.SavableObject):
                     raise
             else:
                 if attr.as_ref:
-                    obj = obj()
+                    if obj:
+                        obj = obj()
+                    else:
+                        obj = None
                 setattr(self, attr.name, obj)
 
     def __get_attrs(self) -> typing.Sequence[AttrSpec]:

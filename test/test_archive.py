@@ -66,3 +66,19 @@ def test_find_from_id(historian: mincepy.Historian):
     ids = [record.obj_id for record in results]
     assert car_id in ids
     assert car2_id in ids
+
+
+def test_find_using_iterator(mongodb_archive: mincepy.Archive):
+    """Test that passing an iterable to find types that support it, works."""
+    record_details = dict(state=None, state_types=None, snapshot_hash=None)
+
+    record1 = mincepy.DataRecord.new_builder(obj_id=123, type_id=1, **record_details).build()
+    record2 = mincepy.DataRecord.new_builder(obj_id=456, type_id=2, **record_details).build()
+
+    mongodb_archive.save_many([record1, record2])
+
+    results = tuple(mongodb_archive.find(obj_id=[123].__iter__()))
+    assert len(results) == 1
+
+    results = tuple(mongodb_archive.find(type_id=[1].__iter__()))
+    assert len(results) == 1

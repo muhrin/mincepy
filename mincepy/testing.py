@@ -64,15 +64,13 @@ class Garage(mincepy.SimpleSavable):
 
 class Person(mincepy.SimpleSavable):
     TYPE_ID = uuid.UUID('d60ca740-9fa6-4002-83f6-e4c91403e41b')
-    ATTRS = 'name', 'age'
+    ATTRS = 'name', 'age', mincepy.AsRef('car')
 
-    def __init__(self, name, age):
+    def __init__(self, name, age, car=None):
         super(Person, self).__init__()
         self.name = name
         self.age = age
-
-    def __eq__(self, other):
-        return self.name == other.name and self.age == other.age
+        self.car = car
 
 
 class Cycle(mincepy.SimpleSavable):
