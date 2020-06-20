@@ -3,6 +3,10 @@ import collections.abc
 import functools
 from typing import TypeVar, Generic, Any, Type
 import weakref
+try:
+    from contextlib import nullcontext
+except ImportError:
+    from contextlib2 import nullcontext
 
 
 class WeakObjectIdDict(collections.MutableMapping):
@@ -154,19 +158,21 @@ def sync(save=False):
         @functools.wraps(obj_method)
         def wrapper(self, *args, **kwargs):
             # pylint: disable=protected-access
-            try:
-                self.__sync += 1
-            except AttributeError:
-                self.__sync = 1
-            if self.is_saved():
-                self.sync()
-            try:
-                retval = obj_method(self, *args, **kwargs)
-                if self.is_saved() and save:
-                    self.save()
-                return retval
-            finally:
-                self.__sync -= 1
+            ctx = nullcontext if self._historian is None else self._historian.transaction
+            with ctx():
+                try:
+                    self.__sync += 1
+                except AttributeError:
+                    self.__sync = 1
+                if self.is_saved():
+                    self.sync()
+                try:
+                    retval = obj_method(self, *args, **kwargs)
+                    if self.is_saved() and save:
+                        self.save()
+                    return retval
+                finally:
+                    self.__sync -= 1
 
         return wrapper
 

@@ -1,5 +1,10 @@
 from collections import namedtuple
 import contextlib
+
+try:
+    from contextlib import nullcontext
+except ImportError:
+    from contextlib2 import nullcontext
 import getpass
 import logging
 import socket
@@ -258,7 +263,13 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 # not even in the archive
                 raise exc
 
-        with self.transaction() as trans:
+        current = self.current_transaction()
+        if current is None:
+            ctx = self.transaction()
+        else:
+            ctx = nullcontext(current)
+
+        with ctx as trans:
             builder = records.make_deleted_builder(record)
             deleted_record = self._record_builder_created(builder).build()
             trans.delete(obj_id)
@@ -627,7 +638,19 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self._transactions[-1]
 
     def _closing_transaction(self, trans: Transaction):
-        pass
+        conflicting = set()
+
+        # Filter out the deleted records
+        del_ops = filter(
+            lambda _: isinstance(_, operations.Insert) and _.record.is_deleted_record(),
+            trans.staged)
+
+        for operation in del_ops:
+            reffed_by = self.references.referenced_by(operation.obj_id)
+            conflicting.update(reffed_by)
+
+        if conflicting:
+            raise exceptions.ReferenceError("Cannot perform delete", conflicting)
 
     def _commit_transaction(self, trans: Transaction):
         """Commit a transaction that is finishing"""

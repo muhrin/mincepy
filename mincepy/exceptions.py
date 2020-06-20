@@ -1,5 +1,5 @@
 __all__ = ('NotFound', 'ModificationError', 'ObjectDeleted', 'DuplicateKeyError', 'MigrationError',
-           'VersionError')
+           'VersionError', 'IntegrityError', 'ReferenceError')
 
 
 class NotFound(Exception):
@@ -24,3 +24,15 @@ class MigrationError(Exception):
 
 class VersionError(Exception):
     """Indicates a version mismatch between the code and the database"""
+
+
+class IntegrityError(Exception):
+    """Indicates an error that occurred because of an operation that would conflict with a database
+    constraint"""
+
+
+class ReferenceError(IntegrityError):  # pylint: disable=redefined-builtin
+
+    def __init__(self, msg, references: set):
+        super().__init__(msg)
+        self.references = references
