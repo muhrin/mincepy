@@ -141,17 +141,14 @@ class Transaction:
         self._live_object_references[ref] = obj
 
     def get_live_object(self, obj_id):
-        if self.is_deleted(obj_id):
-            raise exceptions.ObjectDeleted(obj_id)
-
+        self._ensure_not_deleted(obj_id)
         return self._live_objects.get_object(obj_id)
 
     def get_record_for_live_object(self, obj) -> records.DataRecord:
         return self._live_objects.get_record(obj)
 
     def get_live_object_from_reference(self, snapshot_id: records.SnapshotId):
-        if self.is_deleted(snapshot_id.obj_id):
-            raise exceptions.ObjectDeleted(snapshot_id.obj_id)
+        self._ensure_not_deleted(snapshot_id.obj_id)
 
         try:
             return self._live_object_references[snapshot_id]
@@ -192,6 +189,7 @@ class Transaction:
 
     def set_meta(self, obj_id, meta: Optional[dict]):
         """Set an object's metadata.  Can pass None to unset."""
+        self._ensure_not_deleted(obj_id)
         self._metas[obj_id] = copy.deepcopy(meta)
 
     def get_meta(self, obj_id) -> dict:
@@ -201,6 +199,7 @@ class Transaction:
         :raise exceptions.NotFound: if not metadata information for the object is contained in this
             transaction.
         """
+        self._ensure_not_deleted(obj_id)
         try:
             return self._metas[obj_id]
         except KeyError:
@@ -251,6 +250,12 @@ class Transaction:
     @staticmethod
     def rollback():
         raise RollbackTransaction
+
+    def _ensure_not_deleted(self, obj_id):
+        """Make sure that an object id has not been deleted in this transaction.  Raises an
+        ObjectDeleted exception if so."""
+        if self.is_deleted(obj_id):
+            raise exceptions.ObjectDeleted(obj_id)
 
 
 class NestedTransaction(Transaction):
