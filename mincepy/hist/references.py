@@ -1,4 +1,4 @@
-from typing import Union, Generic, TypeVar, Iterator, Set, overload  # pylint: disable=unused-import
+from typing import Generic, TypeVar, Set, overload
 
 import networkx
 from networkx.algorithms import dag
@@ -14,6 +14,14 @@ IdT = TypeVar('IdT')  # The archive ID type
 
 
 class References(Generic[IdT]):
+    """
+    A class that can provide reference graph information about objects stored in the archive.
+
+    .. note::
+        It is deliberately not possible to pass an object directly to methods in this class as what
+        is returned is reference information from the archive and _not_ reference information about
+        the in-memory python object.
+    """
 
     def __init__(self, historian):
         self._historian = historian
@@ -30,11 +38,11 @@ class References(Generic[IdT]):
         ...
 
     def references(self, identifier):
-        """Get the ids of the objects referred to by the passed object"""
+        """Get the ids of the objects referred to by the passed identifier."""
         if isinstance(identifier, records.SnapshotId):
-            graph = next(self.get_snapshot_ref_graph(identifier, max_dist=1))
+            graph = self.get_snapshot_ref_graph(identifier, max_dist=1)
         elif isinstance(identifier, self._archive.get_id_type()):
-            graph = next(self.get_obj_ref_graph(identifier, max_dist=1))
+            graph = self.get_obj_ref_graph(identifier, max_dist=1)
         else:
             raise TypeError(identifier)
 
@@ -51,11 +59,9 @@ class References(Generic[IdT]):
     def referenced_by(self, identifier):
         """Get the ids of the objects that refer to the passed object"""
         if isinstance(identifier, records.SnapshotId):
-            graph = next(
-                self.get_snapshot_ref_graph(identifier, direction=archives.INCOMING, max_dist=1))
+            graph = self.get_snapshot_ref_graph(identifier, direction=archives.INCOMING, max_dist=1)
         elif isinstance(identifier, self._archive.get_id_type()):
-            graph = next(self.get_obj_ref_graph(identifier, direction=archives.INCOMING,
-                                                max_dist=1))
+            graph = self.get_obj_ref_graph(identifier, direction=archives.INCOMING, max_dist=1)
         else:
             raise TypeError(identifier)
 
@@ -64,22 +70,24 @@ class References(Generic[IdT]):
     def get_snapshot_ref_graph(self,
                                *snapshot_ids: SnapshotId,
                                direction=archives.OUTGOING,
-                               max_dist: int = None) -> Iterator[networkx.DiGraph]:
+                               max_dist: int = None) -> networkx.DiGraph:
 
-        yield from self._archive.get_snapshot_ref_graph(*snapshot_ids,
-                                                        direction=direction,
-                                                        max_dist=max_dist)
+        return self._archive.get_snapshot_ref_graph(*snapshot_ids,
+                                                    direction=direction,
+                                                    max_dist=max_dist)
 
     def get_obj_ref_graph(self,
                           *obj_ids: IdT,
                           direction=archives.OUTGOING,
-                          max_dist: int = None) -> Iterator[networkx.DiGraph]:
+                          max_dist: int = None) -> networkx.DiGraph:
 
-        for source, graph in zip(
-                obj_ids,
-                self._archive.get_obj_ref_graph(*obj_ids, direction=direction, max_dist=max_dist)):
-            trans = self._historian.current_transaction()  # type: transactions.Transaction
-            if trans is not None:
+        graph = self._archive.get_obj_ref_graph(*obj_ids, direction=direction, max_dist=max_dist)
+
+        # If there is a transaction then we should fix up the graph to contain information from that
+        # too
+        trans = self._historian.current_transaction()  # type: transactions.Transaction
+        if trans is not None:
+            for source in obj_ids:
                 for op in trans.staged:  # pylint: disable=invalid-name
                     if isinstance(op, operations.Insert):
                         # Modify the graph to reflect the insertion
@@ -97,7 +105,8 @@ class References(Generic[IdT]):
                     reachable = dag.descendants(graph, source)
                 else:
                     reachable = dag.ancestors(graph, source)
+
                 # Remove all non-reachable nodes except ourselves
                 graph.remove_nodes_from(set(graph.nodes) - {source} - reachable)
 
-            yield graph
+        return graph

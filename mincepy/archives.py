@@ -192,7 +192,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     def get_snapshot_ref_graph(self,
                                *snapshot_ids: SnapshotId,
                                direction=OUTGOING,
-                               max_dist: int = None) -> Iterator[networkx.DiGraph]:
+                               max_dist: int = None) -> networkx.DiGraph:
         """Given one or more snapshot ids the archive will supply the corresponding reference
         graph(s).  The graphs start at the given id and contains all snapshots that it references,
         all snapshots they reference and so on.
@@ -202,7 +202,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     def get_obj_ref_graph(self,
                           *obj_ids: IdT,
                           direction=OUTGOING,
-                          max_dist: int = None) -> Iterator[networkx.DiGraph]:
+                          max_dist: int = None) -> networkx.DiGraph:
         """Given one or more object ids the archive will supply the corresponding reference
         graph(s).  The graphs start at the given id and contains all object ids that it references,
         all object ids they reference and so on.

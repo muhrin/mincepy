@@ -32,17 +32,17 @@ class ReferenceManager:
 
     def get_obj_ref_graphs(
             self, obj_ids: Sequence[bson.ObjectId], direction=OUTGOING, max_dist: int = None) \
-            -> Iterator[networkx.DiGraph]:
-        yield from self._get_graph(obj_ids, direction=direction, max_dist=max_dist)
+            -> networkx.DiGraph:
+        return self._get_graph(obj_ids, direction=direction, max_dist=max_dist)
 
     def get_snapshot_ref_graph(
             self, ids: Sequence[mincepy.SnapshotId], direction=OUTGOING, max_dist: int = None) \
             -> Iterator[networkx.DiGraph]:
         """Get the reference graph for a sequence of ids"""
-        yield from self._get_graph(ids,
-                                   direction=direction,
-                                   max_dist=max_dist,
-                                   node_factory=db.sid_from_str)
+        return self._get_graph(ids,
+                               direction=direction,
+                               max_dist=max_dist,
+                               node_factory=db.sid_from_str)
 
     def invalidate(self, obj_ids: Iterable[bson.ObjectId],
                    snapshot_ids: Iterable[types.SnapshotId]):
@@ -56,14 +56,14 @@ class ReferenceManager:
                    ids: Sequence[Union[bson.ObjectId, types.SnapshotId]],
                    direction=OUTGOING,
                    max_dist: int = None,
-                   node_factory: Callable = None) -> Iterator[networkx.DiGraph]:
+                   node_factory: Callable = None) -> networkx.DiGraph:
         """Get the reference graph for a sequence of ids"""
         if max_dist == 0:
-            # Special case for 0 distance, can't be any references
+            # Special case for 0 distance, can't be any references just the ids as lone nodes
+            graph = networkx.DiGraph()
             for entry_id in ids:
-                graph = networkx.DiGraph()
                 graph.add_node(entry_id)
-                yield graph
+            return graph
 
         node_factory = node_factory or (lambda x: x)
 
@@ -75,10 +75,11 @@ class ReferenceManager:
         pipeline = self._get_ref_pipeline(search_ids, direction=direction, max_dist=search_max_dist)
         ref_results = {result['_id']: result for result in self._references.aggregate(pipeline)}
 
+        graph = networkx.DiGraph()
+
         for entry_id in search_ids:
             this_id = node_factory(entry_id)
 
-            graph = networkx.DiGraph()
             graph.add_node(this_id)
             result = ref_results.get(entry_id, None)
             if result:
@@ -99,7 +100,7 @@ class ReferenceManager:
                         if direction == OUTGOING or neighbour in graph.nodes:
                             graph.add_edge(this, neighbour)
 
-            yield graph
+        return graph
 
     def _get_ref_pipeline(self, ids: Sequence, direction=OUTGOING, max_dist: int = None) -> list:
         """Get the reference lookup pipeline."""

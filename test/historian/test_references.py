@@ -3,6 +3,8 @@ import pytest
 import mincepy
 from mincepy.testing import Person, Car, Garage
 
+# pylint: disable=invalid-name
+
 
 def test_references_wrong_type(historian: mincepy.Historian):
     with pytest.raises(TypeError):
@@ -34,7 +36,7 @@ def test_remove_references_in_transaction(historian: mincepy.Historian):
     garage = Garage(mincepy.ObjRef(car))
     gid = historian.save(garage)
 
-    graph = next(historian.references.get_obj_ref_graph(gid))
+    graph = historian.references.get_obj_ref_graph(gid)
     assert len(graph.nodes) == 2
     assert len(graph.edges) == 1
     assert (gid, car.obj_id) in graph.edges
@@ -48,7 +50,7 @@ def test_remove_references_in_transaction(historian: mincepy.Historian):
         garage.car = None
         garage.save()
         # Still in a transaction, check the references are correct, i.e. None
-        graph = next(historian.references.get_obj_ref_graph(gid))
+        graph = historian.references.get_obj_ref_graph(gid)
 
         assert len(graph.nodes) == 1
         assert gid in graph.nodes
