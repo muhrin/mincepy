@@ -162,33 +162,6 @@ class DataRecord(
         exist"""
         return self.extras.get(name, None)
 
-    def copy_builder(self, **kwargs) -> 'DataRecordBuilder':
-        """Get a copy builder from this DataRecord instance. The following attributes will be
-        copied over:
-
-        * type_id
-        * state [deepcopy]
-        * snapshot_hash
-        * extras [deepcopy] - the COPIED_FROM entry will be set to a reference to this object
-
-        the version will be set to 0 and the creation time to now.
-        """
-        defaults = self.defaults()
-        defaults.update({
-            TYPE_ID: self.type_id,
-            CREATION_TIME: utils.DefaultFromCall(datetime.datetime.now),
-            STATE: copy.deepcopy(self.state),
-            STATE_TYPES: copy.deepcopy(self.state_types),
-            SNAPSHOT_HASH: self.snapshot_hash,
-            VERSION: 0,
-            SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
-            EXTRAS: copy.deepcopy(self.extras)
-        })
-        defaults[EXTRAS][ExtraKeys.COPIED_FROM] = self.snapshot_id.to_dict()
-        defaults.update(kwargs)
-
-        return DataRecordBuilder(type(self), defaults)
-
     def child_builder(self, **kwargs) -> 'DataRecordBuilder':
         """
         Get a child builder from this DataRecord instance.  The following attributes will be copied

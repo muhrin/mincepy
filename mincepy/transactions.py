@@ -136,9 +136,9 @@ class Transaction:
 
         self._live_objects.insert(obj, record)
 
-    def insert_live_object_reference(self, ref: records.SnapshotId, obj):
+    def insert_live_object_reference(self, snapshot_id: records.SnapshotId, obj):
         """Insert a snapshot reference for an object into the transaction"""
-        self._live_object_references[ref] = obj
+        self._live_object_references[snapshot_id] = obj
 
     def get_live_object(self, obj_id):
         self._ensure_not_deleted(obj_id)

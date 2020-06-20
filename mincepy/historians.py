@@ -1,12 +1,13 @@
 from collections import namedtuple
 import contextlib
-import copy
 import getpass
 import logging
 import socket
 import typing
 from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type
 import weakref
+
+import deprecation
 
 from . import archives
 from . import builtins
@@ -20,9 +21,11 @@ from . import migrate
 from . import operations
 from . import process
 from . import records
+from . import tracking
 from . import types
 from . import type_registry
 from . import utils
+from .version import __version__
 from .transactions import RollbackTransaction, Transaction, LiveObjects
 
 __all__ = 'Historian', 'ObjectEntry'
@@ -222,25 +225,14 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # The one in the archive is newer, so use that
         return self._live_depositor.update_from_record(obj, record)
 
-    def copy(self, obj):
-        """Create a shallow copy of the object, save that copy and return it"""
-        if not self.is_known(obj):
-            return copy.copy(obj)
-
-        with self.transaction() as trans:
-            record = self._save_object(obj, self._live_depositor)
-            copy_builder = record.copy_builder(obj_id=self._archive.create_archive_id())
-            self._record_builder_created(copy_builder)
-
-            # Copy the object and record
-            obj_copy = copy.copy(obj)
-            obj_copy_record = copy_builder.build()
-
-            # Insert all the new objects into the transaction
-            trans.insert_live_object(obj_copy, obj_copy_record)
-            trans.stage(operations.Insert(obj_copy_record))
-
-        return obj_copy
+    @deprecation.deprecated(deprecated_in="0.14.6",
+                            removed_in="0.15",
+                            current_version=__version__,
+                            details="Use mincepy.copy() instead")
+    def copy(self, obj):  # pylint: disable=no-self-use
+        """Create a shallow copy of the object.  Using this method allows the historian to inject
+        information about where the object was copied from into the record if saved."""
+        return tracking.copy(obj)
 
     def delete(self, obj_or_identifier):
         """Delete an object.
@@ -397,7 +389,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return None
 
     def get_snapshot_id(self, obj) -> records.SnapshotId:
-        """Get the current snapshot id for a live object"""
+        """Get the current snapshot id for a live object.  Will return the id or raise
+        :class:`mincepy.NotFound` exception"""
         trans = self.current_transaction()
         if trans:
             try:

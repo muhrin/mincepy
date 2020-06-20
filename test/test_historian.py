@@ -113,6 +113,7 @@ def test_copy(historian: mincepy.Historian):
     car_copy = historian.copy(car)
     assert car == car_copy
     assert car is not car_copy
+    car_copy.save()
 
     record = historian.get_current_record(car)
     copy_record = historian.get_current_record(car_copy)
