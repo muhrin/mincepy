@@ -8,8 +8,9 @@ try:  # Python3
 except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 
-import mincepy
+import mincepy  # pylint: disable=unused-import
 from . import depositors
+from . import tracking
 
 __all__ = 'Savable', 'Comparable', 'Object', 'SavableObject', 'PRIMITIVE_TYPES'
 
@@ -62,7 +63,7 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):  # pylint: disable=abst
 
     def __init__(self):
         super().__init__()
-        mincepy.process.CreatorsRegistry.created(self)
+        tracking.obj_created(self)
 
 
 class Equator:

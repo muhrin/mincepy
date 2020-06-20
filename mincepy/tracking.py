@@ -17,6 +17,12 @@ class TrackStack:
         raise RuntimeError("Cannot be instantiated")
 
     @classmethod
+    def peek(cls):
+        if not cls._stack:
+            return None
+        return cls._stack[-1]
+
+    @classmethod
     def push(cls, obj):
         """Push an object onto the stack"""
         cls._stack.append(obj)
@@ -64,6 +70,12 @@ def track(obj_or_fn):
 
     # We're acting as a context
     return TrackContext(obj_or_fn)
+
+
+def obj_created(obj):
+    creator = TrackStack.peek()
+    if creator is not None:
+        staging.get_info(obj)[records.ExtraKeys.CREATED_BY] = creator
 
 
 def mark_as_copy(obj, copied_from):

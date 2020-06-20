@@ -7,7 +7,7 @@ import pytray.pretty
 import mincepy  # pylint: disable=unused-import
 from . import exceptions
 from . import migrations
-from . import process
+from . import tracking
 from . import types
 
 __all__ = 'TypeHelper', 'WrapperHelper', 'BaseHelper'
@@ -15,22 +15,22 @@ __all__ = 'TypeHelper', 'WrapperHelper', 'BaseHelper'
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
-def inject_creation_tracking(cls):
+def inject_creation_tracking(cls: Type):
     # Check to make sure we don't do this twice!
     if not hasattr(cls, '__orig_new'):
-        cls.__orig_new = cls.__new__
+        cls.__orig_new = cls.__new__  # pylint: disable=protected-access
 
         def new(_cls, *_args, **_kwargs):
-            inst = cls.__orig_new(_cls)
-            process.CreatorsRegistry.created(inst)
+            inst = cls.__orig_new(_cls)  # pylint: disable=protected-access
+            tracking.obj_created(inst)
             return inst
 
         cls.__new__ = new
 
 
-def remove_creation_tracking(cls):
+def remove_creation_tracking(cls: Type):
     try:
-        cls.__new__ = cls.__orig_new
+        cls.__new__ = cls.__orig_new  # pylint: disable=protected-access
     except AttributeError:
         pass
 
@@ -134,6 +134,8 @@ class BaseHelper(TypeHelper, metaclass=ABCMeta):
     """A base helper that defaults to yielding hashables directly on the object
     and testing for equality using == given two objects.  This behaviour is fairly
     standard and therefor more type helpers will want to subclass from this class."""
+
+    # pylint: disable=abstract-method
 
     def yield_hashables(self, obj, hasher):
         yield from hasher.yield_hashables(obj)

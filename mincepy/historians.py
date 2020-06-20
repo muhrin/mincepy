@@ -19,13 +19,13 @@ from . import helpers
 from . import hist
 from . import migrate
 from . import operations
-from . import process
 from . import records
+from . import staging
 from . import tracking
 from . import types
 from . import type_registry
 from . import utils
-from .version import __version__
+from . import version as version_mod
 from .transactions import RollbackTransaction, Transaction, LiveObjects
 
 __all__ = 'Historian', 'ObjectEntry'
@@ -162,10 +162,11 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         to continue the history of the object as the original rather than a brand new object.  Then
         just replace the old object with the new one by calling this function.
         """
-        assert not self.current_transaction(
-        ), "Can't replace during a transaction for the time being"
-        assert isinstance(new, type(old)), "Can't replace type '{} with type '{}!".format(
-            type(old), type(new))
+        if self.current_transaction() is not None:
+            raise RuntimeError("Can't replace during a transaction for the time being")
+
+        if not isinstance(new, type(old)):
+            raise TypeError("Can't replace type '{} with type '{}!".format(type(old), type(new)))
 
         # Get the current record and replace the object with the new one
         record = self._live_objects.get_record(old)
@@ -173,7 +174,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._live_objects.insert(new, record)
 
         # Make sure creators is correct as well
-        process.CreatorsRegistry.set_creator(new, process.CreatorsRegistry.get_creator(old))
+        staging.replace(old, new)
 
     def load_snapshot(self, snapshot_id: records.SnapshotId) -> Any:
         return self._new_snapshot_depositor().load(snapshot_id)
@@ -225,9 +226,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # The one in the archive is newer, so use that
         return self._live_depositor.update_from_record(obj, record)
 
-    @deprecation.deprecated(deprecated_in="0.14.6",
+    @deprecation.deprecated(deprecated_in="0.14.5",
                             removed_in="0.15",
-                            current_version=__version__,
+                            current_version=version_mod.__version__,
                             details="Use mincepy.copy() instead")
     def copy(self, obj):  # pylint: disable=no-self-use
         """Create a shallow copy of the object.  Using this method allows the historian to inject
@@ -556,11 +557,11 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
     def get_creator(self, obj_or_identifier):
         """Get the object that created the passed object"""
         if not self.is_obj_id(obj_or_identifier):
-            # Object instance, try our creators cache
-            try:
-                return process.CreatorsRegistry.get_creator(obj_or_identifier)
-            except KeyError:
-                pass
+            # Object instance, try the staging area
+            info = staging.get_info(obj_or_identifier, create=False) or {}
+            created_by = info.get(records.ExtraKeys.CREATED_BY, None)
+            if created_by is not None:
+                return created_by
 
         creator_id = self.created_by(obj_or_identifier)
         return self.load_one(creator_id)

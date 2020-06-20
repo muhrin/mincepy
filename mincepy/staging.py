@@ -11,6 +11,8 @@ class StagingArea:
     object is indeed saved.  If not, the information is simply discarded when the object is
     destructed"""
 
+    # pylint: disable=too-few-public-methods
+
     staged_obj_info = utils.WeakObjectIdDict()  # type: MutableMapping[Any, dict]
 
     def __init__(self):
@@ -35,3 +37,14 @@ def remove(obj):
     """Remove the information dictionary for a staged object.  If the object is not staged
     then this function does nothing"""
     StagingArea.staged_obj_info.pop(obj)
+
+
+def replace(old, new):
+    """Move over the staging information from object 'old' to object 'new'"""
+    try:
+        staging_info = StagingArea.staged_obj_info.pop(old)
+    except KeyError:
+        # Delete any information present for new
+        StagingArea.staged_obj_info.pop(new, None)
+    else:
+        StagingArea.staged_obj_info[new] = staging_info

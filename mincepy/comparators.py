@@ -3,12 +3,12 @@ import collections.abc
 from operator import itemgetter
 import uuid
 
-from .helpers import TypeHelper
+from . import helpers
 
 __all__ = ('SimpleHelper', 'BytesEquator')
 
 
-class SimpleHelper(TypeHelper):
+class SimpleHelper(helpers.TypeHelper):
 
     def yield_hashables(self, obj, hasher):
         yield from obj.yield_hashables(hasher)

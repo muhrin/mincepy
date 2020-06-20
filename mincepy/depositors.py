@@ -14,7 +14,7 @@ from . import exceptions
 from . import operations
 from . import records
 from . import staging
-from .version import __version__
+from . import version as version_mod
 
 __all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor', 'Migrator'
 
@@ -30,12 +30,11 @@ class Base(metaclass=ABCMeta):
     def get_archive(self) -> archives.Archive:
         return self._historian.archive
 
-    def get_historian(self):
+    def get_historian(self) -> 'mincepy.Historian':
         """
         Get the owning historian.
 
         :return: the historian
-        :rtype: mincepy.Historian
         """
         return self._historian
 
@@ -45,7 +44,7 @@ class Saver(Base, metaclass=ABCMeta):
 
     @deprecation.deprecated(deprecated_in="0.14.2",
                             removed_in="0.15.0",
-                            current_version=__version__,
+                            current_version=version_mod.__version__,
                             details="Use get_snapshot_id() instead")
     def ref(self, obj) -> records.SnapshotId:
         """Get a persistent reference for the given object"""
@@ -209,8 +208,6 @@ class LiveDepositor(Saver, Loader):
 
     def save_from_builder(self, obj, builder: records.DataRecordBuilder):
         """Save a live object"""
-        from . import process
-
         assert builder.snapshot_hash is not None, \
             "The snapshot hash must be set on the builder before saving"
         historian = self.get_historian()
@@ -221,27 +218,7 @@ class LiveDepositor(Saver, Loader):
             trans.insert_live_object_reference(sid, obj)
 
             if builder.version == 0:
-                obj_info = staging.get_info(obj)
-                # Deal with a possible object creator
-                creator = process.CreatorsRegistry.get_creator(obj)
-                if creator is not None:
-                    # Found one
-                    builder.extras[records.ExtraKeys.CREATED_BY] = \
-                        self.get_snapshot_id(creator).obj_id
-
-                # Deal with possible copied from
-                if obj_info:
-                    if records.ExtraKeys.COPIED_FROM in obj_info:
-                        copied_from = obj_info[records.ExtraKeys.COPIED_FROM]
-                        try:
-                            sid = historian.get_snapshot_id(copied_from)
-                            if sid is not None:
-                                builder.extras[records.ExtraKeys.COPIED_FROM] = sid.to_dict()
-                        except exceptions.NotFound:
-                            logger.info(
-                                "Object with id '{}' is being saved but information about the "
-                                "object it was copied from will not be in the record because the "
-                                "original object has not been saved yet and therefore has no id.")
+                builder.extras.update(self._get_extras(obj))
 
             # Now ask the object to save itself and create the record
             builder.update(self.save_state(obj))
@@ -256,6 +233,36 @@ class LiveDepositor(Saver, Loader):
     def _get_current_snapshot_id(self, obj) -> records.SnapshotId:
         """Get the current snapshot id of an object"""
         return self._historian.current_transaction().get_reference_for_live_object(obj)
+
+    def _get_extras(self, obj):
+        historian = self.get_historian()
+        extras = {}
+
+        obj_info = staging.get_info(obj)
+        if obj_info:
+            # Deal with a possible object creator
+            created_by = obj_info.get(records.ExtraKeys.CREATED_BY, None)
+            if created_by is not None:
+                try:
+                    sid = historian.get_snapshot_id(created_by)
+                    extras[records.ExtraKeys.CREATED_BY] = sid.obj_id
+                except exceptions.NotFound:
+                    logger.info("Object with id '{}' is being saved but information about the "
+                                "object it was created by will not be in the record because the "
+                                "original object has not been saved yet and therefore has no id.")
+
+            # Deal with possible copied from
+            copied_from = obj_info.get(records.ExtraKeys.COPIED_FROM, None)
+            if copied_from is not None:
+                try:
+                    sid = historian.get_snapshot_id(copied_from)
+                    extras[records.ExtraKeys.COPIED_FROM] = sid.to_dict()
+                except exceptions.NotFound:
+                    logger.info("Object with id '{}' is being saved but information about the "
+                                "object it was copied from will not be in the record because the "
+                                "original object has not been saved yet and therefore has no id.")
+
+        return extras
 
 
 class SnapshotLoader(Loader):

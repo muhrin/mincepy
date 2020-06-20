@@ -234,7 +234,7 @@ def test_replace_simple(historian: mincepy.Historian):
 def test_replace_invalid(historian: mincepy.Historian):
     honda = Car('honda', 'yellow')
     historian.save(honda)
-    with pytest.raises(AssertionError):
+    with pytest.raises(TypeError):
         historian.replace(honda, Garage())
 
 

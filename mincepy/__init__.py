@@ -14,6 +14,7 @@ from .migrations import *
 from .process import *
 from .records import *
 from .refs import *
+from .tracking import *
 from .types import *
 from .version import *
 from . import builtins
@@ -28,4 +29,4 @@ __all__ = (archives.__all__ + comparators.__all__ + depositors.__all__ + excepti
            historians.__all__ + convenience.__all__ + process.__all__ + types.__all__ +
            helpers.__all__ + version.__all__ + history.__all__ + archive_factory.__all__ +
            refs.__all__ + records.__all__ + base_savable.__all__ + builtins.__all__ +
-           migrations.__all__ + _ADDITIONAL)
+           migrations.__all__ + tracking.__all__ + _ADDITIONAL)

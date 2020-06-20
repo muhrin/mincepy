@@ -1,19 +1,20 @@
 import pytest
 
 import mincepy
+from mincepy import testing
 
-from mincepy.testing import *
+# pylint: disable=invalid-name
 
 
 def test_basic_save_process(historian: mincepy.Historian):
     proc = mincepy.Process('test_basic_save')
     pid = historian.save(proc)
     with proc.running():
-        car = Car('nissan', 'white')
+        car = testing.Car('nissan', 'white')
         car_id = historian.save(car)
     assert historian.created_by(car) == pid
 
-    second_car = Car('ford')
+    second_car = testing.Car('ford')
     historian.save(second_car)
     assert historian.created_by(second_car) is None
 
@@ -28,9 +29,10 @@ def test_save_after_creation(historian: mincepy.Historian):
     outside it.  The creator should still be correctly set
     """
     proc = mincepy.Process('test_delayed_save')
+    proc.save()
     with proc.running():
         # Create the car
-        car = Car('nissan', 'white')
+        car = testing.Car('nissan', 'white')
 
     # Save it
     historian.save(car)
@@ -80,7 +82,7 @@ def test_saving_creator_that_owns_child(historian: mincepy.Historian):
 
     test_proc = TestProc()
     with test_proc.running():
-        test_proc.child = mincepy.ObjRef(Car())
+        test_proc.child = mincepy.ObjRef(testing.Car())
         historian.save(test_proc)
 
 
@@ -89,10 +91,11 @@ def test_process_track(historian: mincepy.Historian):
     class TestProc(mincepy.Process):
 
         @mincepy.track
-        def execute(self):
-            return mincepy.builtins.RefList([Car()])
+        def execute(self):  # pylint: disable=no-self-use
+            return mincepy.builtins.RefList([testing.Car()])
 
     proc = TestProc('test process')
+    proc.save()
     car_list = proc.execute()
     historian.save(car_list)
     proc_id = historian.get_obj_id(proc)
