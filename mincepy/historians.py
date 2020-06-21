@@ -741,7 +741,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                     record = self._live_objects.get_record(obj)
                 except exceptions.NotFound:
                     # Object being saved for the first time
-                    builder = self._create_builder(obj, dict(snapshot_hash=current_hash))
+                    builder = self._create_builder(obj, snapshot_hash=current_hash)
                     record = depositor.save_from_builder(obj, builder)
                     if self.meta.sticky:
                         # Apply the sticky meta
@@ -762,19 +762,18 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                             transaction.rollback()
                         else:
                             builder = record.child_builder(snapshot_hash=current_hash)
-                            self._record_builder_created(builder)
                             record = depositor.save_from_builder(obj, builder)
 
                     return record
 
-    def _create_builder(self, obj, additional=None):
+    def _create_builder(self, obj, **additional) -> records.DataRecordBuilder:
+        """Create a record builder for a new object object"""
         additional = additional or {}
         helper = self._ensure_compatible(type(obj))
 
         builder = records.DataRecord.new_builder(type_id=helper.TYPE_ID,
                                                  obj_id=self._archive.create_archive_id(),
                                                  version=0)
-        self._record_builder_created(builder)
         builder.update(additional)
         return builder
 

@@ -81,6 +81,9 @@ def test_metadata_find_objects(historian: mincepy.Historian):
     assert len(results) == 1
 
 
+# region sticky-meta
+
+
 def test_stick_meta(historian: mincepy.Historian):
     car1 = Car()
     historian.meta.sticky['owner'] = 'martin'
@@ -112,6 +115,22 @@ def test_meta_sticky_children(historian: mincepy.Historian):
     assert historian.meta.get(garage_id) == {'owner': 'martin'}
     assert historian.meta.get(car0_id) == {'owner': 'martin', 'for_sale': True}
     assert historian.meta.get(car1_id) == {'owner': 'james'}
+
+
+def test_meta_stick_copy(historian: mincepy.Historian):
+    """Test that sticky meta is applied to objects that are copied.  Issue #13:
+    https://github.com/muhrin/mincepy/issues/13"""
+    car = Car()
+    historian.meta.sticky.update({'owner': 'martin'})
+    car.save()
+    car_copy = historian.copy(car)
+    car_copy.save()
+
+    assert historian.meta.get(car) == {'owner': 'martin'}
+    assert historian.meta.get(car_copy) == {'owner': 'martin'}
+
+
+# endregion
 
 
 def test_meta_transaction(historian: mincepy.Historian):

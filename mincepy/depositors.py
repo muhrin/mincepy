@@ -217,8 +217,8 @@ class LiveDepositor(Saver, Loader):
             sid = records.SnapshotId(builder.obj_id, builder.version)
             trans.insert_live_object_reference(sid, obj)
 
-            if builder.version == 0:
-                builder.extras.update(self._get_extras(obj))
+            # Inject the extras
+            builder.extras.update(self._get_extras(obj, builder.obj_id, builder.version))
 
             # Now ask the object to save itself and create the record
             builder.update(self.save_state(obj))
@@ -234,33 +234,40 @@ class LiveDepositor(Saver, Loader):
         """Get the current snapshot id of an object"""
         return self._historian.current_transaction().get_reference_for_live_object(obj)
 
-    def _get_extras(self, obj):
+    def _get_extras(self, obj, obj_id, version: int) -> dict:
+        """Get the extras dictionary for a object that is going to be saved"""
         historian = self.get_historian()
-        extras = {}
+        extras = self.get_historian().get_user_info()
 
-        obj_info = staging.get_info(obj)
-        if obj_info:
-            # Deal with a possible object creator
-            created_by = obj_info.get(records.ExtraKeys.CREATED_BY, None)
-            if created_by is not None:
-                try:
-                    sid = historian.get_snapshot_id(created_by)
-                    extras[records.ExtraKeys.CREATED_BY] = sid.obj_id
-                except exceptions.NotFound:
-                    logger.info("Object with id '{}' is being saved but information about the "
-                                "object it was created by will not be in the record because the "
-                                "original object has not been saved yet and therefore has no id.")
+        if version == 0:
+            # Stuff to be done the first time an object is saved
+            obj_info = staging.get_info(obj)
+            if obj_info:
+                # Deal with a possible object creator
+                created_by = obj_info.get(records.ExtraKeys.CREATED_BY, None)
+                if created_by is not None:
+                    try:
+                        sid = historian.get_snapshot_id(created_by)
+                        extras[records.ExtraKeys.CREATED_BY] = sid.obj_id
+                    except exceptions.NotFound:
+                        logger.info(
+                            "Object with id '%s' is being saved but information about the "
+                            "object it was created by will not be in the record because "
+                            "the original object has not been saved yet and therefore has "
+                            "no id.", obj_id)
 
-            # Deal with possible copied from
-            copied_from = obj_info.get(records.ExtraKeys.COPIED_FROM, None)
-            if copied_from is not None:
-                try:
-                    sid = historian.get_snapshot_id(copied_from)
-                    extras[records.ExtraKeys.COPIED_FROM] = sid.to_dict()
-                except exceptions.NotFound:
-                    logger.info("Object with id '{}' is being saved but information about the "
-                                "object it was copied from will not be in the record because the "
-                                "original object has not been saved yet and therefore has no id.")
+                # Deal with possible copied from
+                copied_from = obj_info.get(records.ExtraKeys.COPIED_FROM, None)
+                if copied_from is not None:
+                    try:
+                        sid = historian.get_snapshot_id(copied_from)
+                        extras[records.ExtraKeys.COPIED_FROM] = sid.to_dict()
+                    except exceptions.NotFound:
+                        logger.info(
+                            "Object with id '%s' is being saved but information about the "
+                            "object it was copied from will not be in the record because "
+                            "the original object has not been saved yet and therefore has "
+                            "no id.", obj_id)
 
         return extras
 
