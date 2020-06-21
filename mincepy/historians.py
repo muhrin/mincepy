@@ -121,7 +121,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             to_save.append(entry)
 
         ids = []
-        with self.transaction():
+        with self.in_transaction():
             for entry in to_save:
                 ids.append(self.save_one(*entry))
 
@@ -146,7 +146,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             raise TypeError("Metadata must be a dictionary, got type '{}'".format(type(meta)))
 
         # Save the object and metadata
-        with self.transaction():
+        with self.in_transaction():
             record = self._save_object(obj, self._live_depositor)
             if meta:
                 self.meta.update(record.obj_id, meta)
@@ -263,13 +263,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 # not even in the archive
                 raise exc
 
-        current = self.current_transaction()
-        if current is None:
-            ctx = self.transaction()
-        else:
-            ctx = nullcontext(current)
-
-        with ctx as trans:
+        with self.in_transaction() as trans:
             builder = records.make_deleted_builder(record)
             deleted_record = self._record_builder_created(builder).build()
             trans.delete(obj_id)
@@ -602,6 +596,19 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return user_info
 
     @contextlib.contextmanager
+    def in_transaction(self):
+        """This context will either re-use an existing transaction, if one is currently taking place
+        or create a new one if not."""
+        current = self.current_transaction()
+        if current is None:
+            ctx = self.transaction()
+        else:
+            ctx = nullcontext(current)
+
+        with ctx as trans:
+            yield trans
+
+    @contextlib.contextmanager
     def transaction(self):
         """Start a new transaction.  Will be nested if there is already one underway"""
         if self._transactions:
@@ -610,8 +617,11 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 self._transactions.append(nested)
                 try:
                     yield nested
-                finally:
+                except Exception:  # Need this so we can have 'else' pylint: disable=try-except-raise
+                    raise
+                else:
                     self._closing_transaction(nested)
+                finally:
                     popped = self._transactions.pop()
                     assert popped is nested
         else:
@@ -685,7 +695,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
     def _load_object(self, obj_id, depositor: depositors.LiveDepositor):
         obj_id = self._ensure_obj_id(obj_id)
 
-        with self.transaction() as trans:
+        with self.in_transaction() as trans:
             # Try getting the object from the our dict of up to date ones
             try:
                 return trans.get_live_object(obj_id)
@@ -719,7 +729,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 return obj
 
     def _save_object(self, obj, depositor) -> records.DataRecord:
-        with self.transaction() as trans:
+        with self.in_transaction() as trans:
             try:
                 helper = self._ensure_compatible(type(obj))
             except TypeError:
@@ -754,12 +764,12 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                         return record
 
                     # Check if our record is up to date
-                    with self.transaction() as transaction:
+                    with self.transaction() as nested:
                         loaded_obj = self._new_snapshot_depositor().load_from_record(record)
 
                         if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
                             # Objects identical
-                            transaction.rollback()
+                            nested.rollback()
                         else:
                             builder = record.child_builder(snapshot_hash=current_hash)
                             record = depositor.save_from_builder(obj, builder)

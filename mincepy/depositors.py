@@ -172,7 +172,7 @@ class LiveDepositor(Saver, Loader):
 
     def load_from_record(self, record: records.DataRecord):
         """Load an object from a record"""
-        with self._historian.transaction() as trans:
+        with self._historian.in_transaction() as trans:
 
             def created(path, new_obj):
                 """Called each time an object is created whilst decoding"""
@@ -198,7 +198,7 @@ class LiveDepositor(Saver, Loader):
         """Do an in-place update of a object from a record"""
         historian = self.get_historian()
         helper = historian.get_helper(type(obj))
-        with historian.transaction() as trans:
+        with historian.in_transaction() as trans:
             # Make sure the record is in the transaction with the object
             trans.insert_live_object(obj, record)
 
@@ -212,7 +212,7 @@ class LiveDepositor(Saver, Loader):
             "The snapshot hash must be set on the builder before saving"
         historian = self.get_historian()
 
-        with historian.transaction() as trans:
+        with historian.in_transaction() as trans:
             # Insert the object into the transaction so others can refer to it
             sid = records.SnapshotId(builder.obj_id, builder.version)
             trans.insert_live_object_reference(sid, obj)
@@ -301,7 +301,7 @@ class SnapshotLoader(Loader):
         return snapshot
 
     def load_from_record(self, record: records.DataRecord) -> Any:
-        with self._historian.transaction() as trans:
+        with self._historian.in_transaction() as trans:
             updates = {}
             obj = self.decode(record.state, record.get_state_schema(), updates=updates)
             trans.insert_snapshot(obj, record.snapshot_id)
@@ -339,7 +339,7 @@ class Migrator(Saver, SnapshotLoader):
         """Migrate multiple records.  This call will return an iterable of those that were migrated
         """
         migrated = []
-        with self._historian.transaction() as trans:
+        with self._historian.in_transaction() as trans:
             for record in to_migrate:
                 updates = {}
                 obj = self.decode(record.state, record.get_state_schema(), updates=updates)
