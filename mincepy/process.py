@@ -12,7 +12,7 @@ __all__ = ('Process',)
 
 
 @deprecation.deprecated(deprecated_in="0.14.5",
-                        removed_in="0.15",
+                        removed_in="0.16",
                         current_version=version.__version__,
                         details="Use mincepy.track() instead")
 def track(func):

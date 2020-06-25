@@ -44,7 +44,7 @@ class Saver(Base, metaclass=ABCMeta):
     """A depositor that knows how to save records to the archive"""
 
     @deprecation.deprecated(deprecated_in="0.14.2",
-                            removed_in="0.15.0",
+                            removed_in="0.16.0",
                             current_version=version_mod.__version__,
                             details="Use get_snapshot_id() instead")
     def ref(self, obj) -> records.SnapshotId:

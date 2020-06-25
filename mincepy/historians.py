@@ -232,7 +232,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self._live_depositor.update_from_record(obj, record)
 
     @deprecation.deprecated(deprecated_in="0.14.5",
-                            removed_in="0.15",
+                            removed_in="0.16",
                             current_version=version_mod.__version__,
                             details="Use mincepy.copy() instead")
     def copy(self, obj):  # pylint: disable=no-self-use
