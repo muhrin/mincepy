@@ -1,6 +1,6 @@
 import contextlib
 import copy
-from typing import MutableMapping, Any, List, Sequence, Optional, Dict, Set, Union
+from typing import MutableMapping, Any, List, Sequence, Optional, Dict, Set, Union, overload
 import weakref
 
 import deprecation
@@ -57,6 +57,14 @@ class LiveObjects:
         except KeyError:
             raise exceptions.NotFound("No live object found '{}'".format(obj))
 
+    @overload
+    def get_object(self, identifier: records.SnapshotId):  # pylint: disable=no-self-use
+        ...
+
+    @overload
+    def get_object(self, identifier: Any):  # pylint: disable=no-self-use
+        ...
+
     def get_object(self, identifier: Union[records.SnapshotId, Any]):
         """Get an object from the collection either by snapshot id or object id
 
@@ -109,7 +117,14 @@ class Transaction:
                             current_version=version_mod.__version__,
                             details="Use get_live_object_from_snapshot_id() instead")
     def get_live_object_from_reference(self, snapshot_id: records.SnapshotId):
-        return self.get_live_object_from_snapshot_id(snapshot_id)
+        return self.get_live_object(snapshot_id)
+
+    @deprecation.deprecated(deprecated_in="0.14.4",
+                            removed_in="0.16.0",
+                            current_version=version_mod.__version__,
+                            details="Use get_live_object() instead")
+    def get_live_object_from_snapshot_id(self, snapshot_id: records.SnapshotId):
+        return self.get_live_object(snapshot_id)
 
     def __init__(self):
         # Records staged for saving to the archive
@@ -177,19 +192,28 @@ class Transaction:
         finally:
             del self._in_progress_cache[snapshot_id]
 
-    def get_live_object(self, obj_id):
-        self._ensure_not_deleted(obj_id)
-        return self._live_objects.get_object(obj_id)
+    @overload
+    def get_live_object(self, identifier: records.SnapshotId) -> object:  # pylint: disable=no-self-use
+        ...
+
+    @overload
+    def get_live_object(self, identifier: Any) -> object:  # pylint: disable=no-self-use
+        ...
+
+    def get_live_object(self, identifier: Union[records.SnapshotId, Any]) -> object:
+        if isinstance(identifier, records.SnapshotId):
+            self._ensure_not_deleted(identifier.obj_id)
+            try:
+                return self._in_progress_cache[identifier]
+            except KeyError:
+                return self._live_objects.get_object(identifier)
+
+        # Must be an object id
+        self._ensure_not_deleted(identifier)
+        return self._live_objects.get_object(identifier)
 
     def get_record_for_live_object(self, obj) -> records.DataRecord:
         return self._live_objects.get_record(obj)
-
-    def get_live_object_from_snapshot_id(self, snapshot_id: records.SnapshotId):
-        self._ensure_not_deleted(snapshot_id.obj_id)
-        try:
-            return self._in_progress_cache[snapshot_id]
-        except KeyError:
-            return self._live_objects.get_object(snapshot_id)
 
     def get_snapshot_id_for_live_object(self, obj) -> records.SnapshotId:
         for ref, cached_obj in self._in_progress_cache.items():
@@ -295,17 +319,11 @@ class NestedTransaction(Transaction):
     def __str__(self):
         return "{} (parent: {})".format(super().__str__(), self._parent)
 
-    def get_live_object(self, obj_id):
+    def get_live_object(self, identifier) -> object:
         try:
-            return super().get_live_object(obj_id)
+            return super().get_live_object(identifier)
         except exceptions.NotFound:
-            return self._parent.get_live_object(obj_id)
-
-    def get_live_object_from_snapshot_id(self, snapshot_id):
-        try:
-            return super().get_live_object_from_snapshot_id(snapshot_id)
-        except exceptions.NotFound:
-            return self._parent.get_live_object_from_snapshot_id(snapshot_id)
+            return self._parent.get_live_object(identifier)
 
     def get_snapshot_id_for_live_object(self, obj):
         try:
