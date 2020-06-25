@@ -86,8 +86,8 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def meta_set_many(self, metas: Mapping[IdT, Optional[Mapping]]):
-        """Set the metadata on multiple objects.  This method expects to get multiple tuples
-        containing the object id and corresponding metadata"""
+        """Set the metadata on multiple objects.  This takes a mapping of the object id to the
+        corresponding (optional) metadata dictionary"""
 
     @abc.abstractmethod
     def meta_update(self, obj_id: IdT, meta: Mapping):

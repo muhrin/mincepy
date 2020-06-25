@@ -193,13 +193,27 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             self._meta_collection.delete_one({'_id': obj_id})
 
     def meta_set_many(self, metas: Mapping[bson.ObjectId, Optional[dict]]):
-        documents = []
+        ops = []
         for obj_id, meta in metas.items():
-            meta = dict(meta)
-            meta['_id'] = obj_id
-            documents.append(meta)
+            if meta:
+                operation = pymongo.operations.ReplaceOne({'_id': obj_id}, meta, upsert=True)
+            else:
+                operation = pymongo.operations.DeleteOne({'_id': obj_id})
+            ops.append(operation)
 
-        self._meta_collection.insert_many(documents, ordered=False)
+        try:
+            self._meta_collection.bulk_write(ops, ordered=True)
+        except pymongo.errors.BulkWriteError as exc:
+            # This is a rather complicated way to get the error - mongo doesn't seem to document
+            # error codes, absolute madness.
+            if exc.code == 65:
+                write_errors = exc.details.get('writeErrors', {})
+                if write_errors:
+                    # There should only be one as it is an ordered write
+                    error = write_errors[0]
+                    if error.get('code') == 11000:
+                        raise mincepy.DuplicateKeyError(error.get('errmsg'))
+            raise
 
     def meta_update(self, obj_id, meta: Mapping):
         if meta.get('_id', obj_id) != obj_id:

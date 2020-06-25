@@ -1,6 +1,8 @@
-from typing import Any, Optional, Mapping, Dict
+from typing import Any, Optional, Mapping, Dict, Iterator
 
-import mincepy
+from mincepy import archives
+from mincepy import historians  # pylint: disable=unused-import
+from mincepy import exceptions
 
 __all__ = ('Meta',)
 
@@ -11,7 +13,7 @@ class Meta:
     # Meta is a 'friend' of Historian and so can access privates pylint: disable=protected-access
 
     def __init__(self, historian, archive):
-        self._hist = historian  # type: mincepy.Historian
+        self._hist = historian  # type: historians.Historian
         self._archive = archive
         self._sticky = {}
 
@@ -38,7 +40,7 @@ class Meta:
             for obj_id in obj_ids:
                 try:
                     found[obj_id] = trans.get_meta(obj_id)
-                except mincepy.NotFound:
+                except exceptions.NotFound:
                     pass
 
             # Now get anything else from the archive
@@ -89,7 +91,7 @@ class Meta:
             # Update the metadata in the transaction
             try:
                 current = trans.get_meta(obj_id)
-            except mincepy.NotFound:
+            except exceptions.NotFound:
                 current = self._archive.meta_get(obj_id)  # Try the archive
                 if current is None:
                     current = {}  # Ok, no meta
@@ -108,9 +110,9 @@ class Meta:
         else:
             self._archive.meta_update_many(mapped)
 
-    def find(self, filter, obj_id=None):  # pylint: disable=redefined-builtin
-        """Find metadata matching the given criteria.  Ever returned metadata dictionary will
-        contain an 'obj_id' key which identifies the object it belongs to"""
+    def find(self, filter, obj_id=None) -> Iterator[archives.Archive.MetaEntry]:  # pylint: disable=redefined-builtin
+        """Find metadata matching the given criteria.  Each returned result is a tuple containing
+        the corresponding object id and the metadata dictionary itself"""
         return self._archive.meta_find(filter=filter, obj_id=obj_id)
 
     def create_index(self, keys, unique=False, where_exist=False):

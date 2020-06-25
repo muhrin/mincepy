@@ -682,8 +682,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             self._archive.bulk_write(trans.staged)
 
         # Metas
-        for obj_id, meta in trans.metas.items():
-            self._archive.meta_set(obj_id, meta)
+        if trans.metas:
+            self._archive.meta_set_many(trans.metas)
 
     def _get_latest_snapshot_reference(self, obj_id) -> records.SnapshotId:
         """Given an object id this will return a reference to the latest snapshot"""
