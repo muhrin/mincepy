@@ -655,9 +655,11 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             lambda _: isinstance(_, operations.Insert) and _.record.is_deleted_record(),
             trans.staged)
 
-        for operation in del_ops:
-            reffed_by = self.references.referenced_by(operation.obj_id)
-            conflicting.update(reffed_by)
+        obj_ids = set(operation.obj_id for operation in del_ops)
+        ref_graph = self.references.get_obj_ref_graph(*obj_ids, direction=archives.INCOMING)
+        for obj_id in obj_ids:
+            for edge in ref_graph.in_edges(obj_id):
+                conflicting.add(edge[1])
 
         if conflicting:
             raise exceptions.ReferenceError("Cannot perform delete", conflicting)

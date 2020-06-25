@@ -6,7 +6,7 @@ from networkx.algorithms import dag
 from mincepy import archives
 from mincepy import records
 from mincepy import operations
-from mincepy import transactions  # pylint: disable=unused-import
+from mincepy import transactions
 
 __all__ = ('References',)
 
@@ -80,33 +80,44 @@ class References(Generic[IdT]):
                           *obj_ids: IdT,
                           direction=archives.OUTGOING,
                           max_dist: int = None) -> networkx.DiGraph:
-
+        obj_ids = set(obj_ids)
         graph = self._archive.get_obj_ref_graph(*obj_ids, direction=direction, max_dist=max_dist)
 
         # If there is a transaction then we should fix up the graph to contain information from that
         # too
         trans = self._historian.current_transaction()  # type: transactions.Transaction
         if trans is not None:
-            for source in obj_ids:
-                for op in trans.staged:  # pylint: disable=invalid-name
-                    if isinstance(op, operations.Insert):
-                        # Modify the graph to reflect the insertion
-                        obj_id = op.obj_id
-                        if obj_id in graph.nodes:
-                            # Remove all out outgoing edges from this node
-                            out_edges = tuple(graph.out_edges(obj_id))
-                            graph.remove_edges_from(out_edges)
-                        # And add in the current ones
-                        for refs in op.record.get_references():
-                            graph.add_edge(obj_id, refs[1].obj_id)
+            _update_from_transaction(graph, trans)
 
-                # Now, get the subgraph we're interested in
+            # Now cull all the nodes not reachable from the nodes of interest
+
+            # Now, get the subgraph we're interested in
+            reachable = set()
+            for obj_id in obj_ids:
                 if direction == archives.OUTGOING:
-                    reachable = dag.descendants(graph, source)
+                    reachable.update(dag.descendants(graph, obj_id))
                 else:
-                    reachable = dag.ancestors(graph, source)
+                    reachable.update(dag.ancestors(graph, obj_id))
 
-                # Remove all non-reachable nodes except ourselves
-                graph.remove_nodes_from(set(graph.nodes) - {source} - reachable)
+            # Remove all non-reachable nodes except obj_ids as these can stay even if they have no
+            # edges
+            graph.remove_nodes_from(set(graph.nodes) - obj_ids - reachable)
 
         return graph
+
+
+def _update_from_transaction(graph: networkx.DiGraph, transaction: transactions.Transaction):
+    """Given a transaction update the reference graph to reflect the insertion of any new records"""
+    for op in transaction.staged:  # pylint: disable=invalid-name
+        if isinstance(op, operations.Insert):
+            # Modify the graph to reflect the insertion
+            obj_id = op.obj_id
+            if obj_id in graph.nodes:
+                # Incoming edges (things referencing this object) can stay, as they haven't
+                # changed but outgoing edges may have
+                out_edges = tuple(graph.out_edges(obj_id))
+                graph.remove_edges_from(out_edges)
+
+            # And add in the current ones
+            for refs in op.record.get_references():
+                graph.add_edge(obj_id, refs[1].obj_id)
