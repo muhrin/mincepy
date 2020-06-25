@@ -27,6 +27,7 @@ setup(
     ],
     keywords='database schemaless nosql orm object-store concurrent optimistic-locking',
     install_requires=[
+        'contextlib2; python_version<"3.7"',
         'deprecation',
         'pymongo',
         'bidict',
@@ -41,7 +42,6 @@ setup(
         'cli': ['click', 'tabulate'],
         'gui': ['mincepy-gui'],
         'dev': [
-            'contextlib2; python_version<"3.7"',
             'ipython',
             'pip',
             'pytest>4',
