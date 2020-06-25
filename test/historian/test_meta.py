@@ -305,3 +305,17 @@ def test_meta_on_delete(historian: mincepy.Historian):
     assert historian.meta.get(car_id) == {'reg': '1234'}
     historian.delete(car_id)
     assert historian.meta.get(car_id) is None
+
+
+def test_meta_distinct(historian: mincepy.Historian):
+    car1 = Car()
+    car2 = Car()
+    car3 = Car()
+
+    historian.save(car1, car2, car3)
+
+    car1.set_meta({'owner': 'martin'})
+    car2.set_meta({'owner': 'bob'})
+    car3.set_meta({'owner': 'martin'})
+
+    assert set(historian.meta.distinct('owner')) == {'martin', 'bob'}

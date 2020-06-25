@@ -226,16 +226,28 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     def meta_find(
         self,
-        filter: dict,  # pylint: disable=redefined-builtin
+        filter: dict = None,  # pylint: disable=redefined-builtin
         obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None
     ) -> Iterator[Tuple[bson.ObjectId, Dict]]:
-        match = dict(filter)
+        match = dict(filter or {})
         if obj_id is not None:
             match['_id'] = scalar_query_spec(obj_id)
 
         for meta in self._meta_collection.find(match):
             oid = meta.pop('_id')
             yield self.MetaEntry(oid, meta)
+
+    def meta_distinct(
+        self,
+        key: str,
+        filter: dict = None,  # pylint: disable=redefined-builtin
+        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Mapping] = None
+    ) -> 'Iterator':
+        match = dict(filter or {})
+        if obj_id is not None:
+            match['_id'] = scalar_query_spec(obj_id)
+
+        yield from self._meta_collection.distinct(key, match)
 
     def meta_create_index(self, keys, unique=True, where_exist=False):
         kwargs = {}

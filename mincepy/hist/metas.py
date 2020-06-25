@@ -115,6 +115,25 @@ class Meta:
         the corresponding object id and the metadata dictionary itself"""
         return self._archive.meta_find(filter=filter, obj_id=obj_id)
 
+    def distinct(
+            self,
+            key: str,
+            filter: dict = None,  # pylint: disable=redefined-builtin
+            obj_id=None) -> Iterator:
+        """Yield distinct values found for 'key' within metadata documents, optionally marching a
+        search filter.
+
+        The search can optionally be restricted to a set of passed object ids.
+
+        :param key: the document key to get distinct values for
+        :param filter: a query filter for the search
+        :param obj_id: an optional restriction on the object ids to search.  This ben be either:
+            1. a single object id
+            2. an iterable of object ids in which is treated as {'$in': list(obj_ids)}
+            3. a general query filter to be applied to the object ids
+        """
+        return self._archive.meta_distinct(key, filter=filter, obj_id=obj_id)
+
     def create_index(self, keys, unique=False, where_exist=False):
         """Create an index on the metadata.  Takes either a single key or list of (key, direction)
          pairs
