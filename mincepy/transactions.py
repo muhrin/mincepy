@@ -1,13 +1,16 @@
 import contextlib
 import copy
-from typing import MutableMapping, Any, List, Sequence, Optional, Dict, Set
+from typing import MutableMapping, Any, List, Sequence, Optional, Dict, Set, Union
 import weakref
+
+import deprecation
 
 from . import archives
 from . import exceptions
 from . import operations
 from . import records
 from . import utils
+from . import version as version_mod
 
 
 class LiveObjects:
@@ -15,9 +18,10 @@ class LiveObjects:
 
     def __init__(self):
         # Live object -> data records
-        self._records = utils.WeakObjectIdDict()  # type: MutableMapping[Any, archives.DataRecord]
+        self._records = \
+            utils.WeakObjectIdDict()  # type: MutableMapping[object, archives.DataRecord]
         # Obj id -> (weak) object
-        self._objects = weakref.WeakValueDictionary()  # type: MutableMapping[Any, Any]
+        self._objects = weakref.WeakValueDictionary()  # type: MutableMapping[Any, object]
 
     def __str__(self):
         return "{} live".format(len(self._objects))
@@ -26,7 +30,7 @@ class LiveObjects:
         """Determine if an object instance is in this live objects container"""
         return item in self._records
 
-    def insert(self, obj, record):
+    def insert(self, obj, record: records.DataRecord):
         self._records[obj] = record
         self._objects[record.obj_id] = obj
 
@@ -53,23 +57,29 @@ class LiveObjects:
         except KeyError:
             raise exceptions.NotFound("No live object found '{}'".format(obj))
 
-    def get_object(self, obj_id):
-        """Get an object from the transaction by id.
+    def get_object(self, identifier: Union[records.SnapshotId, Any]):
+        """Get an object from the collection either by snapshot id or object id
 
         :raises: :class:`mincepy.NotFound` if the ID is not found
         """
+        if isinstance(identifier, records.SnapshotId):
+            for obj, record in self._records.items():
+                if record.snapshot_id == identifier:
+                    return obj
+            raise exceptions.NotFound(identifier)
+
+        # Must be an object id
         try:
-            return self._objects[obj_id]
+            return self._objects[identifier]
         except KeyError:
-            raise exceptions.NotFound("No live object with id '{}'".format(obj_id))
+            raise exceptions.NotFound("No live object with id '{}'".format(identifier))
 
     def get_snapshot_id(self, obj) -> records.SnapshotId:
-        """Given an object, get the snapshot reference"""
-        for stored, record in self._records:
-            if obj is stored:
-                return record.snapshot_id
-
-        raise exceptions.NotFound(obj)
+        """Given an object, get the snapshot id"""
+        try:
+            return self._records[obj].snapshot_id
+        except KeyError:
+            raise exceptions.NotFound(obj)
 
 
 class RollbackTransaction(Exception):
@@ -85,6 +95,22 @@ class Transaction:
     mutations performed within the transaction (only upon commit).
     """
 
+    # pylint: disable=too-many-public-methods
+
+    @deprecation.deprecated(deprecated_in="0.14.4",
+                            removed_in="0.16.0",
+                            current_version=version_mod.__version__,
+                            details="Use get_snapshot_id_for_live_object() instead")
+    def get_reference_for_live_object(self, obj) -> records.SnapshotId:
+        return self.get_snapshot_id_for_live_object(obj)
+
+    @deprecation.deprecated(deprecated_in="0.14.4",
+                            removed_in="0.16.0",
+                            current_version=version_mod.__version__,
+                            details="Use get_live_object_from_snapshot_id() instead")
+    def get_live_object_from_reference(self, snapshot_id: records.SnapshotId):
+        return self.get_live_object_from_snapshot_id(snapshot_id)
+
     def __init__(self):
         # Records staged for saving to the archive
         self._staged = []  # type: List[operations.Operation]
@@ -92,8 +118,8 @@ class Transaction:
         self._deleted = set()  # A set of deleted obj ids
 
         self._live_objects = LiveObjects()
-        # Ref -> obj
-        self._live_object_references = {}
+        # Snapshot id -> obj for objects currently being saved
+        self._in_progress_cache = {}  # type: Dict[records.SnapshotId, object]
 
         # Snapshots: snapshot id -> obj
         self._snapshots = {}  # type: Dict[records.SnapshotId, Any]
@@ -101,9 +127,10 @@ class Transaction:
         self._metas = {}  # type: Dict[Any, dict]
 
     def __str__(self):
-        return "{}, {} live ref(s), {} snapshots, {} staged".format(
-            self._live_objects, len(self._live_object_references), len(self._snapshots),
-            len(self._staged))
+        return "{}, {} live ref(s), {} snapshots, {} staged".format(self._live_objects,
+                                                                    len(self._in_progress_cache),
+                                                                    len(self._snapshots),
+                                                                    len(self._staged))
 
     @property
     def live_objects(self) -> LiveObjects:
@@ -129,16 +156,26 @@ class Transaction:
             raise ValueError("Object with id '{}' has already been deleted!".format(record.obj_id))
 
         sid = record.snapshot_id
-        if sid not in self._live_object_references:
-            self._live_object_references[sid] = obj
-        else:
-            assert self._live_object_references[sid] is obj
+        if sid in self._in_progress_cache:
+            assert self._in_progress_cache[sid] is obj
 
         self._live_objects.insert(obj, record)
 
-    def insert_live_object_reference(self, snapshot_id: records.SnapshotId, obj):
+    @contextlib.contextmanager
+    def prepare_for_saving(self, snapshot_id: records.SnapshotId, obj):
         """Insert a snapshot reference for an object into the transaction"""
-        self._live_object_references[snapshot_id] = obj
+        self._in_progress_cache[snapshot_id] = obj
+        try:
+            yield
+        except Exception:  # Need this for the 'else' pylint: disable=try-except-raise
+            raise
+        else:
+            if self._live_objects.get_snapshot_id(obj) != snapshot_id:
+                raise RuntimeError(
+                    "Problem saving object with snapshot id '{}', "
+                    "the snapshot id saved does not match that given".format(snapshot_id))
+        finally:
+            del self._in_progress_cache[snapshot_id]
 
     def get_live_object(self, obj_id):
         self._ensure_not_deleted(obj_id)
@@ -147,21 +184,19 @@ class Transaction:
     def get_record_for_live_object(self, obj) -> records.DataRecord:
         return self._live_objects.get_record(obj)
 
-    def get_live_object_from_reference(self, snapshot_id: records.SnapshotId):
+    def get_live_object_from_snapshot_id(self, snapshot_id: records.SnapshotId):
         self._ensure_not_deleted(snapshot_id.obj_id)
-
         try:
-            return self._live_object_references[snapshot_id]
+            return self._in_progress_cache[snapshot_id]
         except KeyError:
-            raise exceptions.NotFound(
-                "No live object with reference '{}' found".format(snapshot_id))
+            return self._live_objects.get_object(snapshot_id)
 
-    def get_reference_for_live_object(self, obj):
-        for ref, cached in self._live_object_references.items():
-            if obj is cached:
+    def get_snapshot_id_for_live_object(self, obj) -> records.SnapshotId:
+        for ref, cached_obj in self._in_progress_cache.items():
+            if obj is cached_obj:
                 return ref
 
-        raise exceptions.NotFound("Live object '{} not found".format(obj))
+        return self._live_objects.get_snapshot_id(obj)
 
     def delete(self, obj_id):
         """Mark an object as deleted"""
@@ -169,13 +204,6 @@ class Transaction:
             self._live_objects.remove(obj_id)
         except exceptions.NotFound:
             pass
-        else:
-            found_ref = None
-            for ref in self._live_object_references:
-                if ref.obj_id == obj_id:
-                    found_ref = ref
-                    break
-            del self._live_object_references[found_ref]
 
         self.set_meta(obj_id, None)
         self._deleted.add(obj_id)
@@ -241,7 +269,7 @@ class Transaction:
         # pylint: disable=protected-access
         self._live_objects.update(transaction.live_objects)
         self._snapshots.update(transaction.snapshots)
-        self._live_object_references.update(transaction._live_object_references)
+        self._in_progress_cache.update(transaction._in_progress_cache)
         self._staged.extend(transaction.staged)
         self._metas.update(transaction.metas)
         for deleted in transaction.deleted:
@@ -273,17 +301,17 @@ class NestedTransaction(Transaction):
         except exceptions.NotFound:
             return self._parent.get_live_object(obj_id)
 
-    def get_live_object_from_reference(self, snapshot_id):
+    def get_live_object_from_snapshot_id(self, snapshot_id):
         try:
-            return super().get_live_object_from_reference(snapshot_id)
+            return super().get_live_object_from_snapshot_id(snapshot_id)
         except exceptions.NotFound:
-            return self._parent.get_live_object_from_reference(snapshot_id)
+            return self._parent.get_live_object_from_snapshot_id(snapshot_id)
 
-    def get_reference_for_live_object(self, obj):
+    def get_snapshot_id_for_live_object(self, obj):
         try:
-            return super().get_reference_for_live_object(obj)
+            return super().get_snapshot_id_for_live_object(obj)
         except exceptions.NotFound:
-            return self._parent.get_reference_for_live_object(obj)
+            return self._parent.get_snapshot_id_for_live_object(obj)
 
     def get_record_for_live_object(self, obj):
         try:

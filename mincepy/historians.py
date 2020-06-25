@@ -329,7 +329,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         trans = self.current_transaction()
         if trans is not None:
             try:
-                return trans.get_reference_for_live_object(obj).obj_id
+                return trans.get_snapshot_id_for_live_object(obj).obj_id
             except exceptions.NotFound:
                 pass
 
@@ -400,7 +400,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         trans = self.current_transaction()
         if trans:
             try:
-                return trans.get_reference_for_live_object(obj)
+                return trans.get_snapshot_id_for_live_object(obj)
             except exceptions.NotFound:
                 pass
 

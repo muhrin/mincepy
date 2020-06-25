@@ -14,6 +14,7 @@ from . import exceptions
 from . import operations
 from . import records
 from . import staging
+from . import transactions  # pylint: disable=unused-import
 from . import version as version_mod
 
 __all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor', 'Migrator'
@@ -212,27 +213,28 @@ class LiveDepositor(Saver, Loader):
             "The snapshot hash must be set on the builder before saving"
         historian = self.get_historian()
 
-        with historian.in_transaction() as trans:
+        with historian.in_transaction() as trans:  # type: transactions.Transaction
             # Insert the object into the transaction so others can refer to it
             sid = records.SnapshotId(builder.obj_id, builder.version)
-            trans.insert_live_object_reference(sid, obj)
+            with trans.prepare_for_saving(sid, obj):
+                # trans.insert_live_object_snapshot_id(sid, obj)
 
-            # Inject the extras
-            builder.extras.update(self._get_extras(obj, builder.obj_id, builder.version))
+                # Inject the extras
+                builder.extras.update(self._get_extras(obj, builder.obj_id, builder.version))
 
-            # Now ask the object to save itself and create the record
-            builder.update(self.save_state(obj))
-            record = builder.build()
+                # Now ask the object to save itself and create the record
+                builder.update(self.save_state(obj))
+                record = builder.build()
 
-            # Insert the record into the transaction
-            trans.insert_live_object(obj, record)
-            trans.stage(operations.Insert(record))  # Stage it for being saved
+                # Insert the record into the transaction
+                trans.insert_live_object(obj, record)
+                trans.stage(operations.Insert(record))  # Stage it for being saved
 
         return record
 
     def _get_current_snapshot_id(self, obj) -> records.SnapshotId:
         """Get the current snapshot id of an object"""
-        return self._historian.current_transaction().get_reference_for_live_object(obj)
+        return self._historian.current_transaction().get_snapshot_id_for_live_object(obj)
 
     def _get_extras(self, obj, obj_id, version: int) -> dict:
         """Get the extras dictionary for a object that is going to be saved"""
@@ -301,7 +303,7 @@ class SnapshotLoader(Loader):
         return snapshot
 
     def load_from_record(self, record: records.DataRecord) -> Any:
-        with self._historian.in_transaction() as trans:
+        with self._historian.in_transaction() as trans:  # type: transactions.Transaction
             updates = {}
             obj = self.decode(record.state, record.get_state_schema(), updates=updates)
             trans.insert_snapshot(obj, record.snapshot_id)
@@ -339,7 +341,7 @@ class Migrator(Saver, SnapshotLoader):
         """Migrate multiple records.  This call will return an iterable of those that were migrated
         """
         migrated = []
-        with self._historian.in_transaction() as trans:
+        with self._historian.in_transaction() as trans:  # type: transactions.Transaction
             for record in to_migrate:
                 updates = {}
                 obj = self.decode(record.state, record.get_state_schema(), updates=updates)
