@@ -36,7 +36,7 @@ class WeakObjectIdDict(collections.MutableMapping):
         try:
             return self._values[id(item)]
         except KeyError:
-            raise KeyError(repr(item))
+            raise KeyError(item)
 
     def __setitem__(self, key, value):
         obj_id = id(key)
