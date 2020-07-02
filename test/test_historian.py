@@ -110,7 +110,7 @@ def test_copy(historian: mincepy.Historian):
     car = Car('zonda')
 
     historian.save(car)
-    car_copy = historian.copy(car)
+    car_copy = mincepy.copy(car)
     assert car == car_copy
     assert car is not car_copy
     car_copy.save()
@@ -124,7 +124,7 @@ def test_copy(historian: mincepy.Historian):
 
 def test_copy_unsaved(historian: mincepy.Historian):
     car = Car('porsche', 'silver')
-    car_copy = historian.copy(car)
+    car_copy = mincepy.copy(car)
 
     assert car_copy is not car
     assert car == car_copy

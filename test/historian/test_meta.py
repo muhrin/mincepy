@@ -123,7 +123,7 @@ def test_meta_stick_copy(historian: mincepy.Historian):
     car = Car()
     historian.meta.sticky.update({'owner': 'martin'})
     car.save()
-    car_copy = historian.copy(car)
+    car_copy = mincepy.copy(car)
     car_copy.save()
 
     assert historian.meta.get(car) == {'owner': 'martin'}
