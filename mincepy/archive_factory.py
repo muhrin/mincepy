@@ -1,8 +1,5 @@
 import logging
 
-import pymongo
-import pymongo.uri_parser
-
 from . import historians
 from . import plugins
 
@@ -16,15 +13,7 @@ def create_archive(uri: str):
     archive = None
     if uri.startswith('mongodb'):
         from . import mongo  # pylint: disable=import-outside-toplevel
-
-        # Format is:
-        # mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
-        parsed = pymongo.uri_parser.parse_uri(uri)
-        if not parsed.get('database', None):
-            raise ValueError("Failed to supply database on MongoDB uri: {}".format(uri))
-        client = pymongo.MongoClient(uri)
-        database = client[parsed['database']]
-        archive = mongo.MongoArchive(database)
+        archive = mongo.connect(uri)
 
     if archive is None:
         raise ValueError("Unknown archive string: {}".format(uri))

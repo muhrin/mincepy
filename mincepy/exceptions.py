@@ -1,5 +1,9 @@
 __all__ = ('NotFound', 'ModificationError', 'ObjectDeleted', 'DuplicateKeyError', 'MigrationError',
-           'VersionError', 'IntegrityError', 'ReferenceError')
+           'VersionError', 'IntegrityError', 'ReferenceError', 'ConnectionError')
+
+
+class ConnectionError(Exception):  # pylint: disable=redefined-builtin
+    """Raise when there is an error in connecting to the backend"""
 
 
 class NotFound(Exception):

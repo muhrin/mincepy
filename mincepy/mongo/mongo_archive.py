@@ -11,7 +11,9 @@ import pymongo.errors
 
 import mincepy
 import mincepy.records
-from mincepy import q, operations
+from mincepy import operations
+from mincepy import q
+from mincepy import exceptions
 
 from . import bulk
 from . import migrate
@@ -21,7 +23,7 @@ from . import db
 from . import references
 from . import queries
 
-__all__ = ('MongoArchive',)
+__all__ = ('MongoArchive', 'connect')
 
 DEFAULT_REFERENCES_COLLECTION = 'references'
 
@@ -410,3 +412,19 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                 queries.pipeline_match_metadata(meta, self._meta_collection.name, db.OBJ_ID))
 
         return pipeline
+
+
+def connect(uri: str) -> MongoArchive:
+    # URI Format is:
+    # mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
+    parsed = pymongo.uri_parser.parse_uri(uri)
+    if not parsed.get('database', None):
+        raise ValueError("Failed to supply database on MongoDB uri: {}".format(uri))
+
+    try:
+        client = pymongo.MongoClient(uri)
+    except pymongo.errors.ServerSelectionTimeoutError as exc:
+        raise exceptions.ConnectionError(str(exc))
+
+    database = client[parsed['database']]
+    return MongoArchive(database)
