@@ -423,8 +423,7 @@ def connect(uri: str) -> MongoArchive:
 
     try:
         client = pymongo.MongoClient(uri)
+        database = client[parsed['database']]
+        return MongoArchive(database)
     except pymongo.errors.ServerSelectionTimeoutError as exc:
         raise exceptions.ConnectionError(str(exc))
-
-    database = client[parsed['database']]
-    return MongoArchive(database)

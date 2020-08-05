@@ -1,3 +1,5 @@
+import pytest
+
 import mincepy
 from mincepy.testing import Car
 
@@ -18,3 +20,9 @@ def test_save(historian: mincepy.Historian):
     car = Car()
     mincepy.save(car)
     assert car._historian is historian
+
+
+def test_invalid_connect():
+    """Check we get the right error when attempting to connect to invalid archive"""
+    with pytest.raises(mincepy.ConnectionError):
+        mincepy.connect('mongodb://unknown-server/db')

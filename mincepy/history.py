@@ -8,8 +8,8 @@ from . import historians
 from . import plugins
 from . import version
 
-__all__ = 'connect', 'get_historian', 'set_historian', 'DEFAULT_ARCHIVE_URI', 'ENV_ARCHIVE_URI', \
-          'archive_uri', 'load', 'save'
+__all__ = ('connect', 'get_historian', 'set_historian', 'DEFAULT_ARCHIVE_URI', 'ENV_ARCHIVE_URI', \
+           'archive_uri', 'load', 'save')
 
 DEFAULT_ARCHIVE_URI = 'mongodb://localhost/mincepy'
 ENV_ARCHIVE_URI = 'MINCEPY_ARCHIVE'
@@ -61,11 +61,11 @@ def default_archive_uri() -> Optional[str]:
 # region Globals
 
 
-def get_historian() -> Optional[historians.Historian]:
-    """Get the currently set global historian.  If one doesn't exist this call will attempt to
-    create a new default historian using connect()"""
+def get_historian(create=True) -> Optional[historians.Historian]:
+    """Get the currently set global historian.  If one doesn't exist and create is True then this
+    call will attempt to create a new default historian using connect()"""
     global CURRENT_HISTORIAN  # pylint: disable=global-statement
-    if CURRENT_HISTORIAN is None:
+    if CURRENT_HISTORIAN is None and create:
         # Try creating a new one
         connect(use_globally=True)
 
