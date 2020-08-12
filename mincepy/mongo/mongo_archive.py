@@ -87,7 +87,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         # Create all the necessary indexes
         self._data_collection.create_index(db.OBJ_ID)
         self._history_collection.create_index([(db.OBJ_ID, pymongo.ASCENDING),
-                                               (db.VERSION, pymongo.ASCENDING)])
+                                               (db.VERSION, pymongo.ASCENDING)],
+                                              unique=True)
+        # Performance related
+        self._data_collection.create_index(db.TYPE_ID, unique=False)
 
     def create_archive_id(self):  # pylint: disable=no-self-use
         return bson.ObjectId()
