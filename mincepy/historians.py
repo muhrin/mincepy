@@ -548,6 +548,14 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 type_id = self.get_obj_type_id(obj_type)
             except TypeError:
                 pass
+
+        if obj_id is not None:
+            # Convert object ids to the expected type before passing to archive
+            if isinstance(obj_id, list):
+                obj_id = list(self._ensure_obj_id(oid) for oid in obj_id)
+            else:
+                obj_id = self._ensure_obj_id(obj_id)
+
         results = self._archive.find(obj_id=obj_id,
                                      type_id=type_id,
                                      state=state,
