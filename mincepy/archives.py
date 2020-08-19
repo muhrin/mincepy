@@ -164,9 +164,9 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     def find(self,
              obj_id: Union[IdT, Iterable[IdT], Dict] = None,
              type_id=None,
-             created_by=None,
-             copied_from=None,
-             version=None,
+             created_by: Optional[IdT] = None,
+             copied_from: Optional[IdT] = None,
+             version: int = None,
              state=None,
              state_types=None,
              snapshot_hash=None,
@@ -177,8 +177,8 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
              skip=0) -> Iterator[DataRecord]:
         """Find records matching the given criteria
 
-        :param type_id: the type id to look for
-        :param created_by: find records with the given type id
+        :param type_id: find records with the given type id
+        :param created_by: find records with the given created by id
         :param copied_from: find records copied from the record with the given id
         :param version: restrict the search to this version, -1 for latest
         :param state: find objects with this state filter

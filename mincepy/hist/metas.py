@@ -120,7 +120,7 @@ class Meta:
             key: str,
             filter: dict = None,  # pylint: disable=redefined-builtin
             obj_id=None) -> Iterator:
-        """Yield distinct values found for 'key' within metadata documents, optionally marching a
+        """Yield distinct values found for 'key' within metadata documents, optionally matching a
         search filter.
 
         The search can optionally be restricted to a set of passed object ids.

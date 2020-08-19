@@ -11,6 +11,7 @@ import socket
 import typing
 from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type
 import weakref
+import warnings
 
 import deprecation
 
@@ -46,6 +47,15 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
     a persistent store of the records.  It will keep track of all live objects (i.e. those that
     have active references to them) that have been loaded and/or saved as well as enabling the
     user to lookup objects in the archive."""
+
+    @deprecation.deprecated(deprecated_in="0.14.5",
+                            removed_in="0.16",
+                            current_version=version_mod.__version__,
+                            details="Use mincepy.copy() instead")
+    def copy(self, obj):  # pylint: disable=no-self-use
+        """Create a shallow copy of the object.  Using this method allows the historian to inject
+        information about where the object was copied from into the record if saved."""
+        return tracking.copy(obj)
 
     def __init__(self, archive: archives.Archive, equators=()):
         self._archive = archive
@@ -202,7 +212,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return self._load_object(obj_id_or_ref, self._live_depositor)
 
-    def sync(self, obj) -> bool:
+    def sync(self, obj: object) -> bool:
         """Update an object with the latest state in the database.
         If there is no new version in the archive then the current version remains
         unchanged including any modifications.
@@ -230,15 +240,6 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         # The one in the archive is newer, so use that
         return self._live_depositor.update_from_record(obj, record)
-
-    @deprecation.deprecated(deprecated_in="0.14.5",
-                            removed_in="0.16",
-                            current_version=version_mod.__version__,
-                            details="Use mincepy.copy() instead")
-    def copy(self, obj):  # pylint: disable=no-self-use
-        """Create a shallow copy of the object.  Using this method allows the historian to inject
-        information about where the object was copied from into the record if saved."""
-        return tracking.copy(obj)
 
     def delete(self, obj_or_identifier):
         """Delete an object.
@@ -274,16 +275,16 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             obj_or_obj_id,
             idx_or_slice='*',
             as_objects=True) -> [typing.Sequence[ObjectEntry], typing.Sequence[records.DataRecord]]:
-        """
-        Get a sequence of object ids and instances from the history of the given object.
+        """Get a sequence of object ids and instances from the history of the given object.
 
         :param obj_or_obj_id: The instance or id of the object to get the history for
         :param idx_or_slice: The particular index or a slice of which historical versions to get
         :param as_objects: if True return the object instances, otherwise returns the DataRecords
 
         Example:
-        >>> historian = get_historian()
-        >>> car = Car('ferrari', 'white')
+        >>> import mincepy, mincepy.testing
+        >>> historian = mincepy.get_historian()
+        >>> car = mincepy.testing.Car('ferrari', 'white')
         >>> car_id = historian.save(car)
         >>> car.colour = 'red'
         >>> historian.save(car)
@@ -481,7 +482,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         be necessary to look at the details of the `save_instance_state()` method for that type.
         Metadata is always a dictionary containing primitives (strings, dicts, lists, etc).
 
-        For the most part, the filter syntax of `mincepy` conforms to that of `MongoDB`_ with
+        For the most part, the filter syntax of `mincePy` conforms to that of `MongoDB`_ with
         convenience functions locate in :py:mod:`mincepy.qops` that can make it easier to
         to build a query.
 
@@ -490,6 +491,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         Find all :py:class:`~mincepy.testing.Car`s that are brown or red:
 
         >>> import mincepy
+        >>> historian = mincepy.get_historian()
         >>> historian.find(state=dict(colour=mincepy.q.in_('brown', 'red')))
 
         Find all people that are older than 34 and live in Edinburgh:
@@ -507,6 +509,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         :param skip: the page to get results from
         """
         # pylint: disable=too-many-arguments
+        if version != -1:
+            warnings.warn("The find() kwarg 'version' will be deprecated in version 0.16")
+
         results = self.find_records(obj_type=obj_type,
                                     obj_id=obj_id,
                                     version=version,
