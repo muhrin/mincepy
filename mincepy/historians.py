@@ -512,16 +512,26 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if version != -1:
             warnings.warn("The find() kwarg 'version' will be deprecated in version 0.16")
 
-        results = self.find_records(obj_type=obj_type,
-                                    obj_id=obj_id,
-                                    version=version,
-                                    state=state,
-                                    meta=meta,
-                                    sort=sort,
-                                    limit=limit,
-                                    skip=skip)
-        for result in results:
-            yield self.load(result.obj_id)
+        if not sort and not skip and not meta and not limit:
+            # Optimisation: get the object ids from distinct to avoid loading the records until
+            # the load() call
+            for oid in self.find_distinct(records.OBJ_ID,
+                                          obj_type=obj_type,
+                                          obj_id=obj_id,
+                                          version=version,
+                                          state=state):
+                yield self.load(oid)
+        else:
+            results = self.find_records(obj_type=obj_type,
+                                        obj_id=obj_id,
+                                        version=version,
+                                        state=state,
+                                        meta=meta,
+                                        sort=sort,
+                                        limit=limit,
+                                        skip=skip)
+            for result in results:
+                yield self.load(result.obj_id)
 
     def find_records(self,
                      obj_type=None,
@@ -588,7 +598,13 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """
         record_filter = {}
         if obj_type is not None:
-            record_filter[records.TYPE_ID] = self.get_obj_type_id(obj_type)
+            if obj_type is not None:
+                try:
+                    type_id = self.get_obj_type_id(obj_type)
+                except TypeError:
+                    type_id = obj_type
+
+            record_filter[records.TYPE_ID] = type_id
         if obj_id is not None:
             # Convert object ids to the expected type before passing to archive
             if isinstance(obj_id, list):
