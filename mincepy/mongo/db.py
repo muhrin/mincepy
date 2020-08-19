@@ -93,11 +93,16 @@ def remap(record_dict: dict) -> dict:
     """Given a dictionary return a new dictionary with the key names that we use"""
     remapped = {}
     for key, value in record_dict.items():
-        split_key = key.split('.')
-        base = KEY_MAP[split_key[0]]
-        split_key[0] = base
-        remapped['.'.join(split_key)] = value
+        remapped[remap_key(key)] = value
     return remapped
+
+
+def remap_key(key: str) -> str:
+    """Given a key remap it to the names that we use, even if it as a path e.g. state.colour"""
+    split_key = key.split('.')
+    base = KEY_MAP[split_key[0]]
+    split_key[0] = base
+    return '.'.join(split_key)
 
 
 def to_id_dict(sid: mincepy.SnapshotId) -> dict:

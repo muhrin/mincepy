@@ -196,6 +196,15 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
+    def distinct(self, key: str, filter: dict = None) -> Iterator:  # pylint: disable=redefined-builtin
+        """Get distinct values of the given record key
+
+        :param key: the key to find distinct values for, see DataRecord for possible keys
+        :param filter: an optional filter to restrict the search to.  Should be a dictionary that
+            filters on entries in the DataRecord i.e. the kwargs that can be passed to find().
+        """
+
+    @abc.abstractmethod
     def count(self,
               obj_id=None,
               type_id=None,

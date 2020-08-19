@@ -572,6 +572,39 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                                      skip=skip)
         yield from results
 
+    # pylint: disable=too-many-arguments
+    def find_distinct(self,
+                      key: str,
+                      obj_type=None,
+                      obj_id=None,
+                      version: int = -1,
+                      state=None,
+                      extras: dict = None):
+        """Get distinct values of the given record key
+
+        :param key: the key to find distinct values for, see DataRecord for possible keys
+        :param version: convenience for setting the version to search for.  Can also be specified in
+            the filter in which case this will be ignored.
+        """
+        record_filter = {}
+        if obj_type is not None:
+            record_filter[records.TYPE_ID] = self.get_obj_type_id(obj_type)
+        if obj_id is not None:
+            # Convert object ids to the expected type before passing to archive
+            if isinstance(obj_id, list):
+                obj_id = list(self._ensure_obj_id(oid) for oid in obj_id)
+            else:
+                obj_id = self._ensure_obj_id(obj_id)
+            record_filter[records.OBJ_ID] = obj_id
+        if version is not None:
+            record_filter[records.VERSION] = version
+        if state is not None:
+            record_filter[records.STATE] = state
+        if extras is not None:
+            record_filter[records.EXTRAS] = extras
+
+        yield from self._archive.distinct(key, record_filter)
+
     def get_creator(self, obj_or_identifier):
         """Get the object that created the passed object"""
         if not self.is_obj_id(obj_or_identifier):

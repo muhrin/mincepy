@@ -229,6 +229,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         except pymongo.errors.DuplicateKeyError as exc:
             raise mincepy.DuplicateKeyError(str(exc))
 
+    # pylint: disable=bad-continuation
     def meta_find(
         self,
         filter: dict = None,  # pylint: disable=redefined-builtin
@@ -316,6 +317,17 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         for result in results:
             yield db.to_record(result)
+
+    def distinct(self, key: str, filter: dict = None) -> Iterator:  # pylint: disable=redefined-builtin
+        filter = db.remap(filter)
+
+        if filter.get(db.VERSION, None) == -1:
+            filter.pop(db.VERSION)
+            coll = self._data_collection
+        else:
+            coll = self._history_collection
+
+        yield from coll.distinct(db.remap_key(key), filter=_flatten_filter_dict(filter))
 
     def count(self,
               obj_id: Optional[bson.ObjectId] = None,
@@ -415,6 +427,41 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                 queries.pipeline_match_metadata(meta, self._meta_collection.name, db.OBJ_ID))
 
         return pipeline
+
+
+def _flatten_filter_dict(filter: dict) -> dict:  # pylint: disable=redefined-builtin
+    query = queries.QueryBuilder()
+
+    obj_id = filter.get(db.OBJ_ID, None)
+    type_id = filter.get(db.TYPE_ID, None)
+    version = filter.get(db.VERSION, None)
+    state = filter.get(db.STATE, None)
+    state_types = filter.get(db.STATE_TYPES)
+    snapshot_hash = filter.get(db.SNAPSHOT_HASH)
+    extras = filter.get(db.EXTRAS)
+
+    if obj_id is not None:
+        query.and_({db.OBJ_ID: scalar_query_spec(obj_id)})
+
+    if version is not None and version != -1:
+        query.and_({db.VERSION: version})
+
+    if type_id is not None:
+        query.and_({db.TYPE_ID: scalar_query_spec(type_id)})
+
+    if state is not None:
+        query.and_(*queries.flatten_filter(db.STATE, state))
+
+    if state_types is not None:
+        query.and_(*queries.flatten_filter(db.STATE_TYPES, state_types))
+
+    if snapshot_hash is not None:
+        query.and_({db.SNAPSHOT_HASH: scalar_query_spec(snapshot_hash)})
+
+    if extras:
+        query.and_(*queries.flatten_filter(db.EXTRAS, extras))
+
+    return query.build()
 
 
 def connect(uri: str) -> MongoArchive:
