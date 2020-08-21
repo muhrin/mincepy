@@ -1,42 +1,49 @@
 """Classes and function useful for trying out mincepy functionality"""
+import logging
 import os
 import random
 import uuid
 
 import bson
 import pymongo
-import pytest
 
 import mincepy
+
+logger = logging.getLogger(__name__)
 
 ENV_ARCHIVE_URI = 'MINCEPY_TEST_URI'
 DEFAULT_ARCHIVE_URI = 'mongodb://localhost/mincepy-tests'
 
 # pylint: disable=redefined-outer-name
 
+try:
+    import pytest
 
-@pytest.fixture
-def archive_uri():
-    return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
+    # Optional pytest fixtures
 
+    @pytest.fixture
+    def archive_uri():
+        return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
 
-@pytest.fixture
-def mongodb_archive(archive_uri):
-    client = pymongo.MongoClient(archive_uri)
-    db = client.get_default_database()  # pylint: disable=invalid-name
-    client.drop_database(db)
-    mongo_archive = mincepy.mongo.MongoArchive(db)
-    yield mongo_archive
-    client.drop_database(db)
+    @pytest.fixture
+    def mongodb_archive(archive_uri):
+        client = pymongo.MongoClient(archive_uri)
+        db = client.get_default_database()  # pylint: disable=invalid-name
+        client.drop_database(db)
+        mongo_archive = mincepy.mongo.MongoArchive(db)
+        yield mongo_archive
+        client.drop_database(db)
 
+    @pytest.fixture(autouse=True)
+    def historian(mongodb_archive):
+        hist = mincepy.Historian(mongodb_archive)
+        hist.register_types(mincepy.testing.HISTORIAN_TYPES)
+        mincepy.set_historian(hist)
+        yield hist
+        mincepy.set_historian(None)
 
-@pytest.fixture(autouse=True)
-def historian(mongodb_archive):
-    hist = mincepy.Historian(mongodb_archive)
-    hist.register_types(mincepy.testing.HISTORIAN_TYPES)
-    mincepy.set_historian(hist)
-    yield hist
-    mincepy.set_historian(None)
+except ImportError:
+    logger.debug("pytest fixtures missing because pytest isn't installed")
 
 
 class Car(mincepy.SimpleSavable):
@@ -44,7 +51,7 @@ class Car(mincepy.SimpleSavable):
     ATTRS = 'colour', 'make'
 
     def __init__(self, make='ferrari', colour='red'):
-        super(Car, self).__init__()
+        super().__init__()
         self.make = make
         self.colour = colour
 
@@ -54,7 +61,7 @@ class Garage(mincepy.SimpleSavable):
     ATTRS = ('car',)
 
     def __init__(self, car=None):
-        super(Garage, self).__init__()
+        super().__init__()
         self.car = car
 
     def save_instance_state(self, saver: mincepy.Saver):
@@ -67,7 +74,7 @@ class Person(mincepy.SimpleSavable):
     ATTRS = 'name', 'age', mincepy.AsRef('car')
 
     def __init__(self, name, age, car=None):
-        super(Person, self).__init__()
+        super().__init__()
         self.name = name
         self.age = age
         self.car = car
@@ -78,7 +85,7 @@ class Cycle(mincepy.SimpleSavable):
     ATTRS = ('_ref',)
 
     def __init__(self, ref=None):
-        super(Cycle, self).__init__()
+        super().__init__()
         self._ref = mincepy.ObjRef(ref)
 
     @property
