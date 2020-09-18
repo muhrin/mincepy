@@ -269,34 +269,44 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # The one in the archive is newer, so use that
         return self._live_depositor.update_from_record(obj, record)
 
-    def delete(self, obj_or_identifier):
+    def delete(self, *obj_or_identifier):
         """Delete an object.
 
         :raises mincepy.NotFound: if the object cannot be found (potentially because it was
             already deleted)
         """
-        # We need the current record to be able to build the delete record
-        obj_id = self._ensure_obj_id(obj_or_identifier)
+        # We need the current records to be able to build the delete records
+        obj_ids = list(map(self._ensure_obj_id, obj_or_identifier))
 
-        try:
-            record = self.get_current_record(self.get_obj(obj_id))
-        except exceptions.ObjectDeleted:
-            # Object deleted already so reraise
-            raise
-        except exceptions.NotFound as exc:
-            # Have a look in the archive
-            results = self.archive.find(obj_id=obj_id, version=-1)
+        # Find the records
+        records = [None] * len(obj_ids)
+
+        # Those that we don't have cached records for and need to look up
+        left_to_find = {}  # type: Dict[Any, int]
+        for idx, obj_id in enumerate(obj_ids):
             try:
-                record = next(results)
-            except StopIteration:
-                # not even in the archive
-                raise exc
+                records[idx] = self.get_current_record(self.get_obj(obj_id))
+            except exceptions.ObjectDeleted:
+                # Object deleted already so reraise
+                raise
+            except exceptions.NotFound as exc:
+                left_to_find[obj_id] = idx
+
+        if left_to_find:
+            # Have a look in the archive
+            for record in self.archive.find(obj_id=left_to_find.keys(), version=-1):
+                records[left_to_find[record.obj_id]] = record
+                del left_to_find[record.obj_id]
+
+        if left_to_find:
+            raise exceptions.NotFound(left_to_find.keys())
 
         with self.in_transaction() as trans:
-            builder = recordsm.make_deleted_builder(record)
-            deleted_record = self._record_builder_created(builder).build()
-            trans.delete(obj_id)
-            trans.stage(operations.Insert(deleted_record))
+            for record in records:
+                builder = recordsm.make_deleted_builder(record)
+                deleted_record = self._record_builder_created(builder).build()
+                trans.delete(record.obj_id)
+                trans.stage(operations.Insert(deleted_record))
 
     def history(
             self,

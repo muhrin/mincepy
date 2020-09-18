@@ -102,9 +102,9 @@ def find(*args, **kwargs):
     yield from get_historian().find(*args, **kwargs)
 
 
-def delete(obj_or_identifier):
+def delete(*obj_or_identifier):
     """Delete an object.  See :py:meth:`mincepy.Historian.delete`"""
-    return get_historian().delete(obj_or_identifier)
+    return get_historian().delete(*obj_or_identifier)
 
 
 # endregion

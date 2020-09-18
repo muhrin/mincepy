@@ -174,6 +174,4 @@ def test_delete_referenced(historian: mincepy.Historian):
     garage.save()
 
     # Now, check that deleting both together works
-    with historian.transaction():
-        historian.delete(car)
-        historian.delete(garage)
+    historian.delete(car, garage)
