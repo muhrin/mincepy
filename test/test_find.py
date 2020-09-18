@@ -60,7 +60,7 @@ def test_simple_sort(historian: mincepy.Historian):
         cars.append(testing.Car(idx))
 
     historian.save(cars)
-    results = list(historian.find_records(testing.Car, sort=mincepy.records.CREATION_TIME))
+    results = list(historian.records.find(testing.Car, sort=mincepy.records.CREATION_TIME))
     for idx, result in enumerate(results[1:]):
         # No need to subtract 1 from idx as we're already one behind because of the slicing
         assert result.creation_time >= results[idx].creation_time
@@ -111,7 +111,7 @@ def test_find_predicates(historian: mincepy.Historian):
 
     # OR
     results = tuple(
-        historian.find_records(state=mincepy.q.or_({'make': 'skoda'}, {'make': 'ferrari'})))
+        historian.records.find(state=mincepy.q.or_({'make': 'skoda'}, {'make': 'ferrari'})))
     assert len(results) == 2
     makes = [record.state['make'] for record in results]
     assert 'skoda' in makes
@@ -119,7 +119,7 @@ def test_find_predicates(historian: mincepy.Historian):
 
     # AND
     results = tuple(
-        historian.find_records(state=mincepy.q.and_({'make': 'skoda'}, {'colour': 'green'})))
+        historian.records.find(state=mincepy.q.and_({'make': 'skoda'}, {'colour': 'green'})))
     assert len(results) == 1
     makes = [record.state['make'] for record in results]
     assert 'skoda' in makes
@@ -137,7 +137,7 @@ def test_sort_with_many_entries(historian: mincepy.Historian):
 
     historian.save(*cars)
 
-    next(historian.find_records(testing.Car, sort='state.make'))
+    next(historian.records.find(testing.Car, sort='state.make'))
 
 
 def test_distinct(historian):
@@ -147,21 +147,21 @@ def test_distinct(historian):
 
     id4 = testing.Car('honda', 'white').save()
 
-    ids = set(historian.find_distinct("obj_id"))
+    ids = set(historian.records.distinct("obj_id"))
     assert ids == {id1, id2, id3, id4}
 
-    colours = set(historian.find_distinct("state.colour"))
+    colours = set(historian.records.distinct("state.colour"))
     assert colours == {'red', 'yellow', 'brown', 'white'}
 
-    colours = set(historian.find_distinct('state.colour', state={'make': 'honda'}))
+    colours = set(historian.records.distinct('state.colour', state={'make': 'honda'}))
     assert colours == {'white'}
 
     car4 = historian.load(id4)
     car4.colour = 'yellow'
     car4.save()
 
-    assert set(historian.find_distinct("version", obj_type=testing.Car, obj_id=id4,
-                                       version=None)) == {0, 1}
+    assert set(historian.records.distinct("version", obj_type=testing.Car, obj_id=id4,
+                                          version=None)) == {0, 1}
 
-    colours = set(historian.find_distinct("state.colour"))
+    colours = set(historian.records.distinct("state.colour"))
     assert colours == {'red', 'yellow', 'brown', 'yellow'}

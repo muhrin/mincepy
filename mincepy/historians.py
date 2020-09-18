@@ -25,7 +25,7 @@ from . import helpers
 from . import hist
 from . import migrate
 from . import operations
-from . import records
+from . import records as recordsm  # The records module
 from . import staging
 from . import tracking
 from . import types
@@ -49,13 +49,35 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
     user to lookup objects in the archive."""
 
     @deprecation.deprecated(deprecated_in="0.14.5",
-                            removed_in="0.16",
+                            removed_in="0.16.0",
                             current_version=version_mod.__version__,
                             details="Use mincepy.copy() instead")
     def copy(self, obj):  # pylint: disable=no-self-use
         """Create a shallow copy of the object.  Using this method allows the historian to inject
         information about where the object was copied from into the record if saved."""
         return tracking.copy(obj)
+
+    @deprecation.deprecated(deprecated_in="0.15.10",
+                            removed_in="0.17.0",
+                            current_version=version_mod.__version__,
+                            details="Use mincepy.records.find() instead")
+    def find_records(self, *args, **kwargs) -> Iterator[recordsm.DataRecord]:
+        """Find records
+
+        Has same signature as py:meth:`mincepy.Records.find`.
+        """
+        yield from self._records.find(*args, **kwargs)
+
+    @deprecation.deprecated(deprecated_in="0.15.10",
+                            removed_in="0.17.0",
+                            current_version=version_mod.__version__,
+                            details="Use mincepy.records.distinct() instead")
+    def find_distinct(self, *args, **kwargs):
+        """Get distinct values of the given record key
+
+        Has same signature as py:meth:`mincepy.Records.distinct`.
+        """
+        yield from self._records.distinct(*args, **kwargs)
 
     def __init__(self, archive: archives.Archive, equators=()):
         self._archive = archive
@@ -68,7 +90,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         # Snapshot objects -> reference. Objects that were loaded from historical snapshots
         self._snapshots_objects = utils.WeakObjectIdDict(
-        )  # type: MutableMapping[Any, records.SnapshotId]
+        )  # type: MutableMapping[Any, recordsm.SnapshotId]
         self._live_objects = LiveObjects()
 
         self._transactions = None
@@ -82,6 +104,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._meta = hist.Meta(self, self._archive)
         self._migrate = migrate.Migrations(self)
         self._references = hist.References(self)
+        self._records = hist.Records(self)
 
     @property
     def archive(self):
@@ -103,6 +126,11 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self._migrate
 
     @property
+    def records(self) -> hist.Records:
+        """Access methods and properties that act on and return data records"""
+        return self._records
+
+    @property
     def references(self) -> hist.References:
         """Access the references possibilities"""
         return self._references
@@ -112,7 +140,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
          use."""
         return self._archive.create_file(filename, encoding)
 
-    def save(self, *objs):
+    def save(self, *objs: object):
         """Save multiple objects producing corresponding object identifiers.  This returns a
         sequence of ids that is in the same order as the passed objects.
 
@@ -140,7 +168,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return ids
 
-    def save_one(self, obj, meta: dict = None):
+    def save_one(self, obj: object, meta: dict = None):
         """Save the object returning an object id.  If metadata is supplied it will be set on the
         object.
 
@@ -163,14 +191,14 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return record.obj_id
 
-    def is_known(self, obj) -> bool:
+    def is_known(self, obj: object) -> bool:
         """Check if an object has ever been saved and is therefore known to the historian
 
         :return: True if ever saved, False otherwise
         """
         return self.get_obj_id(obj) is not None
 
-    def replace(self, old, new):
+    def replace(self, old: object, new: object):
         """Replace a live object with a new version.
 
         This is especially useful if you have made a copy of an object and modified it but you want
@@ -191,7 +219,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # Make sure creators is correct as well
         staging.replace(old, new)
 
-    def load_snapshot(self, snapshot_id: records.SnapshotId) -> Any:
+    def load_snapshot(self, snapshot_id: recordsm.SnapshotId) -> Any:
         return self._new_snapshot_depositor().load(snapshot_id)
 
     def load(self, *obj_ids_or_refs):
@@ -206,8 +234,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return loaded
 
     def load_one(self, obj_id_or_ref):
-        """Load one object or shot from the database"""
-        if isinstance(obj_id_or_ref, records.SnapshotId):
+        """Load one object or snapshot from the database"""
+        if isinstance(obj_id_or_ref, recordsm.SnapshotId):
             return self.load_snapshot(obj_id_or_ref)
 
         return self._load_object(obj_id_or_ref, self._live_depositor)
@@ -265,7 +293,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 raise exc
 
         with self.in_transaction() as trans:
-            builder = records.make_deleted_builder(record)
+            builder = recordsm.make_deleted_builder(record)
             deleted_record = self._record_builder_created(builder).build()
             trans.delete(obj_id)
             trans.stage(operations.Insert(deleted_record))
@@ -274,7 +302,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             self,
             obj_or_obj_id,
             idx_or_slice='*',
-            as_objects=True) -> [typing.Sequence[ObjectEntry], typing.Sequence[records.DataRecord]]:
+            as_objects=True
+    ) -> [typing.Sequence[ObjectEntry], typing.Sequence[recordsm.DataRecord]]:
         """Get a sequence of object ids and instances from the history of the given object.
 
         :param obj_or_obj_id: The instance or id of the object to get the history for
@@ -298,16 +327,16 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         >>> history[1].obj is car
         """
         obj_id = self._ensure_obj_id(obj_or_obj_id)
-        snapshot_refs = self._archive.get_snapshot_ids(obj_id)
+        snapshot_ids = self._archive.get_snapshot_ids(obj_id)
         indices = utils.to_slice(idx_or_slice)
-        to_get = snapshot_refs[indices]
+        to_get = snapshot_ids[indices]
         if as_objects:
-            return [ObjectEntry(ref, self.load_snapshot(ref)) for ref in to_get]
+            return [ObjectEntry(sid, self.load(sid)) for sid in to_get]
 
         return [self._archive.load(ref) for ref in to_get]
 
-    def get_current_record(self, obj) -> records.DataRecord:
-        """Get a record for an object known to the historian"""
+    def get_current_record(self, obj: object) -> recordsm.DataRecord:
+        """Get the current record that the historian has cached for the passed object"""
         trans = self.current_transaction()
         # Try the transaction first
         if trans:
@@ -322,7 +351,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return self._live_objects.get_record(obj)
 
-    def get_obj_id(self, obj) -> Any:
+    def get_obj_id(self, obj: object) -> Any:
         """Get the object ID for a live object.
 
         :return: the object id or None if the object is not known to the historian
@@ -344,7 +373,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         except exceptions.NotFound:
             return None
 
-    def get_obj(self, obj_id):
+    def get_obj(self, obj_id) -> object:
         """Get a currently live object"""
         trans = self.current_transaction()
         if trans:
@@ -359,7 +388,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return self._live_objects.get_object(obj_id)
 
-    def is_saved(self, obj) -> bool:
+    def is_saved(self, obj: object) -> bool:
         """Test if an object is saved with this historian.  This is equivalent to
         `historian.get_obj_id(obj) is not None`."""
         return self.get_obj_id(obj) is not None
@@ -395,7 +424,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # Out of options
         return None
 
-    def get_snapshot_id(self, obj) -> records.SnapshotId:
+    def get_snapshot_id(self, obj: object) -> recordsm.SnapshotId:
         """Get the current snapshot id for a live object.  Will return the id or raise
         :class:`mincepy.NotFound` exception"""
         trans = self.current_transaction()
@@ -407,10 +436,10 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return self._live_objects.get_record(obj).snapshot_id
 
-    def hash(self, obj):
+    def hash(self, obj: object):
         return self._equator.hash(obj)
 
-    def eq(self, one, other):  # pylint: disable=invalid-name
+    def eq(self, one: object, other: object):  # pylint: disable=invalid-name
         return self._equator.eq(one, other)
 
     # region Types
@@ -515,14 +544,14 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if not sort and not skip and not meta and not limit:
             # Optimisation: get the object ids from distinct to avoid loading the records until
             # the load() call
-            for oid in self.find_distinct(records.OBJ_ID,
-                                          obj_type=obj_type,
-                                          obj_id=obj_id,
-                                          version=version,
-                                          state=state):
+            for oid in self.records.distinct(recordsm.OBJ_ID,
+                                             obj_type=obj_type,
+                                             obj_id=obj_id,
+                                             version=version,
+                                             state=state):
                 yield self.load(oid)
         else:
-            results = self.find_records(obj_type=obj_type,
+            results = self.records.find(obj_type=obj_type,
                                         obj_id=obj_id,
                                         version=version,
                                         state=state,
@@ -533,100 +562,12 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             for result in results:
                 yield self.load(result.obj_id)
 
-    def find_records(self,
-                     obj_type=None,
-                     obj_id=None,
-                     version: int = -1,
-                     state=None,
-                     meta: dict = None,
-                     extras: dict = None,
-                     sort=None,
-                     limit=0,
-                     skip=0) -> Iterator[records.DataRecord]:
-        """Find records
-
-        :param obj_type: the object type to look for
-        :param obj_id: an object or multiple object ids to look for
-        :param version: the version of the object to retrieve, -1 means latest
-        :param state: the criteria on the state of the object to apply
-        :type state: must be subclass of historian.primitive
-        :param meta: the search criteria to apply on the metadata of the object
-        :param extras: the search criteria to apply on the data record extras
-        :param sort: the sort criteria
-        :param limit: the maximum number of results to return, 0 means unlimited
-        :param skip: the page to get results from
-        """
-        # pylint: disable=too-many-arguments
-        type_id = obj_type
-        if obj_type is not None:
-            try:
-                type_id = self.get_obj_type_id(obj_type)
-            except TypeError:
-                pass
-
-        if obj_id is not None:
-            # Convert object ids to the expected type before passing to archive
-            if isinstance(obj_id, list):
-                obj_id = list(self._ensure_obj_id(oid) for oid in obj_id)
-            else:
-                obj_id = self._ensure_obj_id(obj_id)
-
-        results = self._archive.find(obj_id=obj_id,
-                                     type_id=type_id,
-                                     state=state,
-                                     version=version,
-                                     meta=meta,
-                                     extras=extras,
-                                     sort=sort,
-                                     limit=limit,
-                                     skip=skip)
-        yield from results
-
-    # pylint: disable=too-many-arguments
-    def find_distinct(self,
-                      key: str,
-                      obj_type=None,
-                      obj_id=None,
-                      version: int = -1,
-                      state=None,
-                      extras: dict = None):
-        """Get distinct values of the given record key
-
-        :param key: the key to find distinct values for, see DataRecord for possible keys
-        :param version: convenience for setting the version to search for.  Can also be specified in
-            the filter in which case this will be ignored.
-        """
-        record_filter = {}
-        if obj_type is not None:
-            if obj_type is not None:
-                try:
-                    type_id = self.get_obj_type_id(obj_type)
-                except TypeError:
-                    type_id = obj_type
-
-            record_filter[records.TYPE_ID] = type_id
-        if obj_id is not None:
-            # Convert object ids to the expected type before passing to archive
-            if isinstance(obj_id, list):
-                obj_id = list(self._ensure_obj_id(oid) for oid in obj_id)
-            else:
-                obj_id = self._ensure_obj_id(obj_id)
-            record_filter[records.OBJ_ID] = obj_id
-        if version is not None:
-            record_filter[records.VERSION] = version
-        if state is not None:
-            record_filter[records.STATE] = state
-        if extras is not None:
-            record_filter[records.EXTRAS] = extras
-
-        yield from self._archive.distinct(key, record_filter)
-
-    def get_creator(self, obj_or_identifier):
+    def get_creator(self, obj_or_identifier) -> object:
         """Get the object that created the passed object"""
         if not self.is_obj_id(obj_or_identifier):
             # Object instance, try the staging area
             info = staging.get_info(obj_or_identifier, create=False) or {}
-            created_by = info.get(records.ExtraKeys.CREATED_BY, None)
+            created_by = info.get(recordsm.ExtraKeys.CREATED_BY, None)
             if created_by is not None:
                 return created_by
 
@@ -652,9 +593,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """Get information about the current user and host"""
         user_info = {}
         if self._user:
-            user_info[records.ExtraKeys.USER] = self._user
+            user_info[recordsm.ExtraKeys.USER] = self._user
         if self._hostname:
-            user_info[records.ExtraKeys.HOSTNAME] = self._hostname
+            user_info[recordsm.ExtraKeys.HOSTNAME] = self._hostname
         return user_info
 
     @contextlib.contextmanager
@@ -749,7 +690,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if trans.metas:
             self._archive.meta_set_many(trans.metas)
 
-    def _get_latest_snapshot_reference(self, obj_id) -> records.SnapshotId:
+    def _get_latest_snapshot_reference(self, obj_id) -> recordsm.SnapshotId:
         """Given an object id this will return a reference to the latest snapshot"""
         try:
             return self._archive.get_snapshot_ids(obj_id)[-1]
@@ -792,7 +733,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
                 return obj
 
-    def _save_object(self, obj, depositor) -> records.DataRecord:
+    def _save_object(self, obj, depositor) -> recordsm.DataRecord:
         with self.in_transaction() as trans:
             try:
                 helper = self._ensure_compatible(type(obj))
@@ -840,14 +781,14 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
                     return record
 
-    def _create_builder(self, obj, **additional) -> records.DataRecordBuilder:
+    def _create_builder(self, obj, **additional) -> recordsm.DataRecordBuilder:
         """Create a record builder for a new object object"""
         additional = additional or {}
         helper = self._ensure_compatible(type(obj))
 
-        builder = records.DataRecord.new_builder(type_id=helper.TYPE_ID,
-                                                 obj_id=self._archive.create_archive_id(),
-                                                 version=0)
+        builder = recordsm.DataRecord.new_builder(type_id=helper.TYPE_ID,
+                                                  obj_id=self._archive.create_archive_id(),
+                                                  version=0)
         builder.update(additional)
         return builder
 
@@ -857,8 +798,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         possibilities:
             1. Passed an object ID in which case it will be returned unchanged
             2. Passed a live object instance, in which case the id of that object will be returned
-            3. Passed a type that can be understood by the archive as an object id e.g. a string of
-               version, in which case the archive will attempt to convert it
+            3. Passed a type that can be understood by the archive as an object id e.g. an object id
+             string, in which case the archive will attempt to convert it
         """
         obj_id = self.to_obj_id(obj_or_identifier)
         if obj_id is None:
@@ -887,7 +828,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             self._saving_set.remove(obj_id)
 
     def _record_builder_created(self,
-                                builder: records.DataRecordBuilder) -> records.DataRecordBuilder:
+                                builder: recordsm.DataRecordBuilder) -> recordsm.DataRecordBuilder:
         """Update a data record builder with standard information."""
         builder.extras.update(self.get_user_info())
         return builder

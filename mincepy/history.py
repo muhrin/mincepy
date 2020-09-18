@@ -1,3 +1,7 @@
+"""
+This module exposes some global functionality for connecting to and interacting with the current
+historian
+"""
 import os
 from typing import Optional
 

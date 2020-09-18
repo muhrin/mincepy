@@ -1,6 +1,5 @@
-from . import metas
-from . import references
-from .metas import *
-from .references import *
+from .metas import Meta
+from .records import Records
+from .references import References
 
-__all__ = metas.__all__ + references.__all__
+__all__ = 'Meta', 'Records', 'References'
