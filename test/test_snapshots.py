@@ -181,3 +181,13 @@ def test_loading_snapshot_cycle(historian: mincepy.Historian):
 
     loaded = historian.load_snapshot(a_sid)
     assert loaded.ref is loaded
+
+
+def test_snapshot_id_eq():
+    sid1 = mincepy.SnapshotId('sid', 1)
+    sid1_again = mincepy.SnapshotId('sid', 1)
+    sid2 = mincepy.SnapshotId('sid', 2)
+
+    assert sid1 == sid1_again
+    assert sid1 != sid2
+    assert sid1_again != sid2

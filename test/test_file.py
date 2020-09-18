@@ -1,16 +1,15 @@
 import io
-import os
 import shutil
-
-import pytest
 
 import mincepy
 
+# pylint: disable=invalid-name
+
 
 def test_file_basics(historian: mincepy.Historian):
-    encoding = 'utf-8'
+    ENCODING = 'utf-8'
     INITIAL_DATA = 'hello there'
-    file = historian.create_file(encoding)
+    file = historian.create_file(ENCODING)
     with file.open('w') as stream:
         stream.write(INITIAL_DATA)
 
@@ -24,7 +23,7 @@ def test_file_basics(historian: mincepy.Historian):
         assert buffer.getvalue() == INITIAL_DATA
 
 
-def test_file_changing(tmp_path, historian: mincepy.Historian):
+def test_file_changing(tmp_path, historian: mincepy.Historian):  # pylint: disable=unused-argument
     encoding = 'utf-8'
     INITIAL_DATA = "Initial string"
     mince_file = historian.create_file(encoding=encoding)
@@ -64,7 +63,7 @@ def test_nested_files_in_list(historian: mincepy.Historian):
 
     loaded = historian.load(list_id)
     assert len(loaded) == 1
-    assert loaded[0].filename == None
+    assert loaded[0].filename is None
 
 
 def test_nested_files_in_dict(historian: mincepy.Historian):
@@ -77,10 +76,10 @@ def test_nested_files_in_dict(historian: mincepy.Historian):
 
     loaded = historian.load(list_id)
     assert len(loaded) == 1
-    assert loaded['file'].filename == None
+    assert loaded['file'].filename is None
 
 
-def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):
+def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):  # pylint: disable=unused-argument
     encoding = 'utf-8'
     INITIAL_DATA = "First string".encode(encoding)
     my_file = historian.create_file()
@@ -106,3 +105,17 @@ def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):
         buffer = io.BytesIO()
         shutil.copyfileobj(contents, buffer)
         assert buffer.getvalue() == INITIAL_DATA + NEW_DATA
+
+
+def test_file_eq(historian: mincepy.Historian):
+    file1 = historian.create_file('file1')
+    file1_again = historian.create_file('file1')
+    file3 = historian.create_file('file3')
+
+    file1.write_text('hello 1!')
+    file1_again.write_text('hello 1!')  # Same again
+    file3.write_text('hello 3!')  # Different
+
+    assert file1 == file1_again
+    assert file1 != file3
+    assert file1_again != file3

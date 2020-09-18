@@ -1,5 +1,6 @@
-import mincepy
+import pytest
 
+import mincepy
 from mincepy.testing import Car
 
 
@@ -104,6 +105,7 @@ def test_to_obj_id(historian: mincepy.Historian):
     assert historian.to_obj_id(car_id) == car_id
     assert historian.to_obj_id(car) == car_id
     assert historian.to_obj_id(str(car_id)) == car_id
+    assert historian.to_obj_id('carrot') is None
 
 
 def test_copy(historian: mincepy.Historian):
@@ -132,3 +134,18 @@ def test_copy_unsaved(historian: mincepy.Historian):
     # The cars should not be saved
     assert not historian.is_known(car)
     assert not historian.is_known(car_copy)
+
+
+def test_save(historian: mincepy.Historian):
+    car = Car('porsche', 'yellow')
+    with pytest.raises(ValueError):
+        historian.save((car, {'speed': 'fast'}, 124))
+
+
+def test_is_trackable(historian: mincepy.Historian):
+    assert historian.is_trackable(mincepy.testing.Car) is True
+    assert historian.is_trackable(5) is False
+    assert historian.is_trackable(5.6) is False
+    assert historian.is_trackable('hello') is False
+    assert historian.is_trackable(False) is False
+    assert historian.is_trackable(b'byte me') is False

@@ -8,8 +8,8 @@ __all__ = 'get_info', 'remove'
 class StagingArea:
     """This global singleton stores information about objects before they have been saved by the
     historian.  This is useful when there is global information that may or may not be used if the
-    object is indeed saved.  If not, the information is simply discarded when the object is
-    destructed"""
+    object is indeed eventually saved.  If not, the information is simply discarded when the object
+    is destructed"""
 
     # pylint: disable=too-few-public-methods
 
