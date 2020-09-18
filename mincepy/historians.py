@@ -9,7 +9,7 @@ import getpass
 import logging
 import socket
 import typing
-from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type
+from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type, Dict
 import weakref
 import warnings
 
