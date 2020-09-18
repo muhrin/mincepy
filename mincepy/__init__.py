@@ -23,9 +23,10 @@ from . import history
 from . import mongo
 from . import operations
 from . import process
+from . import testing
 from . import utils
 
-_ADDITIONAL = 'mongo', 'builtins', 'common_helpers', 'utils', 'q', 'operations'
+_ADDITIONAL = 'mongo', 'builtins', 'common_helpers', 'utils', 'q', 'operations', 'testing'
 
 __all__ = (archives.__all__ + depositors.__all__ + exceptions.__all__ + historians.__all__ +
            process.__all__ + types.__all__ + helpers.__all__ + version.__all__ + history.__all__ +

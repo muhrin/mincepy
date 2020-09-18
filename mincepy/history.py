@@ -13,7 +13,7 @@ from . import plugins
 from . import version
 
 __all__ = ('connect', 'get_historian', 'set_historian', 'DEFAULT_ARCHIVE_URI', 'ENV_ARCHIVE_URI', \
-           'archive_uri', 'load', 'save')
+           'archive_uri', 'load', 'save', 'default_archive_uri', 'find')
 
 DEFAULT_ARCHIVE_URI = 'mongodb://localhost/mincepy'
 ENV_ARCHIVE_URI = 'MINCEPY_ARCHIVE'
@@ -70,7 +70,8 @@ def get_historian(create=True) -> Optional[historians.Historian]:
     call will attempt to create a new default historian using connect()"""
     global CURRENT_HISTORIAN  # pylint: disable=global-statement
     if CURRENT_HISTORIAN is None and create:
-        # Try creating a new one
+        # Try creating a new one, use globally otherwise a new one will be created each time which
+        # is unlikely to be what users want
         connect(use_globally=True)
 
     return CURRENT_HISTORIAN
@@ -94,6 +95,11 @@ def load(*obj_ids_or_refs):
 def save(*objs):
     """Save one or more objects using the current global historian"""
     return get_historian().save(*objs)
+
+
+def find(*args, **kwargs):
+    """Find objects.  Has the same signature as :py:meth:`mincepy.Historian.find`"""
+    yield from get_historian().find(*args, **kwargs)
 
 
 # endregion
