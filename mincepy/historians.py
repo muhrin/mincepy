@@ -275,13 +275,13 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         :raises mincepy.NotFound: if the object cannot be found (potentially because it was
             already deleted)
         """
-        # We need a record to be able to build the delete record
+        # We need the current record to be able to build the delete record
         obj_id = self._ensure_obj_id(obj_or_identifier)
 
         try:
             record = self.get_current_record(self.get_obj(obj_id))
         except exceptions.ObjectDeleted:
-            # Object deleted already do reraise
+            # Object deleted already so reraise
             raise
         except exceptions.NotFound as exc:
             # Have a look in the archive

@@ -1,6 +1,7 @@
 import pytest
 
 import mincepy
+from mincepy import testing
 from mincepy.testing import Car
 
 
@@ -149,3 +150,30 @@ def test_is_trackable(historian: mincepy.Historian):
     assert historian.is_trackable('hello') is False
     assert historian.is_trackable(False) is False
     assert historian.is_trackable(b'byte me') is False
+
+
+def test_delete_referenced(historian: mincepy.Historian):
+    car = testing.Car()
+    garage = testing.Garage(mincepy.ObjRef(car))
+    garage.save()
+
+    # Should be prevented from deleting the car as it is referenced by the garage
+    try:
+        historian.delete(car)
+    except mincepy.ReferenceError as exc:
+        assert exc.references == {car.obj_id}
+    else:
+        assert "Reference error should have been raised"
+
+    historian.delete(garage)
+    # Now safe to delete car
+    historian.delete(car)
+
+    car = testing.Car()
+    garage = testing.Garage(mincepy.ObjRef(car))
+    garage.save()
+
+    # Now, check that deleting both together works
+    with historian.transaction():
+        historian.delete(car)
+        historian.delete(garage)

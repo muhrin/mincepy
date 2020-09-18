@@ -13,7 +13,7 @@ from . import plugins
 from . import version
 
 __all__ = ('connect', 'get_historian', 'set_historian', 'DEFAULT_ARCHIVE_URI', 'ENV_ARCHIVE_URI', \
-           'archive_uri', 'load', 'save', 'default_archive_uri', 'find')
+           'archive_uri', 'load', 'save', 'default_archive_uri', 'find', 'delete')
 
 DEFAULT_ARCHIVE_URI = 'mongodb://localhost/mincepy'
 ENV_ARCHIVE_URI = 'MINCEPY_ARCHIVE'
@@ -98,8 +98,13 @@ def save(*objs):
 
 
 def find(*args, **kwargs):
-    """Find objects.  Has the same signature as :py:meth:`mincepy.Historian.find`"""
+    """Find objects.  See :py:meth:`mincepy.Historian.find`"""
     yield from get_historian().find(*args, **kwargs)
+
+
+def delete(obj_or_identifier):
+    """Delete an object.  See :py:meth:`mincepy.Historian.delete`"""
+    return get_historian().delete(obj_or_identifier)
 
 
 # endregion

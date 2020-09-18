@@ -1,5 +1,6 @@
 """Test global functions in mincepy"""
 import mincepy
+from mincepy import testing
 
 
 def test_archive_uri(monkeypatch):
@@ -17,7 +18,7 @@ def test_default_archive_uri(monkeypatch):
 
 
 def test_save_load():
-    car = mincepy.testing.Car()
+    car = testing.Car()
     car_id = mincepy.save(car)
     del car
     # Now try loading
@@ -25,6 +26,13 @@ def test_save_load():
 
 
 def test_find():
-    car = mincepy.testing.Car()
+    car = testing.Car()
     car_id = car.save()
     assert list(mincepy.find(obj_id=car_id))[0] is car
+
+
+def test_delete():
+    car = testing.Car()
+    car_id = car.save()
+    mincepy.delete(car)
+    assert not list(mincepy.find(obj_id=car_id))

@@ -36,6 +36,10 @@ class IntegrityError(Exception):
 
 
 class ReferenceError(IntegrityError):  # pylint: disable=redefined-builtin
+    """Raised when there is an operation that causes a problem with references for example if
+    you try to delete an object that is referenced by another this exception will be raised.  The
+    objects ids being referenced will be found in .references.
+    """
 
     def __init__(self, msg, references: set):
         super().__init__(msg)
