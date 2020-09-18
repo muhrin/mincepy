@@ -219,26 +219,26 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # Make sure creators is correct as well
         staging.replace(old, new)
 
-    def load_snapshot(self, snapshot_id: recordsm.SnapshotId) -> Any:
+    def load_snapshot(self, snapshot_id: recordsm.SnapshotId) -> object:
         return self._new_snapshot_depositor().load(snapshot_id)
 
-    def load(self, *obj_ids_or_refs):
+    def load(self, *obj_id_or_snapshot_id):
         """Load object(s) or snapshot(s)."""
         loaded = []
-        for entry in obj_ids_or_refs:
+        for entry in obj_id_or_snapshot_id:
             loaded.append(self.load_one(entry))
 
-        if len(obj_ids_or_refs) == 1:
+        if len(obj_id_or_snapshot_id) == 1:
             return loaded[0]
 
         return loaded
 
-    def load_one(self, obj_id_or_ref):
+    def load_one(self, obj_id_or_snapshot_id):
         """Load one object or snapshot from the database"""
-        if isinstance(obj_id_or_ref, recordsm.SnapshotId):
-            return self.load_snapshot(obj_id_or_ref)
+        if isinstance(obj_id_or_snapshot_id, recordsm.SnapshotId):
+            return self.load_snapshot(obj_id_or_snapshot_id)
 
-        return self._load_object(obj_id_or_ref, self._live_depositor)
+        return self._load_object(obj_id_or_snapshot_id, self._live_depositor)
 
     def sync(self, obj: object) -> bool:
         """Update an object with the latest state in the database.
