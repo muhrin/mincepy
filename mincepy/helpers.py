@@ -1,10 +1,11 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 import logging
 from typing import Type, Optional, Sequence
 
 import pytray.pretty
 
-import mincepy  # pylint: disable=unused-import
+import mincepy  # pylint: disable=unused-import, cyclic-import
+from . import db_attrs
 from . import exceptions
 from . import migrations
 from . import tracking
@@ -35,7 +36,7 @@ def remove_creation_tracking(cls: Type):
         pass
 
 
-class TypeHelper(metaclass=ABCMeta):
+class TypeHelper(db_attrs.DbType):
     """This interface provides the basic methods necessary to enable a type to be compatible with
     the historian."""
     TYPE = None  # The type this helper corresponds to
@@ -55,21 +56,25 @@ class TypeHelper(metaclass=ABCMeta):
         cls = self.TYPE
         return cls.__new__(cls)
 
-    @abstractmethod
-    def yield_hashables(self, obj, hasher):
-        """Produce a hash representing the value"""
+    def yield_hashables(self, obj: object, hasher):
+        """Yield values from this object that should be included in its hash"""
+        # sorted_hashables = sorted(db_attrs.save_instance_state(obj, self).items())
+        yield from hasher.yield_hashables(db_attrs.save_instance_state(obj, self))
 
-    @abstractmethod
     def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
         """Determine if two objects are equal"""
+        if not isinstance(one, self.TYPE) or not isinstance(other, self.TYPE):
+            return False
 
-    @abstractmethod
-    def save_instance_state(self, obj, saver):
+        return db_attrs.save_instance_state(one, self) == db_attrs.save_instance_state(other, self)
+
+    def save_instance_state(self, obj, saver):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
+        return db_attrs.save_instance_state(obj, self)
 
-    @abstractmethod
-    def load_instance_state(self, obj, saved_state, loader: 'mincepy.Loader'):
+    def load_instance_state(self, obj, saved_state, loader: 'mincepy.Loader'):  # pylint: disable=unused-argument
         """Take the given blank object and load the instance state into it"""
+        db_attrs.load_instance_state(obj, saved_state, self)
 
     def get_version(self) -> Optional[int]:
         """Gets the version of the latest migration, returns None if there is not migration"""
@@ -134,8 +139,6 @@ class BaseHelper(TypeHelper, metaclass=ABCMeta):
     """A base helper that defaults to yielding hashables directly on the object
     and testing for equality using == given two objects.  This behaviour is fairly
     standard and therefor more type helpers will want to subclass from this class."""
-
-    # pylint: disable=abstract-method
 
     def yield_hashables(self, obj, hasher):
         yield from hasher.yield_hashables(obj)

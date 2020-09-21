@@ -1,6 +1,35 @@
 import uuid
 
+import pytest
+
 import mincepy
+from mincepy import testing
+
+# pylint: disable=too-few-public-methods
+
+
+def test_type_helper(historian: mincepy.Historian):
+    """Check that a type helper can be used to make a non-historian compatible type compatible"""
+
+    class Bird:
+
+        def __init__(self, specie='hoopoe'):
+            self.specie = specie
+
+    class BirdHelper(mincepy.TypeHelper):
+        TYPE = Bird
+        TYPE_ID = uuid.UUID('5cc59e03-ea5d-43ff-8814-3b6f2e22cd76')
+
+        specie = mincepy.db_attr()
+
+    bird = Bird()
+    with pytest.raises(TypeError):
+        historian.save(bird)
+
+    # Now register the helper...
+    historian.register_type(BirdHelper())
+    # ...and we should be able to save
+    assert historian.save(bird) is not None
 
 
 def test_transaction_snapshots(historian: mincepy.Historian):
@@ -38,3 +67,79 @@ def test_transaction_snapshots(historian: mincepy.Historian):
 
     historian.save(martin)
     assert historian.created_by(martin) == historian.get_obj_id(person_maker)
+
+
+class Boat:
+
+    def __init__(self, make: str, length: float, owner: testing.Person = None):
+        self.make = make
+        self.length = length
+        self.owner = owner
+
+
+class BoatHelper(mincepy.TypeHelper):
+    TYPE_ID = uuid.UUID('4d82b67a-dbcb-4388-b20e-8542c70491d1')
+    TYPE = Boat
+
+    # Describe how to store the properties
+    make = mincepy.db_attr()
+    length = mincepy.db_attr()
+    owner = mincepy.db_attr(ref=True)
+
+
+def test_simple_helper(historian: mincepy.Historian):
+    historian.register_type(BoatHelper())
+
+    jenneau = Boat('jenneau', 38.9)
+    jenneau_id = historian.save(jenneau)
+    del jenneau
+
+    jenneau = historian.load(jenneau_id)
+    assert jenneau.make == 'jenneau'
+    assert jenneau.length == 38.9
+
+    # Now check that references work
+    martin = testing.Person('martin', 35)
+    jenneau.owner = martin
+    historian.save(jenneau)
+    del jenneau
+
+    jenneau = historian.load(jenneau_id)
+    assert jenneau.owner is martin
+
+
+class Powerboat(Boat):
+    TYPE_ID = uuid.UUID('924ef5b2-ce20-40b0-8c98-4da470f6c2c3')
+    horsepower = mincepy.db_attr()
+
+    def __init__(self, make: str, length: float, horsepower: float, owner: testing.Person = None):
+        super().__init__(make, length, owner)
+        self.horsepower = horsepower
+
+
+class PowerboatHelper(BoatHelper):
+    TYPE_ID = uuid.UUID('924ef5b2-ce20-40b0-8c98-4da470f6c2c3')
+    TYPE = Powerboat
+
+    horsepower = mincepy.db_attr()
+
+
+def test_subclass_helper(historian: mincepy.Historian):
+    historian.register_type(PowerboatHelper())
+
+    quicksilver = Powerboat('quicksilver', length=7.0, horsepower=115)
+    quicksilver_id = historian.save(quicksilver)
+    del quicksilver
+
+    quicksilver = historian.load(quicksilver_id)
+    assert quicksilver.make == 'quicksilver'
+    assert quicksilver.length == 7.
+    assert quicksilver.horsepower == 115
+
+    martin = testing.Person('martin', 35)
+    quicksilver.owner = martin
+    historian.save(quicksilver)
+    del quicksilver
+
+    quicksilver = historian.load(quicksilver_id)
+    assert quicksilver.owner is martin

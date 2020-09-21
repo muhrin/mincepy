@@ -7,7 +7,7 @@ import mincepy
 import mincepy.builtins
 from mincepy.testing import Car, Garage, Cycle
 
-# pylint: disable=invalid-name, too-few-public-methods
+# pylint: disable=invalid-name
 
 
 def test_basic_save_load(historian: mincepy.Historian):
@@ -80,40 +80,6 @@ def test_create_delete_load(historian: mincepy.Historian):
 #         historian.get_current_record(car)
 #
 #     assert historian.get_current_record(new_car) is not None
-
-
-def test_type_helper(historian: mincepy.Historian):
-    """Check that a type helper can be used to make a non-historian compatible type compatible"""
-
-    class Bird:
-
-        def __init__(self, specie='hoopoe'):
-            self.specie = specie
-
-    class BirdHelper(mincepy.TypeHelper):
-        TYPE = Bird
-        TYPE_ID = uuid.UUID('5cc59e03-ea5d-43ff-8814-3b6f2e22cd76')
-
-        def yield_hashables(self, obj, hasher):
-            yield from hasher.yield_hashables(obj.specie)
-
-        def eq(self, one, other) -> bool:
-            return one.specie == other.specie
-
-        def save_instance_state(self, obj, _depositor):
-            return obj.specie
-
-        def load_instance_state(self, obj, saved_state, _depositor):
-            obj.specie = saved_state
-
-    bird = Bird()
-    with pytest.raises(TypeError):
-        historian.save(bird)
-
-    # Now register the helper...
-    historian.register_type(BirdHelper())
-    # ...and we should be able to save
-    assert historian.save(bird) is not None
 
 
 def test_storing_internal_object(historian: mincepy.Historian):
