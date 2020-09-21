@@ -197,7 +197,7 @@ def test_meta_delete(historian: mincepy.Historian):
 
 def test_set_meta_in_save(historian: mincepy.Historian):
 
-    class Info(mincepy.BaseSavableObject):
+    class Info(mincepy.SavableObject):
         TYPE_ID = uuid.UUID('6744689d-5f88-482e-bb42-2bec5f139cc2')
 
         def save_instance_state(self, saver: mincepy.Saver) -> dict:
@@ -214,7 +214,7 @@ def test_set_meta_in_save(historian: mincepy.Historian):
 
 def test_update_meta_in_save(historian: mincepy.Historian):
 
-    class Info(mincepy.SimpleSavable):
+    class Info(mincepy.ConvenientSavable):
         TYPE_ID = uuid.UUID('6744689d-5f88-482e-bb42-2bec5f139cc2')
 
         def save_instance_state(self, saver: mincepy.Saver) -> dict:
@@ -231,7 +231,7 @@ def test_update_meta_in_save(historian: mincepy.Historian):
 
 def test_update_meta_in_save_with_sticky(historian: mincepy.Historian):
 
-    class Info(mincepy.SimpleSavable):
+    class Info(mincepy.ConvenientSavable):
         TYPE_ID = uuid.UUID('6744689d-5f88-482e-bb42-2bec5f139cc2')
 
         def save_instance_state(self, saver: mincepy.Saver) -> dict:

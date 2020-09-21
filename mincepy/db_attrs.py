@@ -2,7 +2,7 @@
 objects"""
 
 import abc
-from typing import Union, Dict
+from typing import Union, Dict, Type
 
 from . import refs
 
@@ -129,14 +129,14 @@ class DbTypeMeta(abc.ABCMeta):
 
 
 class DbType(metaclass=DbTypeMeta):  # pylint: disable=too-few-public-methods
-    """Base class for defining types that can be stored in the database"""
+    """Base class for types that describe how to save objects in the database using db attributes"""
 
 
-def get_db_attrs(db_type: DbType) -> Dict[str, DbAttr]:
+def get_db_attrs(db_type: Type[DbType]) -> Dict[str, DbAttr]:
     """Given an object this will return all the database attributes as a dictionary where the key is
     the attribute name"""
     db_attrs = {}
-    for entry in reversed(type(db_type).__mro__):
+    for entry in reversed(db_type.__mro__):
         if entry is object:
             continue
         for name, class_attr in entry.__dict__.items():
@@ -146,7 +146,18 @@ def get_db_attrs(db_type: DbType) -> Dict[str, DbAttr]:
     return db_attrs
 
 
-def save_instance_state(obj, db_type: DbType):
+def save_instance_state(obj, db_type: Type[DbType] = None):
+    """Save the instance state of an object.
+
+    Given an object this function takes a DbType specifying the attributes to be saved and will used
+    these to return a saved sate.  Note, that for regular Savable objects, the db_type is the object
+    itself in which case this argument can be omitted.
+    """
+    if db_type is None:
+        assert issubclass(type(obj), DbType), \
+            "A DbType wasn't passed and obj isn't a DbType instance other"
+        db_type = type(obj)
+
     to_check = get_db_attrs(db_type)
     state = {}
 
@@ -162,19 +173,32 @@ def save_instance_state(obj, db_type: DbType):
     return state
 
 
-def load_instance_state(obj, state: Union[list, dict], db_type: DbType):
+def load_instance_state(obj,
+                        state: Union[list, dict],
+                        db_type: Type[DbType] = None,
+                        ignore_missing=True):
+    if db_type is None:
+        assert issubclass(type(obj), DbType), \
+            "A DbType wasn't passed and obj isn't a DbType instance other"
+        db_type = type(obj)
+
     if isinstance(state, dict):
         db_attrs = {attr.store_as: attr for attr in get_db_attrs(db_type).values()}
-        for stored_as, value in state.items():
-            try:
-                attr = db_attrs[stored_as]
-                if attr.ref:
-                    assert isinstance(value, refs.ObjRef), \
-                        "Expected to see a reference in the bundle for key " \
-                        "'{}' but got '{}'".format(stored_as, value)
-                    if value:
-                        value = value()  # Dereference it
 
-                setattr(obj, attr.attr, value)
+        for store_as, attr in db_attrs.items():
+            try:
+                value = state[store_as]
             except KeyError:
-                pass
+                if ignore_missing:
+                    value = None
+                else:
+                    raise
+
+            if attr.ref:
+                assert isinstance(value, refs.ObjRef), \
+                    "Expected to see a reference in the bundle for key " \
+                    "'{}' but got '{}'".format(store_as, value)
+                if value:
+                    value = value()  # Dereference it
+
+            setattr(obj, attr.attr, value)

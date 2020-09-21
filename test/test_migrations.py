@@ -122,9 +122,9 @@ def test_migrating_snapshot(historian: mincepy.Historian, caplog):
 def test_migrating_live_object(historian: mincepy.Historian):
     """Test that a migration including a live object works fine"""
 
-    class V1(mincepy.SimpleSavable):
+    class V1(mincepy.ConvenientSavable):
         TYPE_ID = uuid.UUID('8b1620f6-dd6d-4d39-b8b1-4433dc2a54df')
-        ATTRS = ('ref',)
+        ref = mincepy.db_attr()
 
         def __init__(self, obj):
             super().__init__()
@@ -133,9 +133,9 @@ def test_migrating_live_object(historian: mincepy.Historian):
     car = testing.Car()
     car.save()
 
-    class V2(mincepy.SimpleSavable):
+    class V2(mincepy.ConvenientSavable):
         TYPE_ID = uuid.UUID('8b1620f6-dd6d-4d39-b8b1-4433dc2a54df')
-        ATTRS = (mincepy.AsRef('ref'),)
+        ref = mincepy.db_attr(ref=True)
 
         class V1toV2(mincepy.ObjectMigration):
             VERSION = 1
@@ -210,9 +210,10 @@ def test_loading_nested_migrations(historian: mincepy.Historian):
 def test_lazy_migrating_with_saved(historian: mincepy.Historian):
     """Test migrating an object that has saved references"""
 
-    class V3(mincepy.SimpleSavable):
-        ATTRS = mincepy.AsRef('ref'), 'description'
+    class V3(mincepy.ConvenientSavable):
         TYPE_ID = uuid.UUID('40377bfc-901c-48bb-a85c-1dd692cddcae')
+        ref = mincepy.db_attr(ref=True)
+        description = mincepy.db_attr()
 
         class Migration(mincepy.ObjectMigration):
             VERSION = 2

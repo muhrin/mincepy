@@ -7,7 +7,7 @@ from . import depositors
 from . import refs
 from . import types
 
-__all__ = 'BaseSavableObject', 'ConvenienceMixin', 'SimpleSavable', 'AsRef'
+__all__ = 'BaseSavableObject', 'ConvenienceMixin', 'SimpleSavable', 'AsRef', 'ConvenientSavable'
 
 AttrSpec = collections.namedtuple('AttrSpec', 'name as_ref')
 
@@ -54,21 +54,22 @@ class BaseSavableObject(types.SavableObject):
             getattr(self, attr.name) == getattr(other, attr.name) for attr in self.__get_attrs())
 
     def yield_hashables(self, hasher):
+        yield from super().yield_hashables(hasher)
         yield from hasher.yield_hashables([getattr(self, attr.name) for attr in self.__get_attrs()])
 
-    def save_instance_state(self, _saver) -> dict:
-        saved_state = {}
+    def save_instance_state(self, saver) -> dict:
+        saved_state = super().save_instance_state(saver)
         for attr in self.__get_attrs():
             item = getattr(self, attr.name)
             if attr.as_ref:
                 item = refs.ObjRef(item)
             saved_state[attr.name] = item
 
-        super().save_instance_state(_saver)
+        super().save_instance_state(saver)
         return saved_state
 
-    def load_instance_state(self, saved_state, _loader):
-        super(BaseSavableObject, self).load_instance_state(saved_state, _loader)
+    def load_instance_state(self, saved_state, loader):
+        super().load_instance_state(saved_state, loader)
         for attr in self.__get_attrs():
             try:
                 obj = saved_state[attr.name]
@@ -157,3 +158,10 @@ class ConvenienceMixin:
 
 class SimpleSavable(ConvenienceMixin, BaseSavableObject):
     """A BaseSavableObject with convenience methods mixed in"""
+
+
+class ConvenientSavable(ConvenienceMixin, types.SavableObject):
+    """A savable with convenience methods.
+
+    See :py:class:`ConvenienceMixin`
+    """

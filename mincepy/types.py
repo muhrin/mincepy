@@ -9,6 +9,7 @@ except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 
 import mincepy  # pylint: disable=unused-import
+from . import db_attrs
 from . import depositors
 from . import tracking
 
@@ -23,7 +24,7 @@ def is_primitive(obj):
     return isinstance(obj, PRIMITIVE_TYPES)
 
 
-class Savable(metaclass=ABCMeta):
+class Savable(db_attrs.DbType):
     """Interface for an object that can save an load its instance state"""
     TYPE_ID = None
     LATEST_MIGRATION = None  # type: mincepy.ObjectMigration
@@ -31,13 +32,13 @@ class Savable(metaclass=ABCMeta):
     def __init__(self):
         assert self.TYPE_ID is not None, "Must set the TYPE_ID for an object to be savable"
 
-    @abstractmethod
-    def save_instance_state(self, saver: depositors.Saver):
+    def save_instance_state(self, saver: depositors.Saver):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
+        return db_attrs.save_instance_state(self)
 
-    @abstractmethod
-    def load_instance_state(self, saved_state, loader: depositors.Loader):
+    def load_instance_state(self, saved_state, loader: depositors.Loader):  # pylint: disable=unused-argument
         """Take the given object and load the instance state into it"""
+        db_attrs.load_instance_state(self, saved_state)
 
 
 class Comparable(metaclass=ABCMeta):
@@ -56,7 +57,7 @@ class Object(Comparable, metaclass=ABCMeta):  # pylint: disable=abstract-method
     """A simple object that is comparable"""
 
 
-class SavableObject(Object, Savable, metaclass=ABCMeta):  # pylint: disable=abstract-method
+class SavableObject(Object, Savable, metaclass=ABCMeta):
     """A class that is both savable and comparable"""
 
     _historian = None
@@ -64,6 +65,17 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):  # pylint: disable=abst
     def __init__(self):
         super().__init__()
         tracking.obj_created(self)
+
+    def __eq__(self, other) -> bool:
+        """Determine if two objects are equal"""
+        if not isinstance(other, type(self)):
+            return False
+
+        return db_attrs.save_instance_state(self) == db_attrs.save_instance_state(other)
+
+    def yield_hashables(self, hasher):
+        """Produce a hash representing the object"""
+        yield from hasher.yield_hashables(db_attrs.save_instance_state(self))
 
 
 class Equator:

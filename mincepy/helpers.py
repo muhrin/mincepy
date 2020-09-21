@@ -58,23 +58,23 @@ class TypeHelper(db_attrs.DbType):
 
     def yield_hashables(self, obj: object, hasher):
         """Yield values from this object that should be included in its hash"""
-        # sorted_hashables = sorted(db_attrs.save_instance_state(obj, self).items())
-        yield from hasher.yield_hashables(db_attrs.save_instance_state(obj, self))
+        yield from hasher.yield_hashables(db_attrs.save_instance_state(obj, type(self)))
 
     def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
         """Determine if two objects are equal"""
         if not isinstance(one, self.TYPE) or not isinstance(other, self.TYPE):
             return False
 
-        return db_attrs.save_instance_state(one, self) == db_attrs.save_instance_state(other, self)
+        return db_attrs.save_instance_state(one, type(self)) ==\
+               db_attrs.save_instance_state(other, type(self))
 
     def save_instance_state(self, obj, saver):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
-        return db_attrs.save_instance_state(obj, self)
+        return db_attrs.save_instance_state(obj, type(self))
 
     def load_instance_state(self, obj, saved_state, loader: 'mincepy.Loader'):  # pylint: disable=unused-argument
         """Take the given blank object and load the instance state into it"""
-        db_attrs.load_instance_state(obj, saved_state, self)
+        db_attrs.load_instance_state(obj, saved_state, type(self))
 
     def get_version(self) -> Optional[int]:
         """Gets the version of the latest migration, returns None if there is not migration"""
