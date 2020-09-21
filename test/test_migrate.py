@@ -38,8 +38,8 @@ def test_migrate_with_saved(historian: mincepy.Historian):
 
     class V3(mincepy.ConvenientSavable):
         TYPE_ID = StoreByRef.TYPE_ID
-        ref = mincepy.db_attr(ref=True)
-        description = mincepy.db_attr()
+        ref = mincepy.field(ref=True)
+        description = mincepy.field()
 
         class Migration(mincepy.ObjectMigration):
             VERSION = 2

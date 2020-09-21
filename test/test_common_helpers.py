@@ -13,7 +13,7 @@ def test_path_helper(historian: mincepy.Historian):
 
     class File(mincepy.ConvenientSavable):
         TYPE_ID = uuid.UUID('8d645bb8-4657-455b-8b61-8613bc8a0acf')
-        path = mincepy.db_attr()
+        path = mincepy.field()
 
         def __init__(self, path):
             super(File, self).__init__()

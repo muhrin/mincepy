@@ -221,7 +221,7 @@ def test_save_as_ref(historian: mincepy.Historian):
 
     class Person(mincepy.ConvenientSavable):
         TYPE_ID = uuid.UUID('692429b6-a08b-489a-aa09-6eb3174b6405')
-        car = mincepy.db_attr(ref=True)  # Save the car by reference
+        car = mincepy.field(ref=True)  # Save the car by reference
 
         def __init__(self, car):
             super().__init__()
@@ -244,7 +244,7 @@ def test_encode_nested(historian: mincepy.Historian):
 
     class CarDelegate(mincepy.SimpleSavable):
         TYPE_ID = uuid.UUID('c0148a43-c0c0-4d2b-9262-ed1c8c6ab2fc')
-        car = mincepy.db_attr()
+        car = mincepy.field()
 
         def __init__(self, car):
             super(CarDelegate, self).__init__()

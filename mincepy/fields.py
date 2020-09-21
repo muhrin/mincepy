@@ -6,11 +6,11 @@ from typing import Union, Dict, Type
 
 from . import refs
 
-__all__ = ('db_attr',)
+__all__ = ('field',)
 
 
-class DbAttr:
-    """Database attribute class.  Provides information about how to store object attributes in the
+class Field:
+    """Database field class.  Provides information about how to store object attributes in the
     database"""
 
     def __init__(self, ref=False, store_as: str = None, attr: str = None):
@@ -18,7 +18,7 @@ class DbAttr:
         Create a database attribute.
 
         :param ref: if True will store the object by reference
-        param store_as: the name to use when storing this attribute in the state dictionary
+        :param store_as: the name to use when storing this attribute in the state dictionary
         :param attr: the name of the class attribute
         """
         self._ref = ref
@@ -29,29 +29,24 @@ class DbAttr:
         self._kwargs = {'ref': ref, 'store_as': store_as, 'attr': attr}
 
     @property
-    def ref(self):
+    def ref(self) -> bool:
+        """If True then this field is stored by reference, otherwise stored by value"""
         return self._ref
 
     @property
-    def db_class(self):
+    def db_class(self) -> type:
+        """The database type that this field belongs to"""
         return self._db_class
 
     @property
-    def attr(self) -> str:
+    def attr_name(self) -> str:
+        """The name of object attribute that this field maps to"""
         return self._attr
 
     @property
-    def store_as(self) -> str:
+    def name(self) -> str:
+        """The name of this field in the database"""
         return self._store_as
-
-    def __get__(self, obj, objtype=None):
-        if obj is None:
-            return self
-
-        try:
-            return obj.__dict__[self._attr]
-        except KeyError:
-            return self
 
     def __gt__(self, other):
         type_id = self.db_class.TYPE_ID
@@ -59,7 +54,7 @@ class DbAttr:
 
     def __call__(self, *args, **kwargs):
         """Means of promoting a database property to be a python property on a class"""
-        return DbProperty(*args, **kwargs, prop_kwargs=self._kwargs)
+        return FieldProperty(*args, **kwargs, prop_kwargs=self._kwargs)
 
     def class_created(self, the_class: type, attr: str):
         """Called by the metaclass when the owning class is created, should only be done once"""
@@ -71,14 +66,11 @@ class DbAttr:
             self._store_as = attr
 
 
-class DbProperty(DbAttr):
+class FieldProperty(Field):
 
     def __init__(self, fget=None, fset=None, fdel=None, doc=None, prop_kwargs=None):
         prop_kwargs = prop_kwargs or {}
-        if prop_kwargs.get('store_as', None) is None:
-            prop_kwargs['store_as'] = fget.__name__
-
-        super(DbProperty, self).__init__(**prop_kwargs)
+        super(FieldProperty, self).__init__(**prop_kwargs)
         self.fget = fget
         self.fset = fset
         self.fdel = fdel
@@ -113,40 +105,40 @@ class DbProperty(DbAttr):
         return type(self)(self.fget, self.fset, fdel, self.__doc__, prop_kwargs=self._kwargs)
 
 
-def db_attr(ref=False, store_as: str = None):
-    return DbAttr(ref=ref, store_as=store_as)
+def field(ref=False, store_as: str = None):
+    return Field(ref=ref, store_as=store_as)
 
 
-class DbTypeMeta(abc.ABCMeta):
+class WithFieldMeta(abc.ABCMeta):
     """Metaclass for database types"""
 
     def __new__(cls, name, bases, namespace, **kwargs):  # pylint: disable=bad-mcs-classmethod-argument
         new_type = super().__new__(cls, name, bases, namespace, **kwargs)
         for key, value in namespace.items():
-            if isinstance(value, DbAttr):
+            if isinstance(value, Field):
                 value.class_created(new_type, key)
         return new_type
 
 
-class DbType(metaclass=DbTypeMeta):  # pylint: disable=too-few-public-methods
-    """Base class for types that describe how to save objects in the database using db attributes"""
+class WithFields(metaclass=WithFieldMeta):  # pylint: disable=too-few-public-methods
+    """Base class for types that describe how to save objects in the database using db fields"""
 
 
-def get_db_attrs(db_type: Type[DbType]) -> Dict[str, DbAttr]:
-    """Given an object this will return all the database attributes as a dictionary where the key is
-    the attribute name"""
+def get_fields(db_type: Type[WithFields]) -> Dict[str, Field]:
+    """Given a WithField type this will return all the database attributes as a dictionary where the
+    key is the attribute name"""
     db_attrs = {}
     for entry in reversed(db_type.__mro__):
         if entry is object:
             continue
         for name, class_attr in entry.__dict__.items():
-            if isinstance(class_attr, DbAttr):
+            if isinstance(class_attr, Field):
                 db_attrs[name] = class_attr
 
     return db_attrs
 
 
-def save_instance_state(obj, db_type: Type[DbType] = None):
+def save_instance_state(obj, db_type: Type[WithFields] = None):
     """Save the instance state of an object.
 
     Given an object this function takes a DbType specifying the attributes to be saved and will used
@@ -154,51 +146,55 @@ def save_instance_state(obj, db_type: Type[DbType] = None):
     itself in which case this argument can be omitted.
     """
     if db_type is None:
-        assert issubclass(type(obj), DbType), \
+        assert issubclass(type(obj), WithFields), \
             "A DbType wasn't passed and obj isn't a DbType instance other"
         db_type = type(obj)
 
-    to_check = get_db_attrs(db_type)
+    to_check = get_fields(db_type)
     state = {}
 
-    for name, class_attr in to_check.items():
+    for name, field_ in to_check.items():
         attr_val = getattr(obj, name)
-        if class_attr.ref:
+        if field_.ref:
             attr_val = refs.ObjRef(attr_val)
 
         # Check if it's still a field because otherwise it hasn't been set yet
-        if attr_val is not class_attr:
-            state[class_attr.store_as] = attr_val
+        if attr_val is not field_:
+            state[field_.name] = attr_val
 
     return state
 
 
 def load_instance_state(obj,
                         state: Union[list, dict],
-                        db_type: Type[DbType] = None,
+                        db_type: Type[WithFields] = None,
                         ignore_missing=True):
     if db_type is None:
-        assert issubclass(type(obj), DbType), \
+        assert issubclass(type(obj), WithFields), \
             "A DbType wasn't passed and obj isn't a DbType instance other"
         db_type = type(obj)
 
+    to_set = {}
     if isinstance(state, dict):
-        db_attrs = {attr.store_as: attr for attr in get_db_attrs(db_type).values()}
+        db_attrs = {attr.name: attr for attr in get_fields(db_type).values()}
 
-        for store_as, attr in db_attrs.items():
+        for field_ in get_fields(db_type).values():
             try:
-                value = state[store_as]
+                value = state[field_.name]
             except KeyError:
                 if ignore_missing:
                     value = None
                 else:
-                    raise
+                    raise ValueError("Saved state missing '{}'".format(field_.name))
 
-            if attr.ref:
+            if field_.ref:
                 assert isinstance(value, refs.ObjRef), \
-                    "Expected to see a reference in the bundle for key " \
-                    "'{}' but got '{}'".format(store_as, value)
+                    "Expected to see a reference in the saved state for key " \
+                    "'{}' but got '{}'".format(field_.name, value)
                 if value:
                     value = value()  # Dereference it
 
-            setattr(obj, attr.attr, value)
+            to_set[field_.attr_name] = value
+
+    for attr_name, value in to_set.items():
+        setattr(obj, attr_name, value)

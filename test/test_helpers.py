@@ -20,7 +20,7 @@ def test_type_helper(historian: mincepy.Historian):
         TYPE = Bird
         TYPE_ID = uuid.UUID('5cc59e03-ea5d-43ff-8814-3b6f2e22cd76')
 
-        specie = mincepy.db_attr()
+        specie = mincepy.field()
 
     bird = Bird()
     with pytest.raises(TypeError):
@@ -82,9 +82,9 @@ class BoatHelper(mincepy.TypeHelper):
     TYPE = Boat
 
     # Describe how to store the properties
-    make = mincepy.db_attr()
-    length = mincepy.db_attr()
-    owner = mincepy.db_attr(ref=True)
+    make = mincepy.field()
+    length = mincepy.field()
+    owner = mincepy.field(ref=True)
 
 
 def test_simple_helper(historian: mincepy.Historian):
@@ -110,7 +110,7 @@ def test_simple_helper(historian: mincepy.Historian):
 
 class Powerboat(Boat):
     TYPE_ID = uuid.UUID('924ef5b2-ce20-40b0-8c98-4da470f6c2c3')
-    horsepower = mincepy.db_attr()
+    horsepower = mincepy.field()
 
     def __init__(self, make: str, length: float, horsepower: float, owner: testing.Person = None):
         super().__init__(make, length, owner)
@@ -121,7 +121,7 @@ class PowerboatHelper(BoatHelper):
     TYPE_ID = uuid.UUID('924ef5b2-ce20-40b0-8c98-4da470f6c2c3')
     TYPE = Powerboat
 
-    horsepower = mincepy.db_attr()
+    horsepower = mincepy.field()
 
 
 def test_subclass_helper(historian: mincepy.Historian):

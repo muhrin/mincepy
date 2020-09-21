@@ -7,8 +7,8 @@ import mincepy
 
 class CarV0(mincepy.ConvenientSavable):
     TYPE_ID = uuid.UUID('297808e4-9bc7-4f0a-9f8d-850a5f558663')
-    colour = mincepy.db_attr()
-    make = mincepy.db_attr()
+    colour = mincepy.field()
+    make = mincepy.field()
 
     def __init__(self, colour: str, make: str):
         super().__init__()
@@ -27,8 +27,8 @@ class CarV0(mincepy.ConvenientSavable):
 
 class CarV1(mincepy.ConvenientSavable):
     TYPE_ID = uuid.UUID('297808e4-9bc7-4f0a-9f8d-850a5f558663')
-    colour = mincepy.db_attr()
-    make = mincepy.db_attr()
+    colour = mincepy.field()
+    make = mincepy.field()
 
     class V0toV1(mincepy.ObjectMigration):
         VERSION = 1
@@ -51,9 +51,9 @@ class CarV1(mincepy.ConvenientSavable):
 
 class CarV2(mincepy.ConvenientSavable):
     TYPE_ID = uuid.UUID('297808e4-9bc7-4f0a-9f8d-850a5f558663')
-    colour = mincepy.db_attr()
-    make = mincepy.db_attr()
-    reg = mincepy.db_attr()  # New attribute
+    colour = mincepy.field()
+    make = mincepy.field()
+    reg = mincepy.field()  # New attribute
 
     class V1toV2(mincepy.ObjectMigration):
         VERSION = 2
@@ -88,7 +88,7 @@ class HatchbackCarV1(CarV1):
 
 class StoreByValue(mincepy.ConvenientSavable):
     TYPE_ID = uuid.UUID('40377bfc-901c-48bb-a85c-1dd692cddcae')
-    ref = mincepy.db_attr()
+    ref = mincepy.field()
 
     def __init__(self, ref):
         super().__init__()
@@ -97,7 +97,7 @@ class StoreByValue(mincepy.ConvenientSavable):
 
 class StoreByRef(mincepy.ConvenientSavable):
     TYPE_ID = uuid.UUID('40377bfc-901c-48bb-a85c-1dd692cddcae')
-    ref = mincepy.db_attr(ref=True)
+    ref = mincepy.field(ref=True)
 
     class ToRefMigration(mincepy.ObjectMigration):
         VERSION = 1
@@ -118,7 +118,7 @@ class StoreByRef(mincepy.ConvenientSavable):
 
 class A(mincepy.ConvenientSavable):
     TYPE_ID = uuid.UUID('a50f21bc-899e-445f-baf7-0a1a373e51fc')
-    migrations = mincepy.db_attr()
+    migrations = mincepy.field()
 
     class Migration(mincepy.ObjectMigration):
         VERSION = 11

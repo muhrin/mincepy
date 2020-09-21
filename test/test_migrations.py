@@ -124,7 +124,7 @@ def test_migrating_live_object(historian: mincepy.Historian):
 
     class V1(mincepy.ConvenientSavable):
         TYPE_ID = uuid.UUID('8b1620f6-dd6d-4d39-b8b1-4433dc2a54df')
-        ref = mincepy.db_attr()
+        ref = mincepy.field()
 
         def __init__(self, obj):
             super().__init__()
@@ -135,7 +135,7 @@ def test_migrating_live_object(historian: mincepy.Historian):
 
     class V2(mincepy.ConvenientSavable):
         TYPE_ID = uuid.UUID('8b1620f6-dd6d-4d39-b8b1-4433dc2a54df')
-        ref = mincepy.db_attr(ref=True)
+        ref = mincepy.field(ref=True)
 
         class V1toV2(mincepy.ObjectMigration):
             VERSION = 1
@@ -212,8 +212,8 @@ def test_lazy_migrating_with_saved(historian: mincepy.Historian):
 
     class V3(mincepy.ConvenientSavable):
         TYPE_ID = uuid.UUID('40377bfc-901c-48bb-a85c-1dd692cddcae')
-        ref = mincepy.db_attr(ref=True)
-        description = mincepy.db_attr()
+        ref = mincepy.field(ref=True)
+        description = mincepy.field()
 
         class Migration(mincepy.ObjectMigration):
             VERSION = 2

@@ -9,8 +9,8 @@ except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 
 import mincepy  # pylint: disable=unused-import
-from . import db_attrs
 from . import depositors
+from . import fields
 from . import tracking
 
 __all__ = 'Savable', 'Comparable', 'Object', 'SavableObject', 'PRIMITIVE_TYPES'
@@ -24,7 +24,7 @@ def is_primitive(obj):
     return isinstance(obj, PRIMITIVE_TYPES)
 
 
-class Savable(db_attrs.DbType):
+class Savable(fields.WithFields):
     """Interface for an object that can save an load its instance state"""
     TYPE_ID = None
     LATEST_MIGRATION = None  # type: mincepy.ObjectMigration
@@ -34,11 +34,11 @@ class Savable(db_attrs.DbType):
 
     def save_instance_state(self, saver: depositors.Saver):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
-        return db_attrs.save_instance_state(self)
+        return fields.save_instance_state(self)
 
     def load_instance_state(self, saved_state, loader: depositors.Loader):  # pylint: disable=unused-argument
         """Take the given object and load the instance state into it"""
-        db_attrs.load_instance_state(self, saved_state)
+        fields.load_instance_state(self, saved_state)
 
 
 class Comparable(metaclass=ABCMeta):
@@ -71,11 +71,11 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
         if not isinstance(other, type(self)):
             return False
 
-        return db_attrs.save_instance_state(self) == db_attrs.save_instance_state(other)
+        return fields.save_instance_state(self) == fields.save_instance_state(other)
 
     def yield_hashables(self, hasher):
         """Produce a hash representing the object"""
-        yield from hasher.yield_hashables(db_attrs.save_instance_state(self))
+        yield from hasher.yield_hashables(fields.save_instance_state(self))
 
 
 class Equator:
