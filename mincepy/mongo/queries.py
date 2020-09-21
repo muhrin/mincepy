@@ -1,6 +1,6 @@
 import functools
 
-from mincepy import q
+from .aggregation import and_, eq_
 from . import db
 
 
@@ -32,10 +32,10 @@ def pipeline_latest_version(data_collection: str) -> list:
                 'pipeline': [{
                     '$match': {
                         '$expr':
-                            q.and_(
+                            and_(
                                 # Match object id and version
-                                q.eq_(oid_var, '$$obj_id'),
-                                q.eq_(ver_var, '$$max_ver')),
+                                eq_(oid_var, '$$obj_id'),
+                                eq_(ver_var, '$$max_ver')),
                     }
                 }],
                 'as': 'latest'

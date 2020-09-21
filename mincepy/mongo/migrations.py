@@ -1,7 +1,7 @@
 import pymongo.database
 
-from mincepy import q
 from . import migrate
+from .aggregation import eq_, and_
 
 
 class Initial(migrate.Migration):
@@ -110,9 +110,9 @@ class CollectionsSplit(migrate.Migration):
                     'pipeline': [{
                         '$match': {
                             '$expr':
-                                q.and_(
-                                    q.eq_('$obj_id', '$$obj_id'),  # Match object id and version
-                                    q.eq_('$ver', '$$max_ver')),
+                                and_(
+                                    eq_('$obj_id', '$$obj_id'),  # Match object id and version
+                                    eq_('$ver', '$$max_ver')),
                         }
                     }],
                     'as': 'latest'

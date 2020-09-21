@@ -3,20 +3,20 @@ from typing import Iterator, Sequence, Iterable
 import mincepy  # pylint: disable=unused-import
 from . import depositors
 from . import helpers
-from . import qops
+from .qops import elem_match_, or_, lt_
 from . import records
 
 __all__ = ('Migrations',)
 
 
 def _state_types_migration_condition(helper: helpers.TypeHelper) -> dict:
-    return qops.elem_match_(
+    return elem_match_(
         **{
             '1':
                 helper.TYPE_ID,  # Type id has to match, and,
-            **qops.or_(
+            **or_(
                 # version has to be less than the current, or,
-                {'2': qops.lt_(helper.get_version())},
+                {'2': lt_(helper.get_version())},
                 # there is no version number
                 {'2': None})
         })
@@ -42,7 +42,7 @@ class Migrations:
 
         # Now, let's look for those records that would need migrating
         archive = self._historian.archive
-        query = qops.or_(*list(map(_state_types_migration_condition, have_migrations)))
+        query = or_(*list(map(_state_types_migration_condition, have_migrations)))
         return archive.find(state_types=query)
 
     def migrate_all(self) -> Sequence[records.DataRecord]:

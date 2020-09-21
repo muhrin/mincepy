@@ -4,7 +4,7 @@ module as a wildcard import.
 """
 
 __all__ = ('and_', 'or_', 'eq_', 'exists_', 'elem_match_', 'gt_', 'gte_', 'in_', 'lt_', 'lte_',
-           'ne_', 'nin_')
+           'ne_', 'nin_', 'Q_')
 
 # region Logical operators
 
@@ -26,12 +26,6 @@ def or_(*conditions) -> dict:
 
 
 # endregion
-
-
-def eq_(one, other) -> dict:
-    """Helper that produces mongo query dict for two items being equal"""
-    return {'$eq': [one, other]}
-
 
 # region Element operators
 
@@ -56,6 +50,11 @@ def elem_match_(**conditions) -> dict:
 # endregion
 
 # region Comparison operators
+
+
+def eq_(value) -> dict:
+    """Helper that produces mongo query dict for two items being equal"""
+    return {'$eq': value}
 
 
 def gt_(quantity) -> dict:
@@ -100,3 +99,34 @@ def nin_(*possibilities) -> dict:
 
 
 # endregion
+
+
+class Q_:  # pylint: disable=invalid-name
+    """A query operations helper class"""
+
+    @staticmethod
+    def __eq__(value):
+        return eq_(value)
+
+    @staticmethod
+    def __gt__(quantity):
+        return gt_(quantity)
+
+    @staticmethod
+    def __ge__(quantity):
+        return gt_(quantity)
+
+    @staticmethod
+    def __lt__(quantity):
+        return lt_(quantity)
+
+    @staticmethod
+    def __le__(quantity):
+        return lte_(quantity)
+
+    @staticmethod
+    def __ne__(value):
+        return ne_(value)
+
+    def __init__(self):
+        raise RuntimeError("Cannot instantiate, this is to be used statically")

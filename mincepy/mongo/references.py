@@ -9,6 +9,7 @@ import pymongo.collection
 import mincepy
 from mincepy import OUTGOING
 from mincepy import q
+from . import aggregation
 from . import db
 from . import types
 
@@ -107,7 +108,7 @@ class ReferenceManager:
         if max_dist is not None and max_dist < 0:
             raise ValueError("max_dist must be positive, got '{}'".format(max_dist))
 
-        pipeline = [{'$match': {'_id': q.in_(*ids)}}]
+        pipeline = [{'$match': {'_id': aggregation.in_(*ids)}}]
 
         if max_dist is None or max_dist != 0:
             lookup_params = {
