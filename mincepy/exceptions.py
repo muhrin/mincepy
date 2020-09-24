@@ -44,3 +44,8 @@ class ReferenceError(IntegrityError):  # pylint: disable=redefined-builtin
     def __init__(self, msg, references: set):
         super().__init__(msg)
         self.references = references
+
+
+class UnorderedError(Exception):
+    """Raised when an operation is attempted that assumed an underlying ordering but the data is
+    unordered"""

@@ -253,8 +253,6 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             # Never saved so the object is as up to date as can be!
             return False
 
-        sid = self._get_latest_snapshot_reference(obj_id)
-
         try:
             record = next(self._archive.find(obj_id=obj_id, version=-1))
         except StopIteration:
@@ -263,7 +261,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if record.is_deleted_record():
             raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(obj_id))
 
-        if sid.version == self.get_snapshot_id(obj).version:
+        if record.version == self.get_snapshot_id(obj).version:
             # Nothing has changed
             return False
 
@@ -685,6 +683,13 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     def _commit_transaction(self, trans: Transaction):
         """Commit a transaction that is finishing"""
+        # Perform the database operations first because if these fail we shouldn't update ourselves
+        # Save any records that were staged for archiving
+        if trans.staged:
+            self._archive.bulk_write(trans.staged)
+
+        # Now all is good we can update
+
         # Live objects
         self._live_objects.update(trans.live_objects)
         # Deleted objects
@@ -698,10 +703,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         for ref, obj in trans.snapshots.items():
             self._snapshots_objects[obj] = ref
 
-        # Save any records that were staged for archiving
-        if trans.staged:
-            self._archive.bulk_write(trans.staged)
-
+        # Finally update the metadata as this is least important
         # Metas
         if trans.metas:
             self._archive.meta_set_many(trans.metas)

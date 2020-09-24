@@ -22,7 +22,7 @@ try:
     # Optional pytest fixtures
 
     @pytest.fixture
-    def archive_uri():
+    def archive_uri() -> str:
         return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
 
     @pytest.fixture
