@@ -46,9 +46,10 @@ except ImportError:
     logger.debug("pytest fixtures missing because pytest isn't installed")
 
 
-class Car(mincepy.SimpleSavable):
+class Car(mincepy.ConvenientSavable):
     TYPE_ID = bson.ObjectId('5e075d6244572f823ed93274')
-    ATTRS = 'colour', 'make'
+    colour = mincepy.field()
+    make = mincepy.field()
 
     def __init__(self, make='ferrari', colour='red'):
         super().__init__()
@@ -56,9 +57,9 @@ class Car(mincepy.SimpleSavable):
         self.colour = colour
 
 
-class Garage(mincepy.SimpleSavable):
+class Garage(mincepy.ConvenientSavable):
     TYPE_ID = bson.ObjectId('5e07b40a44572f823ed9327b')
-    ATTRS = ('car',)
+    car = mincepy.field()
 
     def __init__(self, car=None):
         super().__init__()
@@ -69,9 +70,11 @@ class Garage(mincepy.SimpleSavable):
         return state
 
 
-class Person(mincepy.SimpleSavable):
+class Person(mincepy.ConvenientSavable):
     TYPE_ID = uuid.UUID('d60ca740-9fa6-4002-83f6-e4c91403e41b')
-    ATTRS = 'name', 'age', mincepy.AsRef('car')
+    name = mincepy.field()
+    age = mincepy.field()
+    car = mincepy.field(ref=True)
 
     def __init__(self, name, age, car=None):
         super().__init__()
@@ -80,9 +83,9 @@ class Person(mincepy.SimpleSavable):
         self.car = car
 
 
-class Cycle(mincepy.SimpleSavable):
+class Cycle(mincepy.ConvenientSavable):
     TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
-    ATTRS = ('_ref',)
+    _ref = mincepy.field()
 
     def __init__(self, ref=None):
         super().__init__()

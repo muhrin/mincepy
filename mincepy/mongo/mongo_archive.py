@@ -27,7 +27,7 @@ __all__ = ('MongoArchive', 'connect')
 
 DEFAULT_REFERENCES_COLLECTION = 'references'
 
-scalar_query_spec = mincepy.archives.scalar_query_spec  # pylint: disable=invalid-name
+scalar_query_spec = mincepy.archives.scalar_query_spec
 
 
 class ObjectIdHelper(mincepy.TypeHelper):
@@ -101,7 +101,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         try:
             return bson.ObjectId(value)
         except bson.errors.InvalidId as exc:
-            raise ValueError(str(exc))
+            raise ValueError(str(exc)) from None
 
     def create_file(self, filename: str = None, encoding: str = None):
         return files.GridFsFile(self._file_bucket, filename, encoding)
@@ -229,7 +229,6 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         except pymongo.errors.DuplicateKeyError as exc:
             raise mincepy.DuplicateKeyError(str(exc))
 
-    # pylint: disable=bad-continuation
     def meta_find(
         self,
         filter: dict = None,  # pylint: disable=redefined-builtin
@@ -258,7 +257,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def meta_create_index(self, keys, unique=True, where_exist=False):
         kwargs = {}
         if where_exist:
-            if not isinstance(keys, str) and isinstance(keys, Iterable):
+            if not isinstance(keys, str) and isinstance(keys, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
                 key_names = tuple(entry[0] for entry in keys)
             else:
                 key_names = (keys,)
@@ -315,6 +314,12 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         results = coll.aggregate(pipeline, allowDiskUse=True)
 
+        for result in results:
+            yield db.to_record(result)
+
+    def find_exp(self, records_filter: dict):
+        """Experimental find"""
+        results = self._data_collection.find(records_filter)
         for result in results:
             yield db.to_record(result)
 

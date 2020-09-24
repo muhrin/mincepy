@@ -66,8 +66,8 @@ def _(record: mincepy.DataRecord, exclude_defaults=False) -> dict:
     """Convert a DataRecord to a MongoDB document with our keys"""
     defaults = mincepy.DataRecord.defaults()
     entry = {}
-    for key, item in record._asdict().items():
-        db_key = KEY_MAP[key]
+    for key, item in record.__dict__.items():
+        db_key = KEY_MAP[key]  # pylint: disable=unsubscriptable-object
         # Exclude entries that have the default value
         if not (exclude_defaults and key in defaults and defaults[key] == item):
             entry[db_key] = item
@@ -81,7 +81,7 @@ def _(record: dict, exclude_defaults=False) -> dict:
     defaults = mincepy.DataRecord.defaults()
     entry = {}
     for key, item in record.items():
-        db_key = KEY_MAP[key]
+        db_key = KEY_MAP[key]  # pylint: disable=unsubscriptable-object
         # Exclude entries that have the default value
         if not (exclude_defaults and key in defaults and defaults[key] == item):
             entry[db_key] = item
@@ -100,7 +100,7 @@ def remap(record_dict: dict) -> dict:
 def remap_key(key: str) -> str:
     """Given a key remap it to the names that we use, even if it as a path e.g. state.colour"""
     split_key = key.split('.')
-    base = KEY_MAP[split_key[0]]
+    base = KEY_MAP[split_key[0]]  # pylint: disable=unsubscriptable-object
     split_key[0] = base
     return '.'.join(split_key)
 

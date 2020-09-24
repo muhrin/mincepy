@@ -67,7 +67,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def bulk_write(self, ops: Sequence[operations.Operation]):
-        """Made a collection of write operations to the database"""
+        """Make a collection of write operations to the database"""
 
     # region Metadata
 
@@ -294,7 +294,7 @@ def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> \
     """
     if isinstance(specifier, dict):  # This has to be first as dict is iterable
         return specifier
-    if isinstance(specifier, Iterable):
+    if isinstance(specifier, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
         return q.in_(*specifier)
 
     return specifier

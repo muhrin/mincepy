@@ -2,129 +2,190 @@
 objects"""
 
 import abc
-from typing import Union, Dict, Type
+from typing import Dict, Type
 
-from . import refs
+from . import expr
 
 __all__ = ('field',)
 
+_UNSET = ()
 
-class Field:
-    """Database field class.  Provides information about how to store object attributes in the
-    database"""
 
-    def __init__(self, ref=False, store_as: str = None, attr: str = None):
+class FieldProperties:
+    __slots__ = ('store_as', 'attr_name', 'ref', 'dynamic', 'field_type', 'default', 'extras',
+                 'db_class')
+
+    # pylint: disable=too-many-arguments
+    def __init__(self,
+                 store_as: str = None,
+                 attr: str = None,
+                 ref=False,
+                 dynamic=True,
+                 field_type: Type = None,
+                 default=_UNSET,
+                 extras=None):
         """
-        Create a database attribute.
+        Fixed properties of a field
 
-        :param ref: if True will store the object by reference
-        :param store_as: the name to use when storing this attribute in the state dictionary
+        :param store_as: the name to use for this field when storing in the database
         :param attr: the name of the class attribute
         """
-        self._ref = ref
-        self._store_as = store_as
-        self._attr = attr
-        self._db_class = None
+        if store_as and '.' in store_as:
+            raise ValueError("store_as cannot contain a dot, got '{}'".format(store_as))
 
-        self._kwargs = {'ref': ref, 'store_as': store_as, 'attr': attr}
-
-    @property
-    def ref(self) -> bool:
-        """If True then this field is stored by reference, otherwise stored by value"""
-        return self._ref
-
-    @property
-    def db_class(self) -> type:
-        """The database type that this field belongs to"""
-        return self._db_class
-
-    @property
-    def attr_name(self) -> str:
-        """The name of object attribute that this field maps to"""
-        return self._attr
-
-    @property
-    def name(self) -> str:
-        """The name of this field in the database"""
-        return self._store_as
-
-    def __gt__(self, other):
-        type_id = self.db_class.TYPE_ID
-        return {'type_id': type_id, "state.{}".format(self._store_as): {'$gt': other}}
-
-    def __call__(self, *args, **kwargs):
-        """Means of promoting a database property to be a python property on a class"""
-        return FieldProperty(*args, **kwargs, prop_kwargs=self._kwargs)
+        self.store_as = store_as
+        self.attr_name = attr
+        self.ref = ref
+        self.dynamic = dynamic
+        self.field_type = field_type
+        self.default = default
+        self.extras = extras or {}
+        self.db_class = None
 
     def class_created(self, the_class: type, attr: str):
         """Called by the metaclass when the owning class is created, should only be done once"""
-        assert self._db_class is None, "Cannot call class_created more than once"
+        assert self.db_class is None, "Cannot call class_created more than once"
+        self.db_class = the_class
+        self.attr_name = attr
+        if self.store_as is None:
+            self.store_as = attr
 
-        self._db_class = the_class
-        self._attr = attr
-        if self._store_as is None:
-            self._store_as = attr
 
+class Field(expr.WithQueryContext, expr.Queryable):
+    """Database field class.  Provides information about how to store object attributes in the
+    database"""
+    __doc__ = ''
 
-class FieldProperty(Field):
+    def __init__(self, properties: FieldProperties, path_prefix=''):
+        """
+        Create a attribute field that will be stored in the database
+        """
+        super().__init__()
+        self._properties = properties
+        self.path_prefix = path_prefix
 
-    def __init__(self, fget=None, fset=None, fdel=None, doc=None, prop_kwargs=None):
-        prop_kwargs = prop_kwargs or {}
-        super(FieldProperty, self).__init__(**prop_kwargs)
-        self.fget = fget
-        self.fset = fset
-        self.fdel = fdel
+    def __getattribute__(self, item: str):
+        try:
+            return object.__getattribute__(self, item)
+        except AttributeError as exc:
+            # Dynamically create a new field
+            if item != "__isabstractmethod__":
+                if self._properties.field_type is not None and \
+                        issubclass(self._properties.field_type, WithFields):
+                    properties = get_field_properties(self._properties.field_type)
+                    try:
+                        child_field = type(self)(properties[item], path_prefix=self._get_path())
+                    except KeyError:
+                        raise exc from None
+                    else:
+                        child_field.set_query_context(self._query_context)
+                        return child_field
+
+                if self._dynamic:
+                    new_field = type(self)(self._properties, path_prefix=self._get_path())
+                    new_field.set_query_context(self._query_context)
+                    return new_field
+
+            raise
+
+    def __call__(self, fget=None, fset=None, fdel=None, doc=None, prop_kwargs=None):
+        """This method allows the field to become a property"""
+        self.getter(fget)
+        self.setter(fset)
+        self.deleter(fdel)
         if doc is None and fget is not None:
             doc = fget.__doc__
         self.__doc__ = doc
+        return self
 
     def __get__(self, obj, objtype=None):
         if obj is None:
             return self
-        if self.fget is None:
-            raise AttributeError("unreadable attribute")
-        return self.fget(obj)
+        return self._getter(obj)
 
     def __set__(self, obj, value):
-        if self.fset is None:
+        if self._setter is None:
             raise AttributeError("can't set attribute")
-        self.fset(obj, value)
+        self._setter(obj, value)
 
     def __delete__(self, obj):
-        if self.fdel is None:
+        if self._deleter is None:
             raise AttributeError("can't delete attribute")
-        self.fdel(obj)
+        self._deleter(obj)
 
     def getter(self, fget):
-        return type(self)(fget, self.fset, self.fdel, self.__doc__, prop_kwargs=self._kwargs)
+        setattr(self, '_getter', fget)
+        return self
 
     def setter(self, fset):
-        return type(self)(self.fget, fset, self.fdel, self.__doc__, prop_kwargs=self._kwargs)
+        setattr(self, '_setter', fset)
+        return self
 
     def deleter(self, fdel):
-        return type(self)(self.fget, self.fset, fdel, self.__doc__, prop_kwargs=self._kwargs)
+        setattr(self, '_deleter', fdel)
+        return self
+
+    def _getter(self, obj):
+        """Default getter"""
+        try:
+            return obj.__dict__[self._properties.attr_name]
+        except KeyError:
+            raise AttributeError("unreadable attribute '{}'".format(
+                self._properties.attr_name)) from None
+
+    def _setter(self, obj, value):
+        """Default setter"""
+        obj.__dict__[self._properties.attr_name] = value
+
+    def _delete(self, obj):
+        """Default deleter"""
+        del obj.__dict__[self._properties.attr_name]
+
+    def _get_path(self) -> str:
+        if self.path_prefix:
+            return self.path_prefix + '.' + self._properties.store_as
+
+        return self._properties.store_as
 
 
-def field(ref=False, store_as: str = None):
-    return Field(ref=ref, store_as=store_as)
+def field(store_as: str = None, ref=False, default=_UNSET, type=None):  # pylint: disable=redefined-builtin
+    properties = FieldProperties(ref=ref, store_as=store_as, default=default, field_type=type)
+    return Field(properties)
 
 
 class WithFieldMeta(abc.ABCMeta):
     """Metaclass for database types"""
 
-    def __new__(cls, name, bases, namespace, **kwargs):  # pylint: disable=bad-mcs-classmethod-argument
-        new_type = super().__new__(cls, name, bases, namespace, **kwargs)
+    def __init__(cls, name, bases, namespace, *args, **kwargs):
+        super().__init__(name, bases, namespace, *args, **kwargs)
         for key, value in namespace.items():
             if isinstance(value, Field):
-                value.class_created(new_type, key)
-        return new_type
+                cls.init_field(value, key)
 
 
-class WithFields(metaclass=WithFieldMeta):  # pylint: disable=too-few-public-methods
+class WithFields(metaclass=WithFieldMeta):
     """Base class for types that describe how to save objects in the database using db fields"""
 
+    @classmethod
+    def init_field(cls, obj_field, attr_name: str):
+        obj_field._properties.class_created(cls, attr_name)  # pylint: disable=protected-access
 
-def get_fields(db_type: Type[WithFields]) -> Dict[str, Field]:
+    def __init__(self, **kwargs):
+        for name, field_properties in get_field_properties(type(self)).items():
+            try:
+                passed_value = kwargs.pop(name)
+            except KeyError:
+                # Let's see if there's a default
+                if field_properties.default is not _UNSET:
+                    setattr(self, name, field_properties.default)
+            else:
+                setattr(self, name, passed_value)
+
+        if kwargs:
+            raise ValueError("Got unexpected keyword argument(s) '{}'".format(kwargs))
+
+
+def get_field_properties(db_type: Type[WithFields]) -> Dict[str, FieldProperties]:
     """Given a WithField type this will return all the database attributes as a dictionary where the
     key is the attribute name"""
     db_attrs = {}
@@ -133,68 +194,6 @@ def get_fields(db_type: Type[WithFields]) -> Dict[str, Field]:
             continue
         for name, class_attr in entry.__dict__.items():
             if isinstance(class_attr, Field):
-                db_attrs[name] = class_attr
+                db_attrs[name] = class_attr._properties  # pylint: disable=protected-access
 
     return db_attrs
-
-
-def save_instance_state(obj, db_type: Type[WithFields] = None):
-    """Save the instance state of an object.
-
-    Given an object this function takes a DbType specifying the attributes to be saved and will used
-    these to return a saved sate.  Note, that for regular Savable objects, the db_type is the object
-    itself in which case this argument can be omitted.
-    """
-    if db_type is None:
-        assert issubclass(type(obj), WithFields), \
-            "A DbType wasn't passed and obj isn't a DbType instance other"
-        db_type = type(obj)
-
-    to_check = get_fields(db_type)
-    state = {}
-
-    for name, field_ in to_check.items():
-        attr_val = getattr(obj, name)
-        if field_.ref:
-            attr_val = refs.ObjRef(attr_val)
-
-        # Check if it's still a field because otherwise it hasn't been set yet
-        if attr_val is not field_:
-            state[field_.name] = attr_val
-
-    return state
-
-
-def load_instance_state(obj,
-                        state: Union[list, dict],
-                        db_type: Type[WithFields] = None,
-                        ignore_missing=True):
-    if db_type is None:
-        assert issubclass(type(obj), WithFields), \
-            "A DbType wasn't passed and obj isn't a DbType instance other"
-        db_type = type(obj)
-
-    to_set = {}
-    if isinstance(state, dict):
-        db_attrs = {attr.name: attr for attr in get_fields(db_type).values()}
-
-        for field_ in get_fields(db_type).values():
-            try:
-                value = state[field_.name]
-            except KeyError:
-                if ignore_missing:
-                    value = None
-                else:
-                    raise ValueError("Saved state missing '{}'".format(field_.name))
-
-            if field_.ref:
-                assert isinstance(value, refs.ObjRef), \
-                    "Expected to see a reference in the saved state for key " \
-                    "'{}' but got '{}'".format(field_.name, value)
-                if value:
-                    value = value()  # Dereference it
-
-            to_set[field_.attr_name] = value
-
-    for attr_name, value in to_set.items():
-        setattr(obj, attr_name, value)

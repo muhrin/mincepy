@@ -2,14 +2,16 @@
 in an archive."""
 
 import copy
-from collections import namedtuple
+import collections
 import datetime
+import operator
 import typing
 from typing import Optional, Iterable, Sequence, Union, Tuple, Any, Mapping
 import uuid
 
 import pytray.tree
 
+from . import fields
 from . import utils
 
 __all__ = 'OBJ_ID', 'TYPE_ID', 'CREATION_TIME', 'VERSION', 'STATE', 'SNAPSHOT_TIME', \
@@ -26,7 +28,23 @@ SNAPSHOT_HASH = 'snapshot_hash'
 SNAPSHOT_TIME = 'snapshot_time'
 EXTRAS = 'extras'
 
-SchemaEntry = namedtuple('SchemaEntry', 'type_id version')
+# An ordered tuple of the fields
+DATA_RECORD_FIELDS = \
+    (
+        # Object properties
+        OBJ_ID,  # The ID of the object (spanning all snapshots)
+        TYPE_ID,  # The type ID of this object
+        CREATION_TIME,  # The time this object was created
+        # Snapshot properties
+        VERSION,  # The ID of this particular snapshot of the object
+        STATE,  # The saved state of the object
+        STATE_TYPES,  # The historian types saved in the state
+        SNAPSHOT_HASH,  # The hash of the state
+        SNAPSHOT_TIME,  # The time this snapshot was created
+        EXTRAS,  # Additional data stored with the snapshot
+    )
+
+SchemaEntry = collections.namedtuple('SchemaEntry', 'type_id version')
 
 
 class ExtraKeys:
@@ -42,7 +60,7 @@ DELETED = '!!deleted'  # Special state to denote a deleted record
 IdT = typing.TypeVar('IdT')  # The archive ID type
 
 #: The type ID - this is typically a UUID but can be something else in different contexts
-TypeId = Any  # pylint: disable=invalid-name
+TypeId = Any
 #: A path to a field in in the record.  This is used when traversing a series of containers that can
 #: be either dictionaries or lists and are therefore indexed by strings or integers
 EntryPath = Sequence[Union[str, int]]
@@ -53,6 +71,8 @@ EntryInfo = Tuple[EntryPath, TypeId]
 class SnapshotId(typing.Generic[IdT]):
     """A snapshot id identifies a particular version of an object (and the corresponding record), it
     it therefore composed of the object id and the version number."""
+
+    __slots__ = '_obj_id', '_version'
 
     #: The type id for references
     TYPE_ID = uuid.UUID('633c7035-64fe-4d87-a91e-3b7abd8a6a28')
@@ -95,23 +115,34 @@ class SnapshotId(typing.Generic[IdT]):
 SnapshotRef = SnapshotId
 
 
-class DataRecord(
-        namedtuple(
-            'DataRecord',
-            (
-                # Object properties
-                OBJ_ID,  # The ID of the object (spanning all snapshots)
-                TYPE_ID,  # The type ID of this object
-                CREATION_TIME,  # The time this object was created
-                # Snapshot properties
-                VERSION,  # The ID of this particular snapshot of the object
-                STATE,  # The saved state of the object
-                STATE_TYPES,  # The historian types saved in the state
-                SNAPSHOT_HASH,  # The hash of the state
-                SNAPSHOT_TIME,  # The time this snapshot was created
-                EXTRAS,  # Additional data stored with the snapshot
-            ))):
+def _prop_kwargs(field_name: str) -> dict:
+    """Create the keyword arguments dict for creating a property of a DataRecord"""
+    return dict(fget=operator.itemgetter(DATA_RECORD_FIELDS.index(field_name)), doc=field_name)
+
+
+class DataRecord(fields.WithFields, tuple):
     """An immutable record that describes a snapshot of an object"""
+    __slots__ = ()
+
+    _fields = (OBJ_ID, TYPE_ID, CREATION_TIME, VERSION, STATE, STATE_TYPES, SNAPSHOT_HASH,
+               SNAPSHOT_TIME, EXTRAS)
+
+    obj_id = fields.field()(**_prop_kwargs(OBJ_ID))
+    type_id = fields.field()(**_prop_kwargs(TYPE_ID))
+    creation_time = fields.field(store_as='ctime')(**_prop_kwargs(CREATION_TIME))
+
+    version = fields.field(store_as='ver')(**_prop_kwargs(VERSION))
+    state = fields.field()(**_prop_kwargs(STATE))
+    state_types = fields.field()(**_prop_kwargs(STATE_TYPES))
+    snapshot_hash = fields.field(store_as='hash')(**_prop_kwargs(SNAPSHOT_HASH))
+    snapshot_time = fields.field(store_as='stime')(**_prop_kwargs(SNAPSHOT_TIME))
+    extras = fields.field()(**_prop_kwargs(EXTRAS))
+
+    # pylint: disable=too-many-arguments
+    def __new__(cls, obj_id, type_id, creation_time, version, state, state_types, snapshot_hash,
+                snapshot_time, extras):
+        return tuple.__new__(cls, (obj_id, type_id, creation_time, version, state, state_types,
+                                   snapshot_hash, snapshot_time, extras))
 
     @classmethod
     def defaults(cls) -> dict:
@@ -134,6 +165,19 @@ class DataRecord(
         })
         values.update(kwargs)
         return DataRecordBuilder(cls, values)
+
+    __init__ = object.__init__
+
+    @property
+    def __dict__(self):
+        """A new OrderedDict mapping field names to their values"""
+        return collections.OrderedDict(zip(self._fields, self))
+
+    def _asdict(self):
+        """Return a new OrderedDict which maps field names to their values.
+           This method is obsolete.  Use vars(record) or record.__dict__ instead.
+        """
+        return self.__dict__
 
     @property
     def created_by(self) -> IdT:
@@ -220,7 +264,7 @@ class DataRecord(
 # type of they key e.g. (str, int, int str) could be used to reference a dictionary, then index in
 # list, then index in list and then a string in a dictionary.
 StateSchema = Mapping[tuple, SchemaEntry]
-DataRecordBuilder = utils.NamedTupleBuilder[DataRecord]  # pylint: disable=invalid-name
+DataRecordBuilder = utils.NamedTupleBuilder[DataRecord]
 
 
 def make_deleted_builder(last_record: DataRecord) -> DataRecordBuilder:

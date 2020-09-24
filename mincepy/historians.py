@@ -21,6 +21,7 @@ from . import defaults
 from . import depositors
 from . import refs
 from . import exceptions
+from . import expr
 from . import helpers
 from . import hist
 from . import migrate
@@ -36,7 +37,7 @@ from .transactions import RollbackTransaction, Transaction, LiveObjects
 
 __all__ = 'Historian', 'ObjectEntry'
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
 HistorianType = Union[helpers.TypeHelper, typing.Type[types.SavableObject]]
@@ -257,7 +258,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         try:
             record = next(self._archive.find(obj_id=obj_id, version=-1))
         except StopIteration:
-            raise exceptions.NotFound(obj_id)
+            raise exceptions.NotFound(obj_id) from None
 
         if record.is_deleted_record():
             raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(obj_id))
@@ -289,7 +290,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             except exceptions.ObjectDeleted:
                 # Object deleted already so reraise
                 raise
-            except exceptions.NotFound as exc:
+            except exceptions.NotFound:
                 left_to_find[obj_id] = idx
 
         if left_to_find:
@@ -572,6 +573,11 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             for result in results:
                 yield self.load(result.obj_id)
 
+    def find_exp(self, *exprs):
+        """Experimental find"""
+        query_dict = expr.And(*exprs).query()
+        yield from self.archive.find_exp(query_dict)
+
     def get_creator(self, obj_or_identifier) -> object:
         """Get the object that created the passed object"""
         if not self.is_obj_id(obj_or_identifier):
@@ -595,7 +601,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             try:
                 record = next(self._archive.find(obj_id=obj_or_identifier, version=-1))
             except StopIteration:
-                raise exceptions.NotFound(obj_or_identifier)
+                raise exceptions.NotFound(obj_or_identifier) from None
 
         return record.created_by
 
@@ -705,7 +711,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         try:
             return self._archive.get_snapshot_ids(obj_id)[-1]
         except IndexError:
-            raise exceptions.NotFound("Object with id '{}' not found.".format(obj_id))
+            raise exceptions.NotFound("Object with id '{}' not found.".format(obj_id)) from None
 
     def _load_object(self, obj_id, depositor: depositors.LiveDepositor):
         obj_id = self._ensure_obj_id(obj_id)
@@ -748,7 +754,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             try:
                 helper = self._ensure_compatible(type(obj))
             except TypeError:
-                raise TypeError("Object is incompatible with the historian: {}".format(obj))
+                raise TypeError(
+                    "Object is incompatible with the historian: {}".format(obj)) from None
 
             # Check if an object is already being saved in the transaction
             try:

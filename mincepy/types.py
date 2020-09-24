@@ -10,7 +10,9 @@ except ImportError:  # Python < 3.6
 
 import mincepy  # pylint: disable=unused-import
 from . import depositors
+from . import expr
 from . import fields
+from . import saving
 from . import tracking
 
 __all__ = 'Savable', 'Comparable', 'Object', 'SavableObject', 'PRIMITIVE_TYPES'
@@ -29,16 +31,17 @@ class Savable(fields.WithFields):
     TYPE_ID = None
     LATEST_MIGRATION = None  # type: mincepy.ObjectMigration
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         assert self.TYPE_ID is not None, "Must set the TYPE_ID for an object to be savable"
+        super().__init__(*args, **kwargs)
 
     def save_instance_state(self, saver: depositors.Saver):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
-        return fields.save_instance_state(self)
+        return saving.save_instance_state(self)
 
     def load_instance_state(self, saved_state, loader: depositors.Loader):  # pylint: disable=unused-argument
         """Take the given object and load the instance state into it"""
-        fields.load_instance_state(self, saved_state)
+        saving.load_instance_state(self, saved_state)
 
 
 class Comparable(metaclass=ABCMeta):
@@ -53,7 +56,7 @@ class Comparable(metaclass=ABCMeta):
         """Produce a hash representing the value"""
 
 
-class Object(Comparable, metaclass=ABCMeta):  # pylint: disable=abstract-method
+class Object(Comparable, metaclass=ABCMeta):
     """A simple object that is comparable"""
 
 
@@ -62,8 +65,14 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
 
     _historian = None
 
-    def __init__(self):
-        super().__init__()
+    @classmethod
+    def init_field(cls, field: fields.Field, attr_name: str):
+        super().init_field(field, attr_name)
+        field.set_query_context(expr.Eq('type_id', cls.TYPE_ID))
+        field.path_prefix = 'state'
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         tracking.obj_created(self)
 
     def __eq__(self, other) -> bool:
@@ -71,11 +80,11 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
         if not isinstance(other, type(self)):
             return False
 
-        return fields.save_instance_state(self) == fields.save_instance_state(other)
+        return saving.save_instance_state(self) == saving.save_instance_state(other)
 
     def yield_hashables(self, hasher):
         """Produce a hash representing the object"""
-        yield from hasher.yield_hashables(fields.save_instance_state(self))
+        yield from hasher.yield_hashables(saving.save_instance_state(self))
 
 
 class Equator:
@@ -99,8 +108,8 @@ class Equator:
         self._equators.reverse()
         try:
             self._equators.remove(equator)
-        except ValueError:
-            raise ValueError("Unknown equator '{}'".format(equator))
+        except ValueError as exc:
+            raise ValueError("Unknown equator '{}'".format(equator)) from exc
         finally:
             self._equators.reverse()
 
@@ -121,7 +130,7 @@ class Equator:
                 yield from obj.yield_hashables(self)
             except AttributeError:
                 raise TypeError("No helper registered and no yield_hashabled method on '{}'".format(
-                    type(obj)))
+                    type(obj))) from None
         else:
             yield from equator.yield_hashables(obj, self)
 

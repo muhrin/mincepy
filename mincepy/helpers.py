@@ -6,14 +6,16 @@ import pytray.pretty
 
 import mincepy  # pylint: disable=unused-import, cyclic-import
 from . import exceptions
+from . import expr
 from . import fields
 from . import migrations
+from . import saving
 from . import tracking
 from . import types
 
 __all__ = 'TypeHelper', 'WrapperHelper', 'BaseHelper'
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 def inject_creation_tracking(cls: Type):
@@ -39,12 +41,19 @@ def remove_creation_tracking(cls: Type):
 class TypeHelper(fields.WithFields):
     """This interface provides the basic methods necessary to enable a type to be compatible with
     the historian."""
-    TYPE = None  # The type this helper corresponds to
+    #: The type this helper corresponds to
+    TYPE = None  # type: type
     TYPE_ID = None  # The unique id for this type of object
     IMMUTABLE = False  # If set to true then the object is decoded straight away
     INJECT_CREATION_TRACKING = False
     # The latest migration, if there is one
     LATEST_MIGRATION = None  # type: migrations.ObjectMigration
+
+    @classmethod
+    def init_field(cls, field: fields.Field, attr_name: str):
+        super().init_field(field, attr_name)
+        field.set_query_context(expr.Eq('type_id', cls.TYPE_ID))
+        field.path_prefix = 'state'
 
     def __init__(self):
         assert self.TYPE is not None, "Must set the TYPE to a type of or a tuple of types"
@@ -58,23 +67,23 @@ class TypeHelper(fields.WithFields):
 
     def yield_hashables(self, obj: object, hasher):
         """Yield values from this object that should be included in its hash"""
-        yield from hasher.yield_hashables(fields.save_instance_state(obj, type(self)))
+        yield from hasher.yield_hashables(saving.save_instance_state(obj, type(self)))
 
     def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
         """Determine if two objects are equal"""
-        if not isinstance(one, self.TYPE) or not isinstance(other, self.TYPE):
+        if not isinstance(one, self.TYPE) or not isinstance(other, self.TYPE):  # pylint: disable=isinstance-second-argument-not-valid-type
             return False
 
-        return fields.save_instance_state(one, type(self)) ==\
-               fields.save_instance_state(other, type(self))
+        return saving.save_instance_state(one, type(self)) == \
+               saving.save_instance_state(other, type(self))
 
     def save_instance_state(self, obj, saver):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
-        return fields.save_instance_state(obj, type(self))
+        return saving.save_instance_state(obj, type(self))
 
     def load_instance_state(self, obj, saved_state, loader: 'mincepy.Loader'):  # pylint: disable=unused-argument
         """Take the given blank object and load the instance state into it"""
-        fields.load_instance_state(obj, saved_state, type(self))
+        saving.load_instance_state(obj, saved_state, type(self))
 
     def get_version(self) -> Optional[int]:
         """Gets the version of the latest migration, returns None if there is not migration"""
@@ -156,7 +165,7 @@ class WrapperHelper(TypeHelper):
         self.TYPE = obj_type
         self.TYPE_ID = obj_type.TYPE_ID
         self.LATEST_MIGRATION = obj_type.LATEST_MIGRATION
-        super(WrapperHelper, self).__init__()
+        super().__init__()
 
     def yield_hashables(self, obj, hasher):
         yield from self.TYPE.yield_hashables(obj, hasher)

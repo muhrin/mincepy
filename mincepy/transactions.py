@@ -26,11 +26,11 @@ class LiveObjects:
     def __str__(self):
         return "{} live".format(len(self._objects))
 
-    def __contains__(self, item):
+    def __contains__(self, item: object):
         """Determine if an object instance is in this live objects container"""
         return item in self._records
 
-    def insert(self, obj, record: records.DataRecord):
+    def insert(self, obj: object, record: records.DataRecord):
         self._records[obj] = record
         self._objects[record.obj_id] = obj
 
@@ -41,7 +41,7 @@ class LiveObjects:
         self._records.update(live_objects._records)
         self._objects.update(live_objects._objects)
 
-    def remove(self, obj_id) -> Any:
+    def remove(self, obj_id) -> object:
         """Remove an object from the collection.  Returns the removed object.
 
         :raises: :class:`mincepy.NotFound` if the ID is not found
@@ -49,20 +49,20 @@ class LiveObjects:
         try:
             return self._records.pop(self._objects.pop(obj_id))
         except KeyError:
-            raise exceptions.NotFound(obj_id)
+            raise exceptions.NotFound(obj_id) from None
 
     def get_record(self, obj) -> records.DataRecord:
         try:
             return self._records[obj]
         except KeyError:
-            raise exceptions.NotFound("No live object found '{}'".format(obj))
+            raise exceptions.NotFound("No live object found '{}'".format(obj)) from None
 
     @overload
-    def get_object(self, identifier: records.SnapshotId):  # pylint: disable=no-self-use
+    def get_object(self, identifier: records.SnapshotId):
         ...
 
     @overload
-    def get_object(self, identifier: Any):  # pylint: disable=no-self-use
+    def get_object(self, identifier: Any):
         ...
 
     def get_object(self, identifier: Union[records.SnapshotId, Any]):
@@ -80,14 +80,14 @@ class LiveObjects:
         try:
             return self._objects[identifier]
         except KeyError:
-            raise exceptions.NotFound("No live object with id '{}'".format(identifier))
+            raise exceptions.NotFound("No live object with id '{}'".format(identifier)) from None
 
     def get_snapshot_id(self, obj) -> records.SnapshotId:
         """Given an object, get the snapshot id"""
         try:
             return self._records[obj].snapshot_id
         except KeyError:
-            raise exceptions.NotFound(obj)
+            raise exceptions.NotFound(obj) from None
 
 
 class RollbackTransaction(Exception):
@@ -193,11 +193,11 @@ class Transaction:
             del self._in_progress_cache[snapshot_id]
 
     @overload
-    def get_live_object(self, identifier: records.SnapshotId) -> object:  # pylint: disable=no-self-use
+    def get_live_object(self, identifier: records.SnapshotId) -> object:
         ...
 
     @overload
-    def get_live_object(self, identifier: Any) -> object:  # pylint: disable=no-self-use
+    def get_live_object(self, identifier: Any) -> object:
         ...
 
     def get_live_object(self, identifier: Union[records.SnapshotId, Any]) -> object:
@@ -255,7 +255,7 @@ class Transaction:
         try:
             return self._metas[obj_id]
         except KeyError:
-            raise exceptions.NotFound
+            raise exceptions.NotFound from None
 
     # endregion
 
@@ -266,7 +266,8 @@ class Transaction:
         try:
             return self._snapshots[snapshot_id]
         except KeyError:
-            raise exceptions.NotFound("No snapshot with id '{}' found".format(snapshot_id))
+            raise exceptions.NotFound(
+                "No snapshot with id '{}' found".format(snapshot_id)) from None
 
     def stage(self, op: operations.Operation):  # pylint: disable=invalid-name
         """Stage an operation to be carried out on completion of this transaction"""
@@ -313,7 +314,7 @@ class Transaction:
 class NestedTransaction(Transaction):
 
     def __init__(self, parent: Transaction):
-        super(NestedTransaction, self).__init__()
+        super().__init__()
         self._parent = parent
 
     def __str__(self):
@@ -339,13 +340,13 @@ class NestedTransaction(Transaction):
 
     def get_snapshot(self, snapshot_id):
         try:
-            return super(NestedTransaction, self).get_snapshot(snapshot_id)
+            return super().get_snapshot(snapshot_id)
         except exceptions.NotFound:
             return self._parent.get_snapshot(snapshot_id)
 
     def get_meta(self, obj_id) -> dict:
         try:
-            return super(NestedTransaction, self).get_meta(obj_id)
+            return super().get_meta(obj_id)
         except exceptions.NotFound:
             return self._parent.get_meta(obj_id)
 
