@@ -1,6 +1,7 @@
-from typing import Iterator
+from typing import Iterator, Iterable
 
 from mincepy import archives  # pylint: disable=unused-import
+from mincepy import exceptions
 from mincepy import records
 
 __all__ = ('Records',)
@@ -37,19 +38,8 @@ class Records:
         :param skip: the page to get results from
         """
         # pylint: disable=too-many-arguments
-        type_id = obj_type
-        if obj_type is not None:
-            try:
-                type_id = self._historian.get_obj_type_id(obj_type)
-            except TypeError:
-                pass
-
-        if obj_id is not None:
-            # Convert object ids to the expected type before passing to archive
-            if isinstance(obj_id, list):
-                obj_id = list(self._historian._ensure_obj_id(oid) for oid in obj_id)  # pylint: disable=protected-access
-            else:
-                obj_id = self._historian._ensure_obj_id(obj_id)  # pylint: disable=protected-access
+        type_id = self._prepare_type_id(obj_type)
+        obj_id = self._prepare_obj_id(obj_id)
 
         results = self._archive.find(obj_id=obj_id,
                                      type_id=type_id,
@@ -83,22 +73,11 @@ class Records:
         # Build up the filter
         record_filter = {}
         if obj_type is not None:
-            if obj_type is not None:
-                try:
-                    type_id = self._historian.get_obj_type_id(obj_type)
-                except TypeError:
-                    type_id = obj_type
-
-            record_filter[records.TYPE_ID] = type_id
+            record_filter[records.TYPE_ID] = self._prepare_type_id(obj_type)
 
         if obj_id is not None:
             # Convert object ids to the expected type before passing to archive
-            if isinstance(obj_id, list):
-                obj_id = list(self._historian._ensure_obj_id(oid) for oid in obj_id)  # pylint: disable=protected-access
-            else:
-                obj_id = self._historian._ensure_obj_id(obj_id)  # pylint: disable=protected-access
-
-            record_filter[records.OBJ_ID] = obj_id
+            record_filter[records.OBJ_ID] = self._prepare_obj_id(obj_id)
 
         if version is not None:
             record_filter[records.VERSION] = version
@@ -110,3 +89,30 @@ class Records:
             record_filter[records.EXTRAS] = extras
 
         yield from self._archive.distinct(key, record_filter)
+
+    def _prepare_obj_id(self, obj_id):
+        if obj_id is None:
+            return None
+
+        # Convert object ids to the expected type before passing to archive
+        try:
+            return self._historian._ensure_obj_id(obj_id)  # pylint: disable=protected-access
+        except exceptions.NotFound as exc:
+            # Maybe it is multiple object ids
+            if not isinstance(obj_id, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
+                raise TypeError("Cannot get object id(s) from '{}'".format(obj_id)) from exc
+
+            return list(map(self._historian._ensure_obj_id, obj_id))  # pylint: disable=protected-access
+
+    def _prepare_type_id(self, obj_type):
+        if obj_type is None:
+            return None
+
+        try:
+            return self._historian.get_obj_type_id(obj_type)
+        except TypeError as exc:
+            # Maybe it is multiple type ids
+            if not isinstance(obj_type, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
+                raise TypeError("Cannot get type id(s) from '{}'".format(obj_type)) from exc
+
+            return list(map(self._historian.get_obj_type_id, obj_type))

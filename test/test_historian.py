@@ -163,7 +163,7 @@ def test_delete_referenced(historian: mincepy.Historian):
     except mincepy.ReferenceError as exc:
         assert exc.references == {car.obj_id}
     else:
-        assert "Reference error should have been raised"
+        assert False, "Reference error should have been raised"
 
     historian.delete(garage)
     # Now safe to delete car
@@ -175,3 +175,28 @@ def test_delete_referenced(historian: mincepy.Historian):
 
     # Now, check that deleting both together works
     historian.delete(car, garage)
+
+
+def test_find_arg_types(historian: mincepy.Historian):
+    """Test the argument types accepted by the historian find() method"""
+    red_ferrari = testing.Car(colour='red', make='ferrari')
+    green_ferrari = testing.Car(colour='green', make='ferrari')
+    red_honda = testing.Car(colour='red', make='honda')
+    martin = testing.Person(name='martin', age=35, car=red_honda)
+
+    red_ferrari_id, green_ferrari_id, red_honda_id = \
+        historian.save(red_ferrari, green_ferrari, red_honda)
+    martin_id = martin.save()
+
+    # Test different possibilities for object ids being passed
+    list(historian.find(obj_id=red_ferrari_id))
+    list(historian.find(obj_id=[red_ferrari_id, green_ferrari_id, martin_id, red_honda_id]))
+    list(historian.find(obj_id=(red_ferrari_id, green_ferrari_id, martin_id, red_honda_id)))
+    list(historian.find(obj_id=str(red_ferrari_id)))
+
+    # Test object types
+    list(historian.find(obj_type=testing.Person))
+    list(historian.find(obj_type=[testing.Person, testing.Car]))
+    list(historian.find(obj_type=(testing.Person, testing.Car)))
+    list(historian.find(obj_type=testing.Person.TYPE_ID))
+    list(historian.find(obj_type=[testing.Person.TYPE_ID, testing.Car.TYPE_ID]))

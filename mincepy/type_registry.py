@@ -36,6 +36,10 @@ class TypeRegistry:
         return helper
 
     def get_type_id(self, obj_type: SavableObjectType):
+        if obj_type in self._type_ids:
+            # We've been passed a known type id
+            return obj_type
+
         try:
             # Try a direct lookup first
             return self._helpers[obj_type].TYPE_ID
@@ -44,7 +48,8 @@ class TypeRegistry:
             for type_id, known_type in self._type_ids.items():
                 if issubclass(obj_type, known_type):
                     return type_id
-            raise ValueError("Type '{}' is not known".format(obj_type))
+
+        raise ValueError("Type '{}' is not known".format(obj_type))
 
     def get_helper(self, type_id_or_type) -> helpers.TypeHelper:
         if isinstance(type_id_or_type, type):
@@ -56,7 +61,7 @@ class TypeRegistry:
         try:
             return self.get_helper_from_obj_type(self._type_ids[type_id])
         except KeyError:
-            raise TypeError("Type id '{}' not known".format(type_id))
+            raise TypeError("Type id '{}' not known".format(type_id)) from None
 
     def get_helper_from_obj_type(self, obj_type: SavableObjectType) -> helpers.TypeHelper:
         try:
@@ -67,7 +72,7 @@ class TypeRegistry:
             for known_type, helper in self._helpers.items():
                 if issubclass(obj_type, known_type):
                     return helper
-            raise ValueError("Type '{}' has not been registered".format(obj_type))
+            raise ValueError("Type '{}' has not been registered".format(obj_type)) from None
 
     def get_version_info(self, type_id_or_type) -> collections.OrderedDict:
         """Get version information about a type.  This will return a reverse mro ordered dictionary
@@ -107,7 +112,7 @@ class TypeRegistry:
 
     def _insert_helper(self, helper: helpers.TypeHelper):
         """Insert a helper into the registry for all the types that it supports"""
-        obj_types = helper.TYPE if isinstance(helper.TYPE, Iterable) else (helper.TYPE,)
+        obj_types = helper.TYPE if isinstance(helper.TYPE, Iterable) else (helper.TYPE,)  # pylint: disable=isinstance-second-argument-not-valid-type
 
         for obj_type in obj_types:
             self._helpers[obj_type] = helper
