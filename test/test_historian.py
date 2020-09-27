@@ -200,7 +200,7 @@ def test_find_arg_types(historian: mincepy.Historian):
     list(historian.find(obj_type=(testing.Person, testing.Car)))
     list(historian.find(obj_type=testing.Person.TYPE_ID))
     list(historian.find(obj_type=[testing.Person.TYPE_ID, testing.Car.TYPE_ID]))
-    
+
 
 def test_concurrent_modification(historian: mincepy.Historian, archive_uri: str):
     # Create a second historian connected to the same archive

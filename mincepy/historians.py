@@ -1,5 +1,6 @@
-from collections import namedtuple
+import collections
 import contextlib
+import functools
 
 try:
     from contextlib import nullcontext
@@ -9,7 +10,7 @@ import getpass
 import logging
 import socket
 import typing
-from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type, Dict
+from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type, Dict, Callable
 import weakref
 import warnings
 
@@ -39,7 +40,7 @@ __all__ = 'Historian', 'ObjectEntry'
 
 logger = logging.getLogger(__name__)
 
-ObjectEntry = namedtuple('ObjectEntry', 'ref obj')
+ObjectEntry = collections.namedtuple('ObjectEntry', 'ref obj')
 HistorianType = Union[helpers.TypeHelper, typing.Type[types.SavableObject]]
 
 
@@ -105,7 +106,10 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._meta = hist.Meta(self, self._archive)
         self._migrate = migrate.Migrations(self)
         self._references = hist.References(self)
-        self._records = hist.Records(self)
+
+        self._records = hist.Records(
+            self._archive, self._prepare_obj_id, self._prepare_type_id,
+            self._create_loadable_record)  # type: hist.records.Records[LoadableRecord]
 
     @property
     def archive(self):
@@ -222,6 +226,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     def load_snapshot(self, snapshot_id: recordsm.SnapshotId) -> object:
         return self._new_snapshot_depositor().load(snapshot_id)
+
+    def load_snapshot_from_record(self, record: recordsm.DataRecord) -> object:
+        return self._new_snapshot_depositor().load_from_record(record)
 
     def load(self, *obj_id_or_snapshot_id):
         """Load object(s) or snapshot(s)."""
@@ -550,30 +557,21 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if version != -1:
             warnings.warn("The find() kwarg 'version' will be deprecated in version 0.16")
 
-        if not sort and not skip and not meta and not limit:
-            # Optimisation: get the object ids from distinct to avoid loading the records until
-            # the load() call
-            for oid in self.records.distinct(recordsm.OBJ_ID,
-                                             obj_type=obj_type,
-                                             obj_id=obj_id,
-                                             version=version,
-                                             state=state):
-                yield self.load(oid)
-        else:
-            results = self.records.find(obj_type=obj_type,
-                                        obj_id=obj_id,
-                                        version=version,
-                                        state=state,
-                                        meta=meta,
-                                        sort=sort,
-                                        limit=limit,
-                                        skip=skip)
-            for result in results:
-                yield self.load(result.obj_id)
+        results = self.records.find(obj_type=obj_type,
+                                    obj_id=obj_id,
+                                    version=version,
+                                    state=state,
+                                    meta=meta,
+                                    sort=sort,
+                                    limit=limit,
+                                    skip=skip)
+
+        for record in results:
+            yield self._load_object_from_record(self._live_depositor, record)
 
     def find_exp(self, *exprs):
         """Experimental find"""
-        query_dict = expr.And(*exprs).query()
+        query_dict = expr.qfilter(expr.And(*exprs))
         yield from self.archive.find_exp(query_dict)
 
     def get_creator(self, obj_or_identifier) -> object:
@@ -708,22 +706,37 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if trans.metas:
             self._archive.meta_set_many(trans.metas)
 
-    def _get_latest_snapshot_reference(self, obj_id) -> recordsm.SnapshotId:
-        """Given an object id this will return a reference to the latest snapshot"""
+    def _load_object_from_record(self, depositor: depositors.LiveDepositor,
+                                 record: recordsm.DataRecord):
+        # Try getting the object from the our dict of up to date ones
+        obj_id = record.obj_id
         try:
-            return self._archive.get_snapshot_ids(obj_id)[-1]
-        except IndexError:
-            raise exceptions.NotFound("Object with id '{}' not found.".format(obj_id)) from None
+            return self.get_obj(obj_id)
+        except exceptions.NotFound:
+            pass
+
+        with self.in_transaction() as trans:
+
+            if trans.is_deleted(obj_id):
+                raise exceptions.ObjectDeleted(obj_id)
+
+            if record.is_deleted_record():
+                raise exceptions.ObjectDeleted(obj_id)
+
+            logger.debug("Loading object from record: %s", record.snapshot_id)
+            # Ok, just use the one from the archive
+            return depositor.load_from_record(record)
 
     def _load_object(self, obj_id, depositor: depositors.LiveDepositor):
         obj_id = self._ensure_obj_id(obj_id)
 
+        # Try getting the object from the our dict of up to date ones
+        try:
+            return self.get_obj(obj_id)
+        except exceptions.NotFound:
+            pass
+
         with self.in_transaction() as trans:
-            # Try getting the object from the our dict of up to date ones
-            try:
-                return trans.get_live_object(obj_id)
-            except exceptions.NotFound:
-                pass
 
             if trans.is_deleted(obj_id):
                 raise exceptions.ObjectDeleted(obj_id)
@@ -833,6 +846,37 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return self._type_registry.get_helper_from_obj_type(obj_type)
 
+    def _prepare_obj_id(self, obj_id):
+        if obj_id is None:
+            return None
+
+        # Convert object ids to the expected type before passing to archive
+        try:
+            return self._ensure_obj_id(obj_id)
+        except exceptions.NotFound as exc:
+            # Maybe it is multiple object ids
+            if not isinstance(obj_id, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
+                raise TypeError("Cannot get object id(s) from '{}'".format(obj_id)) from exc
+
+            return list(map(self._ensure_obj_id, obj_id))
+
+    def _prepare_type_id(self, obj_type):
+        if obj_type is None:
+            return None
+
+        try:
+            return self.get_obj_type_id(obj_type)
+        except TypeError as exc:
+            # Maybe it is multiple type ids
+            if not isinstance(obj_type, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
+                raise TypeError("Cannot get type id(s) from '{}'".format(obj_type)) from exc
+
+            return list(map(self.get_obj_type_id, obj_type))
+
+    def _create_loadable_record(self, record: recordsm.DataRecord) -> 'LoadableRecord':
+        load_obj = functools.partial(self._load_object_from_record, self._live_depositor)
+        return LoadableRecord(record, self.load_snapshot_from_record, load_obj)
+
     @contextlib.contextmanager
     def _saving(self, obj):
         obj_id = id(obj)
@@ -854,3 +898,28 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     def _new_snapshot_depositor(self):
         return depositors.SnapshotLoader(self)
+
+
+class SnapshotLoadableRecord(recordsm.DataRecord):
+
+    def __new__(cls, record: recordsm.DataRecord, snapshot_loader: Callable[[recordsm.DataRecord],
+                                                                            object]):
+        loadable = super().__new__(cls, **record.__dict__)
+        loadable._snapshot_loader = snapshot_loader
+        return loadable
+
+    def load_snapshot(self) -> object:
+        return self._snapshot_loader(self)
+
+
+class LoadableRecord(SnapshotLoadableRecord):
+
+    def __new__(cls, record: recordsm.DataRecord, snapshot_loader: Callable[[recordsm.DataRecord],
+                                                                            object],
+                obj_loader: Callable[[recordsm.DataRecord], object]):
+        loadable = super().__new__(cls, record, snapshot_loader)
+        loadable._obj_loader = obj_loader
+        return loadable
+
+    def load(self) -> object:
+        return self._obj_loader(self)

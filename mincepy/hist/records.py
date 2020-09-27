@@ -1,18 +1,20 @@
-from typing import Iterator, Iterable
+from typing import Iterator, Callable, Any
 
-from mincepy import archives  # pylint: disable=unused-import
-from mincepy import exceptions
+from mincepy import archives
 from mincepy import records
 
 __all__ = ('Records',)
 
 
 class Records:
-    """A class that provides access to a historian's records"""
+    """A class that provides access to an archive's records"""
 
-    def __init__(self, historian):
-        self._historian = historian
-        self._archive = self._historian.archive  # type: archives.Archive
+    def __init__(self, archive: archives.Archive, prepare_obj_id: Callable,
+                 prepare_type_id: Callable, record_factory: Callable[[records.DataRecord], Any]):
+        self._archive = archive
+        self._prepare_obj_id = prepare_obj_id
+        self._prepare_type_id = prepare_type_id
+        self._record_factory = record_factory
 
     def find(self,
              obj_type=None,
@@ -23,7 +25,7 @@ class Records:
              extras: dict = None,
              sort=None,
              limit=0,
-             skip=0) -> Iterator[records.DataRecord]:
+             skip=0) -> Iterator[Any]:
         """Find records
 
         :param obj_type: the object type to look for
@@ -50,7 +52,9 @@ class Records:
                                      sort=sort,
                                      limit=limit,
                                      skip=skip)
-        yield from results
+
+        for result in results:
+            yield self._record_factory(result)
 
     # pylint: disable=too-many-arguments
     def distinct(self,
@@ -89,30 +93,3 @@ class Records:
             record_filter[records.EXTRAS] = extras
 
         yield from self._archive.distinct(key, record_filter)
-
-    def _prepare_obj_id(self, obj_id):
-        if obj_id is None:
-            return None
-
-        # Convert object ids to the expected type before passing to archive
-        try:
-            return self._historian._ensure_obj_id(obj_id)  # pylint: disable=protected-access
-        except exceptions.NotFound as exc:
-            # Maybe it is multiple object ids
-            if not isinstance(obj_id, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
-                raise TypeError("Cannot get object id(s) from '{}'".format(obj_id)) from exc
-
-            return list(map(self._historian._ensure_obj_id, obj_id))  # pylint: disable=protected-access
-
-    def _prepare_type_id(self, obj_type):
-        if obj_type is None:
-            return None
-
-        try:
-            return self._historian.get_obj_type_id(obj_type)
-        except TypeError as exc:
-            # Maybe it is multiple type ids
-            if not isinstance(obj_type, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
-                raise TypeError("Cannot get type id(s) from '{}'".format(obj_type)) from exc
-
-            return list(map(self._historian.get_obj_type_id, obj_type))

@@ -3,7 +3,15 @@
 import abc
 
 
-class Expr(metaclass=abc.ABCMeta):
+class QueryLike(metaclass=abc.ABCMeta):
+    """An abstract base class for objects representing a pyos path, e.g. pyos.pathlib.PurePath."""
+
+    @abc.abstractmethod
+    def __qfilter__(self) -> dict:
+        """Return the pyos path representation of the object."""
+
+
+class Expr(QueryLike, metaclass=abc.ABCMeta):
     """The base class for query (sub) expressions"""
 
     @property
@@ -16,6 +24,9 @@ class Expr(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def query(self) -> dict:
         """Get the expression as a query dictionary"""
+
+    def __qfilter__(self) -> dict:
+        return self.query()
 
     def __and__(self, other: 'Expr') -> 'And':
         if not isinstance(other, Expr):
@@ -239,3 +250,30 @@ class WithQueryContext:
         if self._query_context is None:
             return expr
         return And(self._query_context, expr)
+
+
+def qfilter(query) -> dict:
+    """Return a query specification (dict)
+
+    If a dict is passed is is returned unaltered.
+    Otherwise __qspec__() is called and its value is returned as long as it is a dict. In all other
+    cases, TypeError is raised."""
+    if isinstance(query, dict):
+        return query
+
+    # Work from the object's type to match method resolution of other magic methods.
+    query_type = type(query)
+    try:
+        query_repr = query_type.__qfilter__(query)
+    except AttributeError:
+        if hasattr(query_type, '__qspec__'):
+            raise
+
+        raise TypeError("expected dict or object with __qspec__, not " + query_type.__name__) from None
+
+    if isinstance(query_repr, dict):
+        return query_repr
+
+    raise TypeError("expected {}.__qspec__() to return dict, not {}".format(
+        query_type.__name__,
+        type(query_repr).__name__))

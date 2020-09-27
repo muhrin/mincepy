@@ -5,8 +5,7 @@ import copy
 import collections
 import datetime
 import operator
-import typing
-from typing import Optional, Iterable, Sequence, Union, Tuple, Any, Mapping
+from typing import Optional, Iterable, Sequence, Union, Tuple, Any, Mapping, TypeVar, Generic
 import uuid
 
 import pytray.tree
@@ -57,7 +56,7 @@ class ExtraKeys:
 
 DELETED = '!!deleted'  # Special state to denote a deleted record
 
-IdT = typing.TypeVar('IdT')  # The archive ID type
+IdT = TypeVar('IdT')  # The archive ID type
 
 #: The type ID - this is typically a UUID but can be something else in different contexts
 TypeId = Any
@@ -68,7 +67,7 @@ EntryPath = Sequence[Union[str, int]]
 EntryInfo = Tuple[EntryPath, TypeId]
 
 
-class SnapshotId(typing.Generic[IdT]):
+class SnapshotId(Generic[IdT]):
     """A snapshot id identifies a particular version of an object (and the corresponding record), it
     it therefore composed of the object id and the version number."""
 

@@ -11,6 +11,9 @@ import mincepy.testing
 from . import utils
 
 
+# pylint: disable=invalid-name
+
+
 def insert_cars(historian: mincepy.Historian, num=100, in_transaction=False):
     """Insert a number of cars into the database, optionally in a transaction so they all get
     inserted in one go."""
@@ -50,6 +53,17 @@ def test_find_cars(historian: mincepy.Historian, benchmark, num):
 
     result = benchmark(find, historian, state=dict(make='honda', colour='green'))
     assert len(result) == 1
+
+
+@pytest.mark.parametrize("num", [10**i for i in range(5)])
+def test_find_many_cars(historian: mincepy.Historian, benchmark, num):
+    """Test finding a car as a function of the number of entries in the database"""
+    # Put in the correct number of random other entries
+    for _ in range(num):
+        historian.save(Car(utils.random_str(10), utils.random_str(5)))
+
+    result = benchmark(find, historian)
+    assert len(result) == num
 
 
 @pytest.mark.parametrize("num", [5**i for i in range(1, 4)])
