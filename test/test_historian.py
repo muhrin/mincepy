@@ -225,3 +225,28 @@ def test_concurrent_modification(historian: mincepy.Historian, archive_uri: str)
     # Now, let's sync up
     assert historian2.sync(ferrari2), "ferrari2 hasn't been updated"
     assert ferrari2.colour == 'yellow'
+
+
+def test_snapshots_collection(historian: mincepy.Historian):
+    ferrari = testing.Car(colour='red', make='ferrari')
+    ferrari_id = ferrari.save()
+
+    records = list(historian.snapshots.records.find())
+    assert len(records) == 1
+
+    snapshots = list(historian.snapshots.find())
+    assert len(snapshots) == 1
+    assert snapshots[0] == ferrari
+
+    ferrari.colour = 'brown'
+    ferrari.save()
+
+    records = list(historian.snapshots.records.find())
+    assert len(records) == 2
+
+    snapshots = list(historian.snapshots.find())
+    assert len(snapshots) == 2
+    assert set(car.colour for car in snapshots) == {'red', 'brown'}
+
+    assert historian.snapshots.records.find(Car.colour == 'brown',
+                                            obj_id=ferrari_id).one().version == 1

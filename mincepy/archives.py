@@ -41,6 +41,16 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     def get_id_type(cls) -> Type[IdT]:
         """Get the type used as an ID by this archive"""
 
+    @property
+    @abc.abstractmethod
+    def snapshots(self) -> 'RecordCollection':
+        """Access the snapshots collection"""
+
+    @property
+    @abc.abstractmethod
+    def objects(self) -> 'RecordCollection':
+        """Access the objects collection"""
+
     @abc.abstractmethod
     def create_archive_id(self) -> IdT:
         """Create a new archive id"""
@@ -298,3 +308,45 @@ def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> \
         return q.in_(*specifier)
 
     return specifier
+
+
+class Collection(metaclass=abc.ABCMeta):
+
+    @abc.abstractmethod
+    def find(self, qfilter: dict, *, limit=0, sort=None, skip=0, **kwargs) -> Iterator[dict]:
+        """Find entries matching the given criteria"""
+
+    @abc.abstractmethod
+    def distinct(
+            self,
+            key: str,
+            filter: dict = None,
+            **kwargs  # pylint: disable=redefined-builtin
+    ) -> Iterator:
+        """Get distinct values of the given entry key
+
+        :param key: the key to find distinct values for
+        :param filter: an optional filter to restrict the search to
+        """
+
+
+class RecordCollection(Collection):
+
+    @abc.abstractmethod
+    def find(self,
+             qfilter: dict,
+             *,
+             meta: dict = None,
+             limit=0,
+             sort=None,
+             skip=0) -> Iterator[dict]:
+        """Find all records matching the given criteria"""
+
+    @abc.abstractmethod
+    def distinct(
+        self,
+        key: str,
+        filter: dict = None,  # pylint: disable=redefined-builtin
+        meta: dict = None,
+    ) -> Iterator[dict]:
+        """Find all records matching the given criteria"""

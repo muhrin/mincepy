@@ -81,8 +81,10 @@ class Field(expr.WithQueryContext, expr.Queryable):
                         child_field.set_query_context(self._query_context)
                         return child_field
 
-                if self._dynamic:
-                    new_field = type(self)(self._properties, path_prefix=self._get_path())
+                if self._properties.dynamic:
+                    # Creating a dynamic child
+                    new_field = type(self)(FieldProperties(store_as=item, attr=item, dynamic=True),
+                                           path_prefix=self._get_path())
                     new_field.set_query_context(self._query_context)
                     return new_field
 

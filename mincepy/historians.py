@@ -1,6 +1,5 @@
 import collections
 import contextlib
-import functools
 
 try:
     from contextlib import nullcontext
@@ -12,12 +11,12 @@ import socket
 import typing
 from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type, Dict, Callable
 import weakref
-import warnings
 
 import deprecation
 
 from . import archives
 from . import builtins
+from . import db
 from . import defaults
 from . import depositors
 from . import refs
@@ -68,7 +67,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         Has same signature as py:meth:`mincepy.Records.find`.
         """
-        yield from self._records.find(*args, **kwargs)
+        yield from self.records.find(*args, **kwargs)
 
     @deprecation.deprecated(deprecated_in="0.15.10",
                             removed_in="0.17.0",
@@ -79,7 +78,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         Has same signature as py:meth:`mincepy.Records.distinct`.
         """
-        yield from self._records.distinct(*args, **kwargs)
+        yield from self.records.distinct(*args, **kwargs)
 
     def __init__(self, archive: archives.Archive, equators=()):
         self._archive = archive
@@ -107,9 +106,20 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._migrate = migrate.Migrations(self)
         self._references = hist.References(self)
 
-        self._records = hist.Records(
-            self._archive, self._prepare_obj_id, self._prepare_type_id,
-            self._create_loadable_record)  # type: hist.records.Records[LoadableRecord]
+        self._snapshots = db.ObjectCollection(
+            self._archive.snapshots,
+            record_factory=lambda record_dict: SnapshotLoadableRecord(
+                record_dict, self.load_snapshot_from_record),
+            obj_loader=self.load_snapshot_from_record,
+            type_id_factory=self._prepare_type_id,
+            obj_id_factory=self._prepare_obj_id)
+        self._objects = db.ObjectCollection(
+            self._archive.objects,
+            record_factory=lambda record_dict: LoadableRecord(
+                record_dict, self.load_snapshot_from_record, self._load_object_from_record),
+            obj_loader=self._load_object_from_record,
+            type_id_factory=self._prepare_type_id,
+            obj_id_factory=self._prepare_obj_id)
 
     @property
     def archive(self):
@@ -131,14 +141,24 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self._migrate
 
     @property
-    def records(self) -> hist.Records:
+    def records(self) -> db.EntriesCollection['LoadableRecord']:
         """Access methods and properties that act on and return data records"""
-        return self._records
+        return self._objects.records
+
+    @property
+    def objects(self) -> db.ObjectCollection:
+        """Access the snapshots"""
+        return self._objects
 
     @property
     def references(self) -> hist.References:
         """Access the references possibilities"""
         return self._references
+
+    @property
+    def snapshots(self) -> db.ObjectCollection:
+        """Access the snapshots"""
+        return self._snapshots
 
     def create_file(self, filename: str = None, encoding: str = None) -> builtins.BaseFile:
         """Create a new file.  The historian will supply file type compatible with the archive in
@@ -508,7 +528,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     # endregion
 
+    # pylint: disable=redefined-builtin
     def find(self,
+             *filter: expr.FilterSpec,
              obj_type=None,
              obj_id=None,
              version: int = -1,
@@ -516,7 +538,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
              meta: dict = None,
              sort=None,
              limit=0,
-             skip=0) -> Iterator[Any]:
+             skip=0) -> db.ResultSet[object]:
         """
         .. _MongoDB: https://docs.mongodb.com/manual/tutorial/query-documents/
 
@@ -553,25 +575,21 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         :param limit: the maximum number of results to return, 0 means unlimited
         :param skip: the page to get results from
         """
-        # pylint: disable=too-many-arguments
-        if version != -1:
-            warnings.warn("The find() kwarg 'version' will be deprecated in version 0.16")
-
-        results = self.records.find(obj_type=obj_type,
-                                    obj_id=obj_id,
-                                    version=version,
-                                    state=state,
-                                    meta=meta,
-                                    sort=sort,
-                                    limit=limit,
-                                    skip=skip)
-
-        for record in results:
-            yield self._load_object_from_record(self._live_depositor, record)
+        return self._objects.find(
+            *filter,
+            obj_type=obj_type,
+            obj_id=obj_id,
+            version=version,
+            state=state,
+            meta=meta,
+            sort=sort,
+            limit=limit,
+            skip=skip,
+        )
 
     def find_exp(self, *exprs):
         """Experimental find"""
-        query_dict = expr.qfilter(expr.And(*exprs))
+        query_dict = expr.query_filter(expr.And(*exprs))
         yield from self.archive.find_exp(query_dict)
 
     def get_creator(self, obj_or_identifier) -> object:
@@ -706,8 +724,12 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if trans.metas:
             self._archive.meta_set_many(trans.metas)
 
-    def _load_object_from_record(self, depositor: depositors.LiveDepositor,
-                                 record: recordsm.DataRecord):
+    def _load_object_from_record(self,
+                                 record: recordsm.DataRecord,
+                                 depositor: depositors.LiveDepositor = None):
+
+        depositor = depositor or self._live_depositor
+
         # Try getting the object from the our dict of up to date ones
         obj_id = record.obj_id
         try:
@@ -874,8 +896,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             return list(map(self.get_obj_type_id, obj_type))
 
     def _create_loadable_record(self, record: recordsm.DataRecord) -> 'LoadableRecord':
-        load_obj = functools.partial(self._load_object_from_record, self._live_depositor)
-        return LoadableRecord(record, self.load_snapshot_from_record, load_obj)
+        return LoadableRecord(record, self.load_snapshot_from_record, self._load_object_from_record)
 
     @contextlib.contextmanager
     def _saving(self, obj):
@@ -901,25 +922,31 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
 
 class SnapshotLoadableRecord(recordsm.DataRecord):
+    __slots__ = ()
 
-    def __new__(cls, record: recordsm.DataRecord, snapshot_loader: Callable[[recordsm.DataRecord],
-                                                                            object]):
-        loadable = super().__new__(cls, **record.__dict__)
+    def __new__(cls, record_dict: dict, snapshot_loader: Callable[[recordsm.DataRecord], object]):
+        loadable = super().__new__(cls, **record_dict)
+        loadable._snapshot_loader = snapshot_loader
+        return loadable
+
+    def load(self) -> object:
+        return self._snapshot_loader(self)
+
+
+class LoadableRecord(recordsm.DataRecord):
+    __slots__ = ()
+    _obj_loader = None  # type: Callable[[recordsm.DataRecord], object]
+    _snapshot_loader = None  # type: Callable[[recordsm.DataRecord], object]
+
+    def __new__(cls, record_dict: dict, snapshot_loader: Callable[[recordsm.DataRecord], object],
+                obj_loader: Callable[[recordsm.DataRecord], object]):
+        loadable = super().__new__(cls, **record_dict)
+        loadable._obj_loader = obj_loader
         loadable._snapshot_loader = snapshot_loader
         return loadable
 
     def load_snapshot(self) -> object:
         return self._snapshot_loader(self)
-
-
-class LoadableRecord(SnapshotLoadableRecord):
-
-    def __new__(cls, record: recordsm.DataRecord, snapshot_loader: Callable[[recordsm.DataRecord],
-                                                                            object],
-                obj_loader: Callable[[recordsm.DataRecord], object]):
-        loadable = super().__new__(cls, record, snapshot_loader)
-        loadable._obj_loader = obj_loader
-        return loadable
 
     def load(self) -> object:
         return self._obj_loader(self)

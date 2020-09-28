@@ -56,6 +56,9 @@ class Car(mincepy.ConvenientSavable):
         self.make = make
         self.colour = colour
 
+    def __str__(self) -> str:
+        return "{} {}".format(self.colour, self.make)
+
 
 class Garage(mincepy.ConvenientSavable):
     TYPE_ID = bson.ObjectId('5e07b40a44572f823ed9327b')

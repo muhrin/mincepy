@@ -160,8 +160,8 @@ def test_distinct(historian):
     car4.colour = 'yellow'
     car4.save()
 
-    assert set(historian.records.distinct("version", obj_type=testing.Car, obj_id=id4,
-                                          version=None)) == {0, 1}
+    assert set(historian.snapshots.records.distinct("version", obj_type=testing.Car,
+                                                    obj_id=id4)) == {0, 1}
 
     colours = set(historian.records.distinct("state.colour"))
     assert colours == {'red', 'yellow', 'brown', 'yellow'}

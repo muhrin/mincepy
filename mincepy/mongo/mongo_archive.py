@@ -11,6 +11,7 @@ import pymongo.errors
 
 import mincepy
 import mincepy.records
+from mincepy import archives
 from mincepy import operations
 from mincepy import q
 from mincepy import exceptions
@@ -73,6 +74,11 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         self._file_bucket = gridfs.GridFSBucket(database)
         self._refman = references.ReferenceManager(database[DEFAULT_REFERENCES_COLLECTION],
                                                    self._data_collection, self._history_collection)
+
+        self._snapshots = MongoRecordCollection(self._history_collection,
+                                                self._meta_collection.name)
+        self._objects = MongoRecordCollection(self._data_collection, self._meta_collection.name)
+
         self._create_indices()
 
     @property
@@ -82,6 +88,15 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     @property
     def data_collection(self) -> pymongo.database.Collection:
         return self._data_collection
+
+    @property
+    def snapshots(self) -> 'MongoRecordCollection':
+        return self._snapshots
+
+    @property
+    def objects(self) -> 'MongoRecordCollection':
+        """Access the objects collection"""
+        return self._objects
 
     def _create_indices(self):
         # Create all the necessary indexes
@@ -467,6 +482,56 @@ def _flatten_filter_dict(filter: dict) -> dict:  # pylint: disable=redefined-bui
         query.and_(*queries.flatten_filter(db.EXTRAS, extras))
 
     return query.build()
+
+
+class MongoRecordCollection(archives.RecordCollection):
+
+    def __init__(self, collection: pymongo.database.Collection, meta_collection_name: str):
+        self._collection = collection
+        self._meta_collection_name = meta_collection_name
+
+    def find(self,
+             qfilter: dict,
+             *,
+             meta: dict = None,
+             limit=0,
+             sort=None,
+             skip=0) -> Iterator[dict]:
+
+        # Create the pipeline
+        pipeline = []
+
+        if qfilter:
+            pipeline.append({'$match': qfilter})
+
+        if meta:
+            pipeline.extend(
+                queries.pipeline_match_metadata(meta, self._meta_collection_name, db.OBJ_ID))
+
+        if skip:
+            pipeline.append({'$skip': skip})
+
+        if limit:
+            pipeline.append({'$limit': limit})
+
+        if sort:
+            if not isinstance(sort, dict):
+                sort_dict = {sort: 1}
+            else:
+                sort_dict = sort
+            sort_dict = db.remap(sort_dict)
+            pipeline.append({'$sort': sort_dict})
+
+        for entry in self._collection.aggregate(pipeline, allowDiskUse=True):
+            yield db.to_record(entry).__dict__
+
+    def distinct(  # pylint: disable=redefined-builtin
+            self,
+            key: str,
+            filter: dict = None,
+    ) -> Iterator[dict]:
+        key = db.remap_key(key)
+        yield from self._collection.distinct(key, filter)
 
 
 def connect(uri: str) -> MongoArchive:

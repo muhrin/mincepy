@@ -1,18 +1,26 @@
 """Query expressions"""
-
 import abc
+from typing import Union
 
 
-class QueryLike(metaclass=abc.ABCMeta):
+class FilterLike(metaclass=abc.ABCMeta):
     """An abstract base class for objects representing a pyos path, e.g. pyos.pathlib.PurePath."""
 
+    # pylint: disable=too-few-public-methods
+
     @abc.abstractmethod
-    def __qfilter__(self) -> dict:
+    def __query_filter__(self) -> dict:
         """Return the pyos path representation of the object."""
 
 
-class Expr(QueryLike, metaclass=abc.ABCMeta):
+FilterSpec = Union[dict, FilterLike]
+
+
+class Expr(FilterLike, metaclass=abc.ABCMeta):
     """The base class for query (sub) expressions"""
+
+    def __str__(self) -> str:
+        return self.__dict__.__str__()
 
     @property
     def __dict__(self) -> dict:
@@ -25,7 +33,7 @@ class Expr(QueryLike, metaclass=abc.ABCMeta):
     def query(self) -> dict:
         """Get the expression as a query dictionary"""
 
-    def __qfilter__(self) -> dict:
+    def __query_filter__(self) -> dict:
         return self.query()
 
     def __and__(self, other: 'Expr') -> 'And':
@@ -37,6 +45,21 @@ class Expr(QueryLike, metaclass=abc.ABCMeta):
         if not isinstance(other, Expr):
             raise TypeError("Expected Expr got '{}'".format(other))
         return Or(self, other)
+
+
+class Empty(Expr):
+
+    def query(self) -> dict:
+        return dict()
+
+    def __eq__(self, other):
+        raise RuntimeError("Empty expression cannot equal anything")
+
+    def __and__(self, other):
+        return other
+
+    def __or__(self, other):
+        return other
 
 
 class CompoundOper(Expr):
@@ -124,6 +147,8 @@ class Nin(VariadicOper):
     __slots__ = ()
     oper = '$nin'
 
+
+COMPARISON_OPERATORS = {op.oper: op for op in ()}
 
 # endregion
 
@@ -252,28 +277,36 @@ class WithQueryContext:
         return And(self._query_context, expr)
 
 
-def qfilter(query) -> dict:
+def query_filter(filter: FilterLike) -> dict:  # pylint: disable=redefined-builtin
     """Return a query specification (dict)
 
     If a dict is passed is is returned unaltered.
     Otherwise __qspec__() is called and its value is returned as long as it is a dict. In all other
     cases, TypeError is raised."""
-    if isinstance(query, dict):
-        return query
+    if isinstance(filter, dict):
+        return filter
 
     # Work from the object's type to match method resolution of other magic methods.
-    query_type = type(query)
     try:
-        query_repr = query_type.__qfilter__(query)
+        query_repr = filter.__query_filter__()
     except AttributeError:
-        if hasattr(query_type, '__qspec__'):
-            raise
-
-        raise TypeError("expected dict or object with __qspec__, not " + query_type.__name__) from None
+        raise TypeError("expected dict or object with __query_filter__, not " +
+                        filter.__name__) from None
 
     if isinstance(query_repr, dict):
         return query_repr
 
-    raise TypeError("expected {}.__qspec__() to return dict, not {}".format(
-        query_type.__name__,
+    raise TypeError("expected {}.__query_filter__() to return dict, not {}".format(
+        filter.__name__,
         type(query_repr).__name__))
+
+
+def get_expr(item) -> Expr:
+    """Expression factory"""
+    if isinstance(item, Expr):
+        return item
+
+    try:
+        return item.__expr__()
+    except AttributeError:
+        raise TypeError("expected dict or object with __expr__, not " + item.__name__) from None

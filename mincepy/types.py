@@ -26,7 +26,7 @@ def is_primitive(obj):
     return isinstance(obj, PRIMITIVE_TYPES)
 
 
-class Savable(fields.WithFields):
+class Savable(fields.WithFields, expr.FilterLike):
     """Interface for an object that can save an load its instance state"""
     TYPE_ID = None
     LATEST_MIGRATION = None  # type: mincepy.ObjectMigration
@@ -34,6 +34,16 @@ class Savable(fields.WithFields):
     def __init__(self, *args, **kwargs):
         assert self.TYPE_ID is not None, "Must set the TYPE_ID for an object to be savable"
         super().__init__(*args, **kwargs)
+
+    @classmethod
+    def __expr__(cls):
+        """This method gives savables the ability to be used as an expression"""
+        return expr.Eq('type_id', cls.TYPE_ID)
+
+    @classmethod
+    def __query_filter__(cls) -> dict:
+        """This method gives savables the ability to be used in query filter expressions"""
+        return cls.__expr__().__query_filter__()
 
     def save_instance_state(self, saver: depositors.Saver):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
