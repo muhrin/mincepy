@@ -52,7 +52,7 @@ class TypeHelper(fields.WithFields):
     @classmethod
     def init_field(cls, field: fields.Field, attr_name: str):
         super().init_field(field, attr_name)
-        field.set_query_context(expr.Eq('type_id', cls.TYPE_ID))
+        field.set_query_context(expr.Match('type_id', expr.Eq(cls.TYPE_ID)))
         field.path_prefix = 'state'
 
     def __init__(self):

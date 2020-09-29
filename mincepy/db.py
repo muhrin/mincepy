@@ -13,36 +13,24 @@ class NotOneError(Exception):
 
 
 class ResultSet(Generic[T]):
-    __slots__ = ('_archive_collection', '_filter', '_limit', '_sort', '_skip', '_kwargs',
-                 '_entry_factory')
+    __slots__ = ('_archive_collection', '_query', '_kwargs', '_entry_factory')
 
-    def __init__(  # pylint: disable=too-many-arguments
-            self,
-            archive_collection: archives.Collection,
-            filter: expr.FilterSpec = None,  # pylint: disable=redefined-builtin
-            limit: int = None,
-            sort: dict = None,
-            skip: int = 0,
-            kwargs: dict = None,
-            entry_factory: Callable[[Any], T] = None):
+    def __init__(self,
+                 archive_collection: archives.Collection,
+                 query: expr.Query,
+                 kwargs: dict = None,
+                 entry_factory: Callable[[Any], T] = None):
         self._archive_collection = archive_collection
-        self._filter = filter or {}
-        self._limit = limit
-        self._sort = sort
-        self._skip = skip
+        self._query = query
         self._kwargs = kwargs or {}
         self._entry_factory = entry_factory or (lambda x: x)
 
     def __iter__(self) -> Iterable[T]:
-        for entry in self._archive_collection.find(expr.query_filter(self._filter),
-                                                   limit=self._limit,
-                                                   sort=self._sort,
-                                                   skip=self._skip,
-                                                   **self._kwargs):
+        for entry in self._archive_collection.find(**self._query.__dict__, **self._kwargs):
             yield self._entry_factory(entry)
 
     def distinct(self, key) -> Iterator:
-        yield from self._archive_collection.distinct(key, filter=expr.query_filter(self._filter))
+        yield from self._archive_collection.distinct(key, filter=self._query.get_filter())
 
     def any(self) -> Optional[T]:
         """
@@ -50,30 +38,24 @@ class ResultSet(Generic[T]):
 
         :return: an arbitrary object or `None` if there aren't any
         """
-        results = tuple(
-            self._archive_collection.find(expr.query_filter(self._filter),
-                                          limit=1,
-                                          skip=self._skip,
-                                          **self._kwargs))
+        query = self._query.copy()
+        query.limit = 1
+        query.sort = None
+
+        results = tuple(self._archive_collection.find(**query.__dict__, **self._kwargs))
         return self._entry_factory(results[0])
 
     def one(self) -> Optional[T]:
         """Return one item from a result set containing at most one item.
 
-        @raises NotOneError: Raised if the result set contains more than one
-            item.
-        @return: The object or `None` if there aren't any
+        :raises NotOneError: Raised if the result set contains more than one item.
+        :return: The object or `None` if there aren't any
         """
         # limit could be 1 due to slicing, for instance.
-        limit = self._limit
-        if limit is not None and limit > 2:
-            limit = 2
-        results = tuple(
-            self._archive_collection.find(expr.query_filter(self._filter),
-                                          limit=limit,
-                                          sort=self._sort,
-                                          skip=self._skip,
-                                          **self._kwargs))
+        query = self._query.copy()
+        if query.limit is not None and query.limit > 2:
+            query.limit = 2
+        results = tuple(self._archive_collection.find(**query.__dict__, **self._kwargs))
         if not results:
             return None
 
@@ -94,86 +76,80 @@ class EntriesCollection(Generic[T]):
         self._obj_id_factory = obj_id_factory
 
     def find(
-        self,  # pylint: disable=redefined-builtin
-        *filter: expr.FilterSpec,
-        obj_type=None,
-        obj_id=None,
-        version: int = -1,
-        state=None,
-        meta: dict = None,
-        extras: dict = None,
-        sort=None,
-        limit=None,
-        skip=0,
-    ) -> ResultSet[T]:
-        """Query the collection returning a result set"""
-        filter_expr = self._prepare_filter_expr(*filter,
-                                                obj_type=obj_type,
-                                                obj_id=obj_id,
-                                                version=version,
-                                                state=state,
-                                                extras=extras)
-        return ResultSet(self._archive_collection,
-                         filter_expr,
-                         sort=sort,
-                         limit=limit,
-                         skip=skip,
-                         kwargs=dict(meta=meta),
-                         entry_factory=self._entry_factory)
-
-    def distinct(
-            self,
-            key: str,
-            *filter,  # pylint: disable=redefined-builtin
+            self,  # pylint: disable=redefined-builtin
+            *filter: expr.FilterSpec,
             obj_type=None,
             obj_id=None,
             version: int = -1,
             state=None,
-            extras: dict = None) -> Iterator:
+            meta: dict = None,
+            extras: dict = None,
+            sort=None,
+            limit=None,
+            skip=0) -> ResultSet[T]:
+        """Query the collection returning a result set"""
+        query = self._prepare_query(*filter,
+                                    obj_type=obj_type,
+                                    obj_id=obj_id,
+                                    version=version,
+                                    state=state,
+                                    extras=extras)
+        query.sort = sort
+        query.limit = limit
+        query.skip = skip
+        return ResultSet(self._archive_collection,
+                         query,
+                         kwargs=dict(meta=meta),
+                         entry_factory=self._entry_factory)
+
+    def distinct(self,
+                 key: str,
+                 *expression,
+                 obj_type=None,
+                 obj_id=None,
+                 version: int = -1,
+                 state=None,
+                 extras: dict = None) -> Iterator:
         """Get the distinct values for the given key, optionally restricting to a subset of results
         """
-        yield from self.find(*filter,
+        yield from self.find(*expression,
                              obj_type=obj_type,
                              obj_id=obj_id,
                              version=version,
                              state=state,
                              extras=extras).distinct(key)
 
-    def _prepare_filter_expr(
-            self,
-            *filter,  # pylint: disable=redefined-builtin
-            obj_type=None,
-            obj_id=None,
-            version: int = -1,
-            state=None,
-            extras: dict = None) -> expr.Expr:
+    def _prepare_query(self,
+                       *expression,
+                       obj_type=None,
+                       obj_id=None,
+                       version: int = -1,
+                       state=None,
+                       extras: dict = None) -> expr.Query:
         """Prepare a query filter expression from the passed filter criteria"""
-        query_filter = list(map(expr.get_expr, filter))
+        query = expr.Query(*expression)
 
         if obj_type is not None:
-            query_filter.append(records.DataRecord.type_id == self._type_id_factory(obj_type))
+            query.append(records.DataRecord.type_id == self._type_id_factory(obj_type))
         if obj_id is not None:
-            query_filter.append(records.DataRecord.obj_id == self._obj_id_factory(obj_id))
+            query.append(records.DataRecord.obj_id == self._obj_id_factory(obj_id))
         if version is not None and version != -1:
-            query_filter.append(records.DataRecord.version == version)
+            query.append(records.DataRecord.version == version)
         if state is not None:
             if isinstance(state, dict):
-                for key, value in state.items():
-                    query_filter.append(getattr(records.DataRecord.state, key) == value)
+                result = flatten_filter('state', state)
+                query.extend(result)
             else:
-                query_filter.append(records.DataRecord.state == state)
+                query.append(records.DataRecord.state == state)
 
         if extras is not None:
             if not isinstance(extras, dict):
                 raise TypeError("extras must be a dict, got '{}'".format(extras))
 
             for key, value in extras.items():
-                query_filter.append(getattr(records.DataRecord.state, key) == value)
+                query.append(getattr(records.DataRecord.extras, key) == value)
 
-        if not query_filter:
-            return expr.Empty()
-
-        return expr.And(*query_filter)
+        return query
 
 
 class ObjectCollection(EntriesCollection):

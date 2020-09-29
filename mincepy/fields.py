@@ -150,7 +150,7 @@ class Field(expr.WithQueryContext, expr.Queryable):
         return self._properties.store_as
 
 
-def field(store_as: str = None, ref=False, default=_UNSET, type=None):  # pylint: disable=redefined-builtin
+def field(store_as: str = None, ref=False, default=_UNSET, type=None) -> Field:  # pylint: disable=redefined-builtin
     properties = FieldProperties(ref=ref, store_as=store_as, default=default, field_type=type)
     return Field(properties)
 

@@ -347,7 +347,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         else:
             coll = self._history_collection
 
-        yield from coll.distinct(db.remap_key(key), filter=_flatten_filter_dict(filter))
+        yield from coll.distinct(db.remap_key(key), expression=_flatten_filter_dict(filter))
 
     def count(self,
               obj_id: Optional[bson.ObjectId] = None,
@@ -490,19 +490,20 @@ class MongoRecordCollection(archives.RecordCollection):
         self._collection = collection
         self._meta_collection_name = meta_collection_name
 
-    def find(self,
-             qfilter: dict,
-             *,
-             meta: dict = None,
-             limit=0,
-             sort=None,
-             skip=0) -> Iterator[dict]:
+    def find(
+            self,
+            filter: dict,  # pylint: disable=redefined-builtin
+            *,
+            meta: dict = None,
+            limit=0,
+            sort=None,
+            skip=0) -> Iterator[dict]:
 
         # Create the pipeline
         pipeline = []
 
-        if qfilter:
-            pipeline.append({'$match': qfilter})
+        if filter:
+            pipeline.append({'$match': filter})
 
         if meta:
             pipeline.extend(
@@ -525,10 +526,10 @@ class MongoRecordCollection(archives.RecordCollection):
         for entry in self._collection.aggregate(pipeline, allowDiskUse=True):
             yield db.to_record(entry).__dict__
 
-    def distinct(  # pylint: disable=redefined-builtin
+    def distinct(
             self,
             key: str,
-            filter: dict = None,
+            filter: dict = None,  # pylint: disable=redefined-builtin
     ) -> Iterator[dict]:
         key = db.remap_key(key)
         yield from self._collection.distinct(key, filter)

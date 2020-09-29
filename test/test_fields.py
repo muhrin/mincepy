@@ -1,6 +1,7 @@
 import pytest
 
 import mincepy
+from mincepy import expr
 from mincepy import fields
 from mincepy import saving
 
@@ -81,20 +82,20 @@ def test_fields():
 
 
 def test_nested_fields():
-    assert (Profile.thumbnail.width == 64).query() == {'thumbnail.width': 64}
+    assert expr.query_expr(Profile.thumbnail.width == 64) == {'thumbnail.width': 64}
 
-    assert (Profile.thumbnail == {'width': 64, 'height': 128}).query() == \
+    assert expr.query_expr(Profile.thumbnail == {'width': 64, 'height': 128}) == \
            {'thumbnail': {'width': 64, 'height': 128}}
 
     # Add a query context
     tag_eq_holiday = fields.field('tag') == 'holiday'
     Profile.thumbnail.set_query_context(tag_eq_holiday)
     # check the query context is being used
-    assert (Profile.thumbnail == {'width': 64, 'height': 128}).query() == \
+    assert expr.query_expr(Profile.thumbnail == {'width': 64, 'height': 128}) == \
            {'$and': [{'tag': 'holiday'}, {'thumbnail': {'width': 64, 'height': 128}}]}
 
     # now check that it is carried over to 'width'
-    assert (Profile.thumbnail.width == 64).query() == \
+    assert expr.query_expr(Profile.thumbnail.width == 64) == \
            {'$and': [{'tag': 'holiday'}, {'thumbnail.width': 64}]}
 
 

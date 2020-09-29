@@ -313,16 +313,22 @@ def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> \
 class Collection(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def find(self, qfilter: dict, *, limit=0, sort=None, skip=0, **kwargs) -> Iterator[dict]:
+    def find(
+            self,
+            filter: dict,  # pylint: disable=redefined-builtin
+            *,
+            limit=0,
+            sort=None,
+            skip=0,
+            **kwargs) -> Iterator[dict]:
         """Find entries matching the given criteria"""
 
     @abc.abstractmethod
     def distinct(
             self,
             key: str,
-            filter: dict = None,
-            **kwargs  # pylint: disable=redefined-builtin
-    ) -> Iterator:
+            filter: dict = None,  # pylint: disable=redefined-builtin
+            **kwargs) -> Iterator:
         """Get distinct values of the given entry key
 
         :param key: the key to find distinct values for
@@ -333,13 +339,14 @@ class Collection(metaclass=abc.ABCMeta):
 class RecordCollection(Collection):
 
     @abc.abstractmethod
-    def find(self,
-             qfilter: dict,
-             *,
-             meta: dict = None,
-             limit=0,
-             sort=None,
-             skip=0) -> Iterator[dict]:
+    def find(
+            self,
+            filter: dict,  # pylint: disable=redefined-builtin
+            *,
+            meta: dict = None,
+            limit=0,
+            sort=None,
+            skip=0) -> Iterator[dict]:
         """Find all records matching the given criteria"""
 
     @abc.abstractmethod

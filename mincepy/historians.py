@@ -587,11 +587,6 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             skip=skip,
         )
 
-    def find_exp(self, *exprs):
-        """Experimental find"""
-        query_dict = expr.query_filter(expr.And(*exprs))
-        yield from self.archive.find_exp(query_dict)
-
     def get_creator(self, obj_or_identifier) -> object:
         """Get the object that created the passed object"""
         if not self.is_obj_id(obj_or_identifier):

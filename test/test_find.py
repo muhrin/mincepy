@@ -111,7 +111,8 @@ def test_find_predicates(historian: mincepy.Historian):
 
     # OR
     results = tuple(
-        historian.records.find(state=mincepy.q.or_({'make': 'skoda'}, {'make': 'ferrari'})))
+        historian.records.find(obj_type=testing.Car,
+                               state=mincepy.q.or_({'make': 'skoda'}, {'make': 'ferrari'})))
     assert len(results) == 2
     makes = [record.state['make'] for record in results]
     assert 'skoda' in makes
@@ -119,7 +120,8 @@ def test_find_predicates(historian: mincepy.Historian):
 
     # AND
     results = tuple(
-        historian.records.find(state=mincepy.q.and_({'make': 'skoda'}, {'colour': 'green'})))
+        historian.records.find(obj_type=testing.Car,
+                               state=mincepy.q.and_({'make': 'skoda'}, {'colour': 'green'})))
     assert len(results) == 1
     makes = [record.state['make'] for record in results]
     assert 'skoda' in makes

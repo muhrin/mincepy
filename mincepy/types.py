@@ -38,12 +38,12 @@ class Savable(fields.WithFields, expr.FilterLike):
     @classmethod
     def __expr__(cls):
         """This method gives savables the ability to be used as an expression"""
-        return expr.Eq('type_id', cls.TYPE_ID)
+        return expr.Match('type_id', expr.Eq(cls.TYPE_ID))
 
     @classmethod
-    def __query_filter__(cls) -> dict:
+    def __query_expr__(cls) -> dict:
         """This method gives savables the ability to be used in query filter expressions"""
-        return cls.__expr__().__query_filter__()
+        return cls.__expr__().__query_expr__()
 
     def save_instance_state(self, saver: depositors.Saver):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
@@ -78,7 +78,7 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
     @classmethod
     def init_field(cls, field: fields.Field, attr_name: str):
         super().init_field(field, attr_name)
-        field.set_query_context(expr.Eq('type_id', cls.TYPE_ID))
+        field.set_query_context(expr.Match('type_id', expr.Eq(cls.TYPE_ID)))
         field.path_prefix = 'state'
 
     def __init__(self, *args, **kwargs):
