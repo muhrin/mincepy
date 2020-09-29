@@ -38,7 +38,7 @@ class Savable(fields.WithFields, expr.FilterLike):
     @classmethod
     def __expr__(cls):
         """This method gives savables the ability to be used as an expression"""
-        return expr.Match('type_id', expr.Eq(cls.TYPE_ID))
+        return expr.Comparison('type_id', expr.Eq(cls.TYPE_ID))
 
     @classmethod
     def __query_expr__(cls) -> dict:
@@ -78,7 +78,7 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
     @classmethod
     def init_field(cls, field: fields.Field, attr_name: str):
         super().init_field(field, attr_name)
-        field.set_query_context(expr.Match('type_id', expr.Eq(cls.TYPE_ID)))
+        field.set_query_context(expr.Comparison('type_id', expr.Eq(cls.TYPE_ID)))
         field.path_prefix = 'state'
 
     def __init__(self, *args, **kwargs):

@@ -1,15 +1,12 @@
 import functools
 from typing import TypeVar, Generic, Iterable, Callable, Any, Iterator, Optional
 
-from mincepy import archives
-from mincepy import expr
-from mincepy import records
+from . import archives
+from . import exceptions
+from . import expr
+from . import records
 
 T = TypeVar('T')  # The type stored by the collection pylint: disable=invalid-name
-
-
-class NotOneError(Exception):
-    pass
 
 
 class ResultSet(Generic[T]):
@@ -60,7 +57,7 @@ class ResultSet(Generic[T]):
             return None
 
         if len(results) > 1:
-            raise NotOneError("one() used with more than one result available")
+            raise exceptions.NotOneError("one() used with more than one result available")
 
         return self._entry_factory(results[0])
 
@@ -119,6 +116,9 @@ class EntriesCollection(Generic[T]):
                              state=state,
                              extras=extras).distinct(key)
 
+    def get(self, entry_id) -> records.DataRecord:
+        return self._entry_factory(self._archive_collection.get(entry_id))
+
     def _prepare_query(self,
                        *expression,
                        obj_type=None,
@@ -174,6 +174,9 @@ class ObjectCollection(EntriesCollection):
                                           record_factory,
                                           type_id_factory=type_id_factory,
                                           obj_id_factory=obj_id_factory)
+
+    def get(self, entry_id) -> object:
+        return self._create_object(self._archive_collection.get(entry_id))
 
     @property
     def records(self) -> EntriesCollection:

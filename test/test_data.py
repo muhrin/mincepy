@@ -88,7 +88,7 @@ def test_storing_internal_object(historian: mincepy.Historian):
         TYPE_ID = uuid.UUID('f6f83595-6375-4bc4-89f2-d8f31a1286b0')
 
         def __init__(self, car):
-            super(Person, self).__init__()
+            super().__init__()
             self.car = car  # This person 'owns' the car
 
         def __eq__(self, other):
@@ -170,33 +170,6 @@ def test_transaction_rollback(historian: mincepy.Historian):
     assert historian.load(ferrari_id) is ferrari
 
 
-def test_replace_simple(historian: mincepy.Historian):
-
-    def paint_shop(car, colour):
-        """An imaginary function that modifies an object but returns a copy rather than an in
-        place modification"""
-        return Car(car.make, colour)
-
-    honda = Car('honda', 'yellow')
-    honda_id = historian.save(honda)
-
-    # Now paint the honda
-    new_honda = paint_shop(honda, 'green')
-    assert historian.get_obj_id(honda) == honda_id
-
-    # Now we know that this is a 'continuation' of the history of the original honda, so replace
-    historian.replace(honda, new_honda)
-    assert historian.get_obj_id(honda) is None
-
-    assert historian.get_obj_id(new_honda) == honda_id
-    historian.save(new_honda)
-    del honda, new_honda
-
-    loaded = historian.load(honda_id)
-    assert loaded.make == 'honda'
-    assert loaded.colour == 'green'
-
-
 def test_replace_invalid(historian: mincepy.Historian):
     honda = Car('honda', 'yellow')
     historian.save(honda)
@@ -246,7 +219,7 @@ def test_encode_nested(historian: mincepy.Historian):
         ATTRS = ('car',)
 
         def __init__(self, car):
-            super(CarDelegate, self).__init__()
+            super().__init__()
             self.car = car
 
         def save_instance_state(self, saver):

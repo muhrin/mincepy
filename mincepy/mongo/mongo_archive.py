@@ -534,6 +534,14 @@ class MongoRecordCollection(archives.RecordCollection):
         key = db.remap_key(key)
         yield from self._collection.distinct(key, filter)
 
+    def get(self, entry_id: bson.ObjectId) -> dict:
+        doc = self._collection.find_one({'_id': entry_id})  # type: dict
+        if doc is None:
+            raise exceptions.NotFound(entry_id)
+        doc = db.remap_back(doc)
+        # doc.pop('_id')
+        return doc
+
 
 def connect(uri: str) -> MongoArchive:
     # URI Format is:

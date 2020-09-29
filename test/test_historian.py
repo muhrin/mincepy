@@ -71,7 +71,7 @@ def test_find(historian: mincepy.Historian):
     assert porsche_id in obj_ids
 
 
-def test_update(historian: mincepy.Historian):
+def test_sync(historian: mincepy.Historian):
     car = Car('ferrari', 'red')
     historian.save_one(car)
 
@@ -97,6 +97,9 @@ def test_update(historian: mincepy.Historian):
     car_record = historian.get_current_record(car)
     assert car_record.snapshot_hash == honda_record.snapshot_hash
     assert car_record.state == honda_record.state
+
+    # Check that syncing an unsaved object returns False (because there's nothing to do)
+    assert historian.sync(Car()) is False
 
 
 def test_to_obj_id(historian: mincepy.Historian):
@@ -227,6 +230,38 @@ def test_concurrent_modification(historian: mincepy.Historian, archive_uri: str)
     assert ferrari2.colour == 'yellow'
 
 
+def test_replace_simple(historian: mincepy.Historian):
+
+    def paint_shop(car, colour):
+        """An imaginary function that modifies an object but returns a copy rather than an in
+        place modification"""
+        return Car(car.make, colour)
+
+    honda = Car('honda', 'yellow')
+    honda_id = historian.save(honda)
+
+    # Now paint the honda
+    new_honda = paint_shop(honda, 'green')
+    assert historian.get_obj_id(honda) == honda_id
+
+    # Now we know that this is a 'continuation' of the history of the original honda, so replace
+    historian.replace(honda, new_honda)
+    assert historian.get_obj_id(honda) is None
+
+    assert historian.get_obj_id(new_honda) == honda_id
+    historian.save(new_honda)
+    del honda, new_honda
+
+    loaded = historian.load(honda_id)
+    assert loaded.make == 'honda'
+    assert loaded.colour == 'green'
+
+    with pytest.raises(RuntimeError):
+        # Check that we can't replace in a transaction
+        with historian.transaction():
+            historian.replace(loaded, Car())
+
+
 def test_snapshots_collection(historian: mincepy.Historian):
     ferrari = testing.Car(colour='red', make='ferrari')
     ferrari_id = ferrari.save()
@@ -250,3 +285,32 @@ def test_snapshots_collection(historian: mincepy.Historian):
 
     assert historian.snapshots.records.find(Car.colour == 'brown',
                                             obj_id=ferrari_id).one().version == 1
+
+
+def test_objects_collection(historian: mincepy.Historian):
+    ferrari = testing.Car(colour='red', make='ferrari')
+    ferrari_id = ferrari.save()
+
+    records = list(historian.objects.records.find())
+    assert len(records) == 1
+
+    objects = list(historian.objects.find())
+    assert len(objects) == 1
+    assert objects[0] is ferrari
+
+    ferrari.colour = 'brown'
+    ferrari.save()
+
+    records = list(historian.objects.records.find())
+    assert len(records) == 1
+
+    objects = list(historian.objects.find())
+    assert len(objects) == 1
+    assert set(car.colour for car in objects) == {'brown'}
+
+    assert historian.objects.records.find(Car.colour == 'brown',
+                                          obj_id=ferrari_id).one().version == 1
+
+
+def test_get_obj_type(historian: mincepy.Historian):
+    assert historian.get_obj_type(Car.TYPE_ID) is Car

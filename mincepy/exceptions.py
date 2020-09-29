@@ -49,3 +49,7 @@ class ReferenceError(IntegrityError):  # pylint: disable=redefined-builtin
 class UnorderedError(Exception):
     """Raised when an operation is attempted that assumed an underlying ordering but the data is
     unordered"""
+
+
+class NotOneError(Exception):
+    """Raised when a singlar result is expected but there are in fact more"""

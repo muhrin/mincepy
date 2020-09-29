@@ -227,7 +227,7 @@ class DataRecord(fields.WithFields, tuple):
             EXTRAS: copy.deepcopy(self.extras),
         })
         defaults.update(kwargs)
-        return DataRecordBuilder(type(self), defaults)
+        return DataRecordBuilder(DataRecord, defaults)
 
     def get_references(self) -> Iterable[Tuple[EntryPath, SnapshotId]]:
         """Get all the references to other objects contained in this record"""

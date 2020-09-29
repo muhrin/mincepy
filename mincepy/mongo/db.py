@@ -97,6 +97,13 @@ def remap(record_dict: dict) -> dict:
     return remapped
 
 
+def remap_back(entry_dict: dict) -> dict:
+    remapped = {}
+    for mince_key, mongo_key in KEY_MAP.items():
+        remapped[mince_key] = entry_dict[mongo_key]
+    return remapped
+
+
 def remap_key(key: str) -> str:
     """Given a key remap it to the names that we use, even if it as a path e.g. state.colour"""
     split_key = key.split('.')

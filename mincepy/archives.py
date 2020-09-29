@@ -335,6 +335,13 @@ class Collection(metaclass=abc.ABCMeta):
         :param filter: an optional filter to restrict the search to
         """
 
+    @abc.abstractmethod
+    def get(self, entry_id) -> dict:
+        """Get one entry using the principal id
+
+        :raises mincepy.NotFound: if no object is found with the given id
+        """
+
 
 class RecordCollection(Collection):
 

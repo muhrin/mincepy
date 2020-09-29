@@ -603,14 +603,14 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """Return the id of the object that created the passed object"""
         try:
             record = self.get_current_record(obj_or_identifier)
-        except exceptions.NotFound:
+        except exceptions.NotFound as exc:
             if not self.is_obj_id(obj_or_identifier):
                 raise
 
             try:
-                record = next(self._archive.find(obj_id=obj_or_identifier, version=-1))
-            except StopIteration:
-                raise exceptions.NotFound(obj_or_identifier) from None
+                record = self._objects.records.find(obj_id=obj_or_identifier).one()
+            except exceptions.NotOneError:
+                raise exc from None
 
         return record.created_by
 
@@ -759,10 +759,15 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 raise exceptions.ObjectDeleted(obj_id)
 
             # Couldn't find it, so let's check if we have one and check if it is up to date
-            results = tuple(self.archive.find(obj_id, version=-1))
-            if not results:
-                raise exceptions.NotFound(obj_id)
-            record = results[0]
+            # results = tuple(self.archive.find(obj_id, version=-1))
+            # if not results:
+            #     raise exceptions.NotFound(obj_id)
+            # record = results[0]
+            record = self._objects.records.get(obj_id)
+            # try:
+            #     record = self._objects.records.find(obj_id=obj_id).one()
+            # except exceptions.NotOneError:
+            #     raise exceptions.NotFound(obj_id) from None
 
             if record.is_deleted_record():
                 raise exceptions.ObjectDeleted(obj_id)

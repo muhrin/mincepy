@@ -48,7 +48,7 @@ class WithListOperand(FilterLike):
         for entry in operand:
             if not isinstance(entry, Expr):
                 raise TypeError("Expected a list of Expr, found {}".format(type(entry).__name__))
-        super().__init__(operand)
+        self.operand = operand
 
     def __query_expr__(self) -> dict:
         if len(self.operand) == 1:
@@ -67,8 +67,8 @@ class Empty(Expr):
 # region Match
 
 
-class OperatorExpr(Expr):
-    """An operator expression.
+class Operator(Expr):
+    """An simple operator expression.
 
     Consists of an operator applied to an operand which is to be matched
     """
@@ -83,54 +83,54 @@ class OperatorExpr(Expr):
         return {self.oper: self.value}
 
 
-class Eq(OperatorExpr):
+class Eq(Operator):
     __slots__ = ()
     oper = '$eq'
 
 
-class Gt(OperatorExpr):
+class Gt(Operator):
     __slots__ = ()
     oper = '$gt'
 
 
-class Gte(OperatorExpr):
+class Gte(Operator):
     __slots__ = ()
     oper = '$gte'
 
 
-class In(OperatorExpr):
+class In(Operator):
     __slots__ = ()
     oper = '$in'
 
 
-class Lt(OperatorExpr):
+class Lt(Operator):
     __slots__ = ()
     oper = '$lt'
 
 
-class Lte(OperatorExpr):
+class Lte(Operator):
     __slots__ = ()
     oper = '$lte'
 
 
-class Ne(OperatorExpr):
+class Ne(Operator):
     __slots__ = ()
     oper = '$ne'
 
 
-class Nin(OperatorExpr):
+class Nin(Operator):
     __slots__ = ()
     oper = '$nin'
 
 
-class Match(Expr):
-    """A match expression consists of a field and an operator expression e.g. name == 'frank'
+class Comparison(Expr):
+    """A comparison expression consists of a field and an operator expression e.g. name == 'frank'
     where name is the field, the operator is ==, and the value is 'frank'
     """
     __slots__ = 'field', 'expr'
 
-    def __init__(self, field, expr: OperatorExpr):
-        if not isinstance(expr, OperatorExpr):
+    def __init__(self, field, expr: Operator):
+        if not isinstance(expr, Operator):
             raise TypeError("Expected an operator expression, got '{}'".format(type(expr).__name__))
 
         self.field = field
@@ -149,21 +149,23 @@ class Match(Expr):
 # region Logical operators
 
 
-class LogicalOper(Expr):
+class Logical(Expr):
     """A comparison operation.  Consists of an operator applied to an operand which is matched in a
     particular way"""
 
-    __slots__ = ('expr',)
+    __slots__ = ('operand',)
     oper = None  # type: str
 
-    def __init__(self, operand):
+    def __init__(self, operand: Expr):
+        if not isinstance(operand, Expr):
+            raise TypeError("Expected an Expr, got '{}'".format(type(operand).__name__))
         self.operand = operand
 
     def __query_expr__(self) -> dict:
-        return {self.oper: self.operand}
+        return {self.oper: query_expr(self.operand)}
 
 
-class And(WithListOperand, LogicalOper):
+class And(WithListOperand, Logical):
     __slots__ = ()
     oper = '$and'
 
@@ -175,12 +177,12 @@ class And(WithListOperand, LogicalOper):
         return super().__and__(other)
 
 
-class Not(LogicalOper):
+class Not(Logical):
     __slots__ = ()
     oper = '$not'
 
 
-class Or(WithListOperand, LogicalOper):
+class Or(WithListOperand, Logical):
     __slots__ = ()
     oper = '$or'
 
@@ -192,7 +194,7 @@ class Or(WithListOperand, LogicalOper):
         return super().__or__(other)
 
 
-class Nor(WithListOperand, LogicalOper):
+class Nor(WithListOperand, Logical):
     __slots__ = ()
     oper = '$nor'
 
@@ -202,7 +204,7 @@ class Nor(WithListOperand, LogicalOper):
 # region Element operators
 
 
-class Exists(OperatorExpr):
+class Exists(Operator):
     __slots__ = ()
     oper = '$exists'
 
@@ -215,32 +217,32 @@ class Queryable(metaclass=abc.ABCMeta):
     __slots__ = ()
     __hash__ = object.__hash__
 
-    def __eq__(self, other) -> Match:
-        return Match(self._get_path(), Eq(other))
+    def __eq__(self, other) -> Comparison:
+        return Comparison(self._get_path(), Eq(other))
 
-    def __ne__(self, other) -> Match:
-        return Match(self._get_path(), Ne(other))
+    def __ne__(self, other) -> Comparison:
+        return Comparison(self._get_path(), Ne(other))
 
-    def __gt__(self, other) -> Match:
-        return Match(self._get_path(), Gt(other))
+    def __gt__(self, other) -> Comparison:
+        return Comparison(self._get_path(), Gt(other))
 
-    def __ge__(self, other) -> Match:
-        return Match(self._get_path(), Gte(other))
+    def __ge__(self, other) -> Comparison:
+        return Comparison(self._get_path(), Gte(other))
 
-    def __lt__(self, other) -> Match:
-        return Match(self._get_path(), Lt(other))
+    def __lt__(self, other) -> Comparison:
+        return Comparison(self._get_path(), Lt(other))
 
-    def __le__(self, other) -> Match:
-        return Match(self._get_path(), Lte(other))
+    def __le__(self, other) -> Comparison:
+        return Comparison(self._get_path(), Lte(other))
 
-    def in_(self, *possibilities) -> Match:
-        return Match(self._get_path(), In(possibilities))
+    def in_(self, *possibilities) -> Comparison:
+        return Comparison(self._get_path(), In(possibilities))
 
     def nin_(self, *possibilities) -> Expr:
-        return Match(self._get_path(), Nin(possibilities))
+        return Comparison(self._get_path(), Nin(possibilities))
 
     def exists_(self, value: bool = True) -> Expr:
-        return Match(self._get_path(), Exists(value))
+        return Comparison(self._get_path(), Exists(value))
 
     @abc.abstractmethod
     def _get_path(self) -> str:
@@ -370,11 +372,11 @@ def build_expr(item) -> Expr:
         else:
             # Must be a 'match' where the first is the field
             try:
-                return Match(first, build_expr(second))
+                return Comparison(first, build_expr(second))
             except (ValueError, TypeError):
                 # TODO: See if we can make this check safer
                 # Assume second is a value type
-                return Match(first, Eq(second))
+                return Comparison(first, Eq(second))
 
     try:
         return item.__expr__()
