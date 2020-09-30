@@ -19,7 +19,7 @@ from . import version as version_mod
 
 __all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor', 'Migrator'
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 class Base(metaclass=ABCMeta):
@@ -163,13 +163,13 @@ class LiveDepositor(Saver, Loader):
             return self._get_current_snapshot_id(obj)
         except exceptions.NotFound:
             # Then we have to save it and get the resulting reference
-            return self._historian._save_object(obj, self).snapshot_id
+            return self._historian._save_object(obj, self).snapshot_id  # pylint: disable=protected-access
 
     def load(self, snapshot_id: records.SnapshotId):
         try:
             return self._historian.get_obj(snapshot_id.obj_id)
         except exceptions.NotFound:
-            return self._historian._load_object(snapshot_id.obj_id, self)
+            return self._historian._load_object(snapshot_id.obj_id, self)  # pylint: disable=protected-access
 
     def load_from_record(self, record: records.DataRecord):
         """Load an object from a record"""
@@ -237,7 +237,7 @@ class LiveDepositor(Saver, Loader):
         return self._historian.current_transaction().get_snapshot_id_for_live_object(obj)
 
     def _get_extras(self, obj, obj_id, version: int) -> dict:
-        """Get the extras dictionary for a object that is going to be saved"""
+        """Create the extras dictionary for a object that is going to be saved"""
         historian = self.get_historian()
         extras = self.get_historian().get_user_info()
 

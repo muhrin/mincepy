@@ -554,13 +554,13 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         Find all :py:class:`~mincepy.testing.Car`s that are brown or red:
 
-        >>> import mincepy
-        >>> historian = mincepy.get_historian()
-        >>> historian.find(state=dict(colour=mincepy.q.in_('brown', 'red')))
+        >>> import mincepy as mpy
+        >>> historian = mpy.get_historian()
+        >>> historian.find(mpy.testing.Car.colour.in_('brown', 'red'))
 
         Find all people that are older than 34 and live in Edinburgh:
 
-        >>> historian.find(state=dict(age=mincepy.q.gt_(34)), meta=dict(city='Edinburgh'))
+        >>> historian.find(mpy.testing.Person.age > 34, meta=dict(city='Edinburgh'))
 
         :param obj_type: the object type to look for
         :param obj_id: an object or multiple object ids to look for
@@ -933,7 +933,7 @@ class LoadableRecord(recordsm.DataRecord):
         return loadable
 
     def load_snapshot(self) -> object:
-        return self._snapshot_loader(self)
+        return self._snapshot_loader(self)  # pylint: disable=not-callable
 
     def load(self) -> object:
-        return self._obj_loader(self)
+        return self._obj_loader(self)  # pylint: disable=not-callable

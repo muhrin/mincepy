@@ -67,11 +67,11 @@ def test_delete_find(historian: mincepy.Historian):
     car_id = car.save()
 
     historian.delete(car_id)
-    assert len(tuple(historian.find(obj_id=car_id))) == 0
+    assert historian.find(obj_id=car_id).count() == 0
 
     # Now check the archive
-    assert len(tuple(historian.archive.find(obj_id=car_id))) == 2
-    assert len(tuple(historian.archive.find(obj_id=car_id, state=mincepy.DELETED))) == 1
+    assert historian.snapshots.records.find(obj_id=car_id).count() == 2
+    assert historian.snapshots.records.find(obj_id=car_id, state=mincepy.DELETED).count() == 1
 
 
 def test_delete_multiple_versions(historian: mincepy.Historian):

@@ -525,7 +525,6 @@ class MongoRecordCollection(archives.RecordCollection):
 
         for entry in self._collection.aggregate(pipeline, allowDiskUse=True):
             yield db.remap_back(entry)
-            # yield db.to_record(entry).__dict__
 
     def distinct(
             self,
@@ -540,6 +539,30 @@ class MongoRecordCollection(archives.RecordCollection):
         if doc is None:
             raise exceptions.NotFound(entry_id)
         return db.remap_back(doc)
+
+    def count(
+            self,
+            filter: dict,  # pylint: disable=redefined-builtin
+            *,
+            meta: dict = None) -> int:
+        """Get the number of entries that match the search criteria"""
+        # Create the pipeline
+        pipeline = []
+
+        if filter:
+            pipeline.append({'$match': filter})
+
+        if meta:
+            pipeline.extend(
+                queries.pipeline_match_metadata(meta, self._meta_collection_name, db.OBJ_ID))
+
+        pipeline.append({'$count': "total"})
+        try:
+            result = next(self._collection.aggregate(pipeline))
+        except StopIteration:
+            return 0
+        else:
+            return result['total']
 
 
 def connect(uri: str) -> MongoArchive:

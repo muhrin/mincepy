@@ -61,6 +61,9 @@ class ResultSet(Generic[T]):
 
         return self._entry_factory(results[0])
 
+    def count(self) -> int:
+        return self._archive_collection.count(self._query.get_filter(), **self._kwargs)
+
 
 class EntriesCollection(Generic[T]):
 
@@ -127,8 +130,6 @@ class EntriesCollection(Generic[T]):
                        state=None,
                        extras: dict = None) -> expr.Query:
         """Prepare a query filter expression from the passed filter criteria"""
-        # pylint: disable=too-many-branches
-
         query = expr.Query(*expression)
 
         if obj_type is not None:

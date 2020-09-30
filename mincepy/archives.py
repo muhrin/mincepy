@@ -310,6 +310,9 @@ def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> \
     return specifier
 
 
+# pylint: disable=arguments-differ
+
+
 class Collection(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
@@ -342,6 +345,13 @@ class Collection(metaclass=abc.ABCMeta):
         :raises mincepy.NotFound: if no object is found with the given id
         """
 
+    @abc.abstractmethod
+    def count(
+            self,
+            filter: dict,  # pylint: disable=redefined-builtin
+            **kwargs) -> int:
+        """Get the number of entries that match the search criteria"""
+
 
 class RecordCollection(Collection):
 
@@ -364,3 +374,11 @@ class RecordCollection(Collection):
         meta: dict = None,
     ) -> Iterator[dict]:
         """Find all records matching the given criteria"""
+
+    @abc.abstractmethod
+    def count(
+            self,
+            filter: dict,  # pylint: disable=redefined-builtin
+            *,
+            meta: dict = None) -> int:
+        """Get the number of entries that match the search criteria"""
