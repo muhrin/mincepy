@@ -280,10 +280,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             # Never saved so the object is as up to date as can be!
             return False
 
-        try:
-            record = next(self._archive.find(obj_id=obj_id, version=-1))
-        except StopIteration:
-            raise exceptions.NotFound(obj_id) from None
+        record = self._objects.records.get(obj_id)
 
         if record.is_deleted_record():
             raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(obj_id))
@@ -320,7 +317,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         if left_to_find:
             # Have a look in the archive
-            for record in self.archive.find(obj_id=left_to_find.keys(), version=-1):
+            for record in self._objects.records.find(obj_id=expr.In(list(left_to_find.keys()))):
                 records[left_to_find[record.obj_id]] = record
                 del left_to_find[record.obj_id]
 
@@ -754,20 +751,10 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             pass
 
         with self.in_transaction() as trans:
-
             if trans.is_deleted(obj_id):
                 raise exceptions.ObjectDeleted(obj_id)
 
-            # Couldn't find it, so let's check if we have one and check if it is up to date
-            # results = tuple(self.archive.find(obj_id, version=-1))
-            # if not results:
-            #     raise exceptions.NotFound(obj_id)
-            # record = results[0]
             record = self._objects.records.get(obj_id)
-            # try:
-            #     record = self._objects.records.find(obj_id=obj_id).one()
-            # except exceptions.NotOneError:
-            #     raise exceptions.NotFound(obj_id) from None
 
             if record.is_deleted_record():
                 raise exceptions.ObjectDeleted(obj_id)
@@ -935,8 +922,8 @@ class SnapshotLoadableRecord(recordsm.DataRecord):
 
 class LoadableRecord(recordsm.DataRecord):
     __slots__ = ()
-    _obj_loader = None  # type: Callable[[recordsm.DataRecord], object]
-    _snapshot_loader = None  # type: Callable[[recordsm.DataRecord], object]
+    _obj_loader = None  # type: Optional[Callable[[recordsm.DataRecord], object]]
+    _snapshot_loader = None  # type: Optional[Callable[[recordsm.DataRecord], object]]
 
     def __new__(cls, record_dict: dict, snapshot_loader: Callable[[recordsm.DataRecord], object],
                 obj_loader: Callable[[recordsm.DataRecord], object]):

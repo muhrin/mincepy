@@ -114,9 +114,10 @@ class SnapshotId(Generic[IdT]):
 SnapshotRef = SnapshotId
 
 
-def _prop_kwargs(field_name: str) -> dict:
-    """Create the keyword arguments dict for creating a property of a DataRecord"""
-    return dict(fget=operator.itemgetter(DATA_RECORD_FIELDS.index(field_name)), doc=field_name)
+def readonly_field(field_name: str, **kwargs) -> fields.Field:
+    properties = dict(fget=operator.itemgetter(DATA_RECORD_FIELDS.index(field_name)),
+                      doc=field_name)
+    return fields.field(**kwargs)(**properties)
 
 
 class DataRecord(fields.WithFields, tuple):
@@ -126,16 +127,16 @@ class DataRecord(fields.WithFields, tuple):
     _fields = (OBJ_ID, TYPE_ID, CREATION_TIME, VERSION, STATE, STATE_TYPES, SNAPSHOT_HASH,
                SNAPSHOT_TIME, EXTRAS)
 
-    obj_id = fields.field()(**_prop_kwargs(OBJ_ID))
-    type_id = fields.field()(**_prop_kwargs(TYPE_ID))
-    creation_time = fields.field(store_as='ctime')(**_prop_kwargs(CREATION_TIME))
+    obj_id = readonly_field(OBJ_ID)
+    type_id = readonly_field(TYPE_ID)
+    creation_time = readonly_field(CREATION_TIME, store_as='ctime')
 
-    version = fields.field(store_as='ver')(**_prop_kwargs(VERSION))
-    state = fields.field()(**_prop_kwargs(STATE))
-    state_types = fields.field()(**_prop_kwargs(STATE_TYPES))
-    snapshot_hash = fields.field(store_as='hash')(**_prop_kwargs(SNAPSHOT_HASH))
-    snapshot_time = fields.field(store_as='stime')(**_prop_kwargs(SNAPSHOT_TIME))
-    extras = fields.field()(**_prop_kwargs(EXTRAS))
+    version = readonly_field(VERSION, store_as='ver')
+    state = readonly_field(STATE)
+    state_types = readonly_field(STATE_TYPES)
+    snapshot_hash = readonly_field(SNAPSHOT_HASH, store_as='hash')
+    snapshot_time = readonly_field(SNAPSHOT_TIME, store_as='stime')
+    extras = readonly_field(EXTRAS)
 
     # pylint: disable=too-many-arguments
     def __new__(cls, obj_id, type_id, creation_time, version, state, state_types, snapshot_hash,

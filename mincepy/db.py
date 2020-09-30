@@ -127,12 +127,22 @@ class EntriesCollection(Generic[T]):
                        state=None,
                        extras: dict = None) -> expr.Query:
         """Prepare a query filter expression from the passed filter criteria"""
+        # pylint: disable=too-many-branches
+
         query = expr.Query(*expression)
 
         if obj_type is not None:
-            query.append(records.DataRecord.type_id == self._type_id_factory(obj_type))
+            if isinstance(obj_type, expr.Expr):
+                oper = obj_type
+            else:
+                oper = expr.Eq(self._type_id_factory(obj_type))
+            query.append(expr.Comparison(records.DataRecord.type_id, oper))
         if obj_id is not None:
-            query.append(records.DataRecord.obj_id == self._obj_id_factory(obj_id))
+            if isinstance(obj_id, expr.Expr):
+                oper = obj_id
+            else:
+                oper = expr.Eq(self._obj_id_factory(obj_id))
+            query.append(expr.Comparison(records.DataRecord.obj_id, oper))
         if version is not None and version != -1:
             query.append(records.DataRecord.version == version)
         if state is not None:
@@ -146,8 +156,8 @@ class EntriesCollection(Generic[T]):
             if not isinstance(extras, dict):
                 raise TypeError("extras must be a dict, got '{}'".format(extras))
 
-            for key, value in extras.items():
-                query.append(getattr(records.DataRecord.extras, key) == value)
+            result = flatten_filter('extras', extras)
+            query.extend(result)
 
         return query
 

@@ -73,7 +73,7 @@ class Operator(Expr):
     Consists of an operator applied to an operand which is to be matched
     """
 
-    __slots__ = 'field', 'value'
+    __slots__ = ('value',)
     oper = None  # type: str
 
     def __init__(self, value):
@@ -139,9 +139,9 @@ class Comparison(Expr):
     def __query_expr__(self) -> dict:
         if isinstance(self.expr, Eq):
             # Special case for this query as it looks nicer this way (without using '$eq')
-            return {self.field: self.expr.value}
+            return {field_name(self.field): self.expr.value}
 
-        return {self.field: query_expr(self.expr)}
+        return {field_name(self.field): query_expr(self.expr)}
 
 
 # endregion
@@ -315,6 +315,23 @@ def query_expr(filter: FilterLike) -> dict:  # pylint: disable=redefined-builtin
         type(query_repr).__name__))
 
 
+def field_name(field) -> str:
+    if isinstance(field, str):
+        return field
+
+    try:
+        name = field.__field_name__()
+    except AttributeError:
+        raise TypeError("expected str or object with __field__name__, not " + str(field)) from None
+
+    if isinstance(name, str):
+        return name
+
+    raise TypeError("expected {}.__field_name__() to return str, not {}".format(
+        type(field).__name__,
+        type(name).__name__))
+
+
 def build_expr(item) -> Expr:
     """Expression factory"""
     # pylint: disable=too-many-branches, too-many-return-statements
@@ -399,7 +416,7 @@ class Query:
         return str(self.__dict__)
 
     def copy(self) -> 'Query':
-        return Query(*copy.deepcopy(self._filter_expressions),
+        return Query(*copy.copy(self._filter_expressions),
                      limit=self.limit,
                      sort=self.sort,
                      skip=self.skip)
