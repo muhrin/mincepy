@@ -106,7 +106,7 @@ def test_to_obj_id(historian: mincepy.Historian):
     car = Car()
     car_id = car.save()
 
-    assert historian.to_obj_id(car_id) == car_id
+    assert historian.to_obj_id(car_id) is car_id
     assert historian.to_obj_id(car) == car_id
     assert historian.to_obj_id(str(car_id)) == car_id
     assert historian.to_obj_id('carrot') is None
@@ -314,3 +314,18 @@ def test_objects_collection(historian: mincepy.Historian):
 
 def test_get_obj_type(historian: mincepy.Historian):
     assert historian.get_obj_type(Car.TYPE_ID) is Car
+
+
+def test_get_obj_id(historian: mincepy.Historian):
+    """Test the get_obj_id method"""
+    unsaved = testing.Car()
+    car = testing.Car()
+    obj_id = car.save()
+
+    assert historian.get_obj_id(car) is obj_id
+    assert historian.get_obj_id(unsaved) is None
+    with historian.transaction():
+        assert historian.get_obj_id(car) is obj_id
+        historian.delete(car)
+        assert historian.get_obj_id(car) is None
+    assert historian.get_obj_id(car) is None

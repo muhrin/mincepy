@@ -8,12 +8,13 @@ from typing import Optional
 import deprecation
 
 from . import archive_factory
+from . import helpers
 from . import historians
 from . import plugins
 from . import version
 
 __all__ = ('connect', 'get_historian', 'set_historian', 'DEFAULT_ARCHIVE_URI', 'ENV_ARCHIVE_URI', \
-           'archive_uri', 'load', 'save', 'default_archive_uri', 'find', 'delete')
+           'archive_uri', 'load', 'save', 'default_archive_uri', 'find', 'delete', 'db')
 
 DEFAULT_ARCHIVE_URI = 'mongodb://localhost/mincepy'
 ENV_ARCHIVE_URI = 'MINCEPY_ARCHIVE'
@@ -93,7 +94,7 @@ def load(*obj_ids_or_refs):
 
 
 def save(*objs):
-    """Save one or more objects using the current global historian"""
+    """Save one or more objects.  See :py:meth:`mincepy.Historian.save`"""
     return get_historian().save(*objs)
 
 
@@ -105,6 +106,11 @@ def find(*args, **kwargs):
 def delete(*obj_or_identifier):
     """Delete an object.  See :py:meth:`mincepy.Historian.delete`"""
     return get_historian().delete(*obj_or_identifier)
+
+
+def db(type_id_or_type) -> helpers.TypeHelper:  # pylint: disable=invalid-name
+    """Get the database type helper for a type.  See :py:meth:`mincepy.Historian.get_helper`"""
+    return get_historian().get_helper(type_id_or_type)
 
 
 # endregion

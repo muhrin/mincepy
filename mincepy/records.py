@@ -120,7 +120,7 @@ def readonly_field(field_name: str, **kwargs) -> fields.Field:
     return fields.field(**kwargs)(**properties)
 
 
-class DataRecord(fields.WithFields, tuple):
+class DataRecord(tuple, fields.WithFields):
     """An immutable record that describes a snapshot of an object"""
     __slots__ = ()
 

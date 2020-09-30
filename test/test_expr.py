@@ -2,10 +2,10 @@ import pytest
 
 from mincepy import expr
 
-# pylint: disable=pointless-statement
+# pylint: disable=pointless-statement, invalid-name
 
 
-def test_query_filters_dicts():
+def test_expr_types_and_filters():
     """Test the query filters for expressions"""
     name_eq = expr.Comparison('name', expr.Eq('frank'))
     age_gt = expr.Comparison('age', expr.Gt(38))
@@ -36,6 +36,10 @@ def test_query_filters_dicts():
 
     assert expr.Empty().dict() == {}
 
+    with pytest.raises(TypeError):
+        # Comparison takes an operator, not a string
+        expr.Comparison('my_field', 'oper')
+
 
 def test_expr_and_or():
     """Test expression and/or methods"""
@@ -54,6 +58,12 @@ def test_expr_and_or():
     with pytest.raises(TypeError):
         name_eq | 'goodbye'
 
+    # Test fusing
+    assert (anded & anded).operand == [name_eq, age_gt, name_eq, age_gt]
+    assert (anded | anded).operand != [name_eq, age_gt, name_eq, age_gt]
+    assert (ored | ored).operand == [name_eq, age_gt, name_eq, age_gt]
+    assert (ored & ored).operand != [name_eq, age_gt, name_eq, age_gt]
+
 
 def test_build_expr():
     """Test building an expression from a query dictionary"""
@@ -63,3 +73,12 @@ def test_build_expr():
     assert isinstance(expr.build_expr({}), expr.Empty)
 
     assert isinstance(expr.build_expr({'name': 'tom', 'age': 54}), expr.And)
+
+
+def test_query_overlapping_filter_keys():
+    gt_24 = expr.Comparison('age', expr.Gt(24))
+    lt_38 = expr.Comparison('age', expr.Lt(38))
+    compound1 = gt_24 & lt_38
+    compound2 = gt_24 & lt_38
+    query_filter = expr.Query(compound1, compound2).get_filter()
+    assert query_filter == {'$and': [expr.query_expr(compound1), expr.query_expr(compound2)]}

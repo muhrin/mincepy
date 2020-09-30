@@ -1,4 +1,5 @@
 """Classes and function useful for trying out mincepy functionality"""
+#pylint: disable=cyclic-import
 import logging
 import os
 import random
@@ -137,7 +138,7 @@ def populate(historian=None):
         car.save()
 
     people = mincepy.RefList()
-    for name in ('martin', 'sonia', 'gavin', 'upul', 'sebastiaan', 'irene'):
+    for name in ('martin', 'sonia', 'gavin', 'upul', 'martin', 'sebastiaan', 'irene'):
         person = Person(name, random.randint(20, 40))
         historian.save(person)
         people.append(person)

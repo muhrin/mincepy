@@ -175,6 +175,10 @@ class WithFields(metaclass=WithFieldMeta):
     def init_field(cls, obj_field, attr_name: str):
         obj_field._properties.class_created(cls, attr_name)  # pylint: disable=protected-access
 
+    @classmethod
+    def __getitem__(cls, item):
+        return get_field_properties(cls)[item]
+
     def __init__(self, **kwargs):
         for name, field_properties in get_field_properties(type(self)).items():
             try:

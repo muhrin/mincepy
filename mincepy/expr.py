@@ -3,6 +3,10 @@ import abc
 import copy
 from typing import Union, List, Iterable
 
+__all__ = ('Expr', 'WithListOperand', 'Empty', 'Operator', 'Eq', 'Gt', 'Gte', 'In', 'Lt', 'Lte',
+           'Ne', 'Ne', 'Nin', 'Comparison', 'Logical', 'And', 'Not', 'Or', 'Nor', 'Exists',
+           'Queryable', 'WithQueryContext', 'query_expr', 'field_name', 'build_expr', 'Query')
+
 
 class FilterLike(metaclass=abc.ABCMeta):
     """An abstract base class for objects representing a pyos path, e.g. pyos.pathlib.PurePath."""
@@ -121,6 +125,9 @@ class Ne(Operator):
 class Nin(Operator):
     __slots__ = ()
     oper = '$nin'
+
+
+COMPARISON_OPERATORS = {oper_type.oper: oper_type for oper_type in Operator.__subclasses__()}
 
 
 class Comparison(Expr):
@@ -356,22 +363,13 @@ def build_expr(item) -> Expr:
         first, second = item
         if first.startswith('$'):
             # Comparison operators
-            if first == '$eq':
-                return Eq(second)
-            if first == '$gt':
-                return Gt(second)
-            if first == '$gte':
-                return Gte(second)
-            if first == '$in':
-                return In(second)
-            if first == '$lt':
-                return Lt(second)
-            if first == '$lte':
-                return Lte(second)
-            if first == '$ne':
-                return Ne(second)
-            if first == '$nin':
-                return Nin(second)
+            try:
+                oper = COMPARISON_OPERATORS[first]
+            except KeyError:
+                pass
+            else:
+                return oper(second)
+
             # Logical operators
             if first == '$and':
                 return And(list(map(build_expr, second)))
@@ -386,14 +384,15 @@ def build_expr(item) -> Expr:
                 return Exists(second)
 
             raise ValueError("Unknown operator '{}'".format(item))
-        else:
-            # Must be a 'match' where the first is the field
-            try:
-                return Comparison(first, build_expr(second))
-            except (ValueError, TypeError):
-                # TODO: See if we can make this check safer
-                # Assume second is a value type
-                return Comparison(first, Eq(second))
+
+        # Must be a 'match' where the first is the field
+        try:
+            return Comparison(first, build_expr(second))
+        except (ValueError, TypeError):
+            # pylint: disable=fixme
+            # TODO: See if we can make this check safer
+            # Assume second is a value type
+            return Comparison(first, Eq(second))
 
     try:
         return item.__expr__()
@@ -434,9 +433,6 @@ class Query:
 
     def get_filter(self) -> dict:
         """Get the query filter as a dictionary"""
-        # TODO: This will overwrite parts of the dictionary where the keys match.  We should detect
-        # TODO: such cases and combine them with an 'and' expression
-        my_filter = {}
-        for entry in self._filter_expressions:
-            my_filter.update(query_expr(entry))
-        return my_filter
+        if not self._filter_expressions:
+            return {}
+        return query_expr(And(self._filter_expressions))

@@ -524,7 +524,8 @@ class MongoRecordCollection(archives.RecordCollection):
             pipeline.append({'$sort': sort_dict})
 
         for entry in self._collection.aggregate(pipeline, allowDiskUse=True):
-            yield db.to_record(entry).__dict__
+            yield db.remap_back(entry)
+            # yield db.to_record(entry).__dict__
 
     def distinct(
             self,
@@ -538,9 +539,7 @@ class MongoRecordCollection(archives.RecordCollection):
         doc = self._collection.find_one({'_id': entry_id})  # type: dict
         if doc is None:
             raise exceptions.NotFound(entry_id)
-        doc = db.remap_back(doc)
-        # doc.pop('_id')
-        return doc
+        return db.remap_back(doc)
 
 
 def connect(uri: str) -> MongoArchive:
