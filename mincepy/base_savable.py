@@ -65,7 +65,6 @@ class BaseSavableObject(types.SavableObject):
                 item = refs.ObjRef(item)
             saved_state[attr.name] = item
 
-        super().save_instance_state(saver)
         return saved_state
 
     def load_instance_state(self, saved_state, loader):
