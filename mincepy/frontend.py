@@ -1,3 +1,7 @@
+"""
+This module collects all the frontend database entities such as collections and results that a
+user interacts with (through the historian)
+"""
 import functools
 from typing import TypeVar, Generic, Iterable, Callable, Any, Iterator, Optional
 
@@ -10,6 +14,15 @@ T = TypeVar('T')  # The type stored by the collection pylint: disable=invalid-na
 
 
 class ResultSet(Generic[T]):
+    """The representation of the results of a query.
+
+    The actual execution of queries is delayed until the user actually requests data through one
+    of the methods (including iteration) of this class.
+
+    In general the user should not instantiate this directly but will be returned instances from
+    various mincepy methods.
+    """
+
     __slots__ = ('_archive_collection', '_query', '_kwargs', '_entry_factory')
 
     def __init__(self,

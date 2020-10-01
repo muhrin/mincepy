@@ -16,7 +16,7 @@ import deprecation
 
 from . import archives
 from . import builtins
-from . import db
+from . import frontend
 from . import defaults
 from . import depositors
 from . import refs
@@ -106,14 +106,14 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._migrate = migrate.Migrations(self)
         self._references = hist.References(self)
 
-        self._snapshots = db.ObjectCollection(
+        self._snapshots = frontend.ObjectCollection(
             self._archive.snapshots,
             record_factory=lambda record_dict: SnapshotLoadableRecord(
                 record_dict, self.load_snapshot_from_record),
             obj_loader=self.load_snapshot_from_record,
             type_id_factory=self._prepare_type_id,
             obj_id_factory=self._prepare_obj_id)
-        self._objects = db.ObjectCollection(
+        self._objects = frontend.ObjectCollection(
             self._archive.objects,
             record_factory=lambda record_dict: LoadableRecord(
                 record_dict, self.load_snapshot_from_record, self._load_object_from_record),
@@ -141,12 +141,12 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self._migrate
 
     @property
-    def records(self) -> db.EntriesCollection['LoadableRecord']:
+    def records(self) -> frontend.EntriesCollection['LoadableRecord']:
         """Access methods and properties that act on and return data records"""
         return self._objects.records
 
     @property
-    def objects(self) -> db.ObjectCollection:
+    def objects(self) -> frontend.ObjectCollection:
         """Access the snapshots"""
         return self._objects
 
@@ -156,7 +156,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self._references
 
     @property
-    def snapshots(self) -> db.ObjectCollection:
+    def snapshots(self) -> frontend.ObjectCollection:
         """Access the snapshots"""
         return self._snapshots
 
@@ -539,9 +539,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
              meta: dict = None,
              sort=None,
              limit=0,
-             skip=0) -> db.ResultSet[object]:
+             skip=0) -> frontend.ResultSet[object]:
         """
-        .. _MongoDB: https://docs.mongodb.com/manual/tutorial/query-documents/
+        .. _MongoDB: https://docs.mongofrontend.com/manual/tutorial/query-documents/
 
         Find objects.  This call will search the archive for objects matching the given criteria.
         In many cases the main arguments of interest will be `state` and `meta` which allow you to
