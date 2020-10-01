@@ -268,6 +268,10 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return self._load_object(obj_id_or_snapshot_id, self._live_depositor)
 
+    def get(self, obj_id) -> object:
+        """Get a live object using the object id"""
+        return self._objects.get(obj_id)
+
     def sync(self, obj: object) -> bool:
         """Update an object with the latest state in the database.
         If there is no new version in the archive then the current version remains
@@ -778,8 +782,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             try:
                 helper = self._ensure_compatible(type(obj))
             except TypeError:
-                raise TypeError(
-                    "Object is incompatible with the historian: {}".format(obj)) from None
+                raise TypeError("Type is incompatible with the historian: {}".format(
+                    type(obj).__name__)) from None
 
             # Check if an object is already being saved in the transaction
             try:

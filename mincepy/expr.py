@@ -4,8 +4,8 @@ import copy
 from typing import Union, List, Iterable
 
 __all__ = ('Expr', 'WithListOperand', 'Empty', 'Operator', 'Eq', 'Gt', 'Gte', 'In', 'Lt', 'Lte',
-           'Ne', 'Ne', 'Nin', 'Comparison', 'Logical', 'And', 'Not', 'Or', 'Nor', 'Exists',
-           'Queryable', 'WithQueryContext', 'query_expr', 'field_name', 'build_expr', 'Query')
+           'Ne', 'Nin', 'Comparison', 'Logical', 'And', 'Not', 'Or', 'Nor', 'Exists', 'Queryable',
+           'WithQueryContext', 'query_expr', 'field_name', 'build_expr', 'Query')
 
 
 class FilterLike(metaclass=abc.ABCMeta):

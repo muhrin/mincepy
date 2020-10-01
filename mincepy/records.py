@@ -173,6 +173,15 @@ class DataRecord(tuple, fields.WithFields):
         """A new OrderedDict mapping field names to their values"""
         return collections.OrderedDict(zip(self._fields, self))
 
+    def __str__(self):
+        my_dict = self.__dict__
+        key_column_width = max(map(len, my_dict.keys()))
+        lines = [
+            "{:<{width}} {}".format(key, value, width=key_column_width)
+            for key, value in my_dict.items()
+        ]
+        return "\n".join(lines)
+
     def _asdict(self):
         """Return a new OrderedDict which maps field names to their values.
            This method is obsolete.  Use vars(record) or record.__dict__ instead.

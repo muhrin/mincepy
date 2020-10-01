@@ -99,6 +99,12 @@ class TypeRegistry:
             self, obj_class_or_helper: Union[helpers.TypeHelper, SavableObjectType]) \
             -> helpers.WrapperHelper:
         """Register a type and return the associated helper"""
+        if isinstance(obj_class_or_helper, type) and \
+            issubclass(obj_class_or_helper, helpers.TypeHelper):
+            # Try automatically constructing the helper
+            # relies on 0-argument constructor being present
+            obj_class_or_helper = obj_class_or_helper()
+
         if isinstance(obj_class_or_helper, helpers.TypeHelper):
             helper = obj_class_or_helper
         else:
