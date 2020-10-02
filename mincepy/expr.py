@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Query expressions"""
 import abc
 import copy
@@ -48,10 +49,10 @@ class WithListOperand(FilterLike):
 
     def __init__(self, operand: List[Expr]):
         if not isinstance(operand, list):
-            raise TypeError("Expected a list, got {}".format(type(operand).__name__))
+            raise TypeError('Expected a list, got {}'.format(type(operand).__name__))
         for entry in operand:
             if not isinstance(entry, Expr):
-                raise TypeError("Expected a list of Expr, found {}".format(type(entry).__name__))
+                raise TypeError('Expected a list of Expr, found {}'.format(type(entry).__name__))
         self.operand = operand
 
     def __query_expr__(self) -> dict:
@@ -137,6 +138,8 @@ class Comparison(Expr):
     __slots__ = 'field', 'expr'
 
     def __init__(self, field, expr: Operator):
+        if field is None:
+            raise ValueError('field cannot be None')
         if not isinstance(expr, Operator):
             raise TypeError("Expected an operator expression, got '{}'".format(type(expr).__name__))
 
@@ -312,12 +315,12 @@ def query_expr(filter: FilterLike) -> dict:  # pylint: disable=redefined-builtin
     try:
         query_repr = filter.__query_expr__()
     except AttributeError:
-        raise TypeError("expected dict or object with __query_expr__, not " + str(filter)) from None
+        raise TypeError('expected dict or object with __query_expr__, not ' + str(filter)) from None
 
     if isinstance(query_repr, dict):
         return query_repr
 
-    raise TypeError("expected {}.__query_expr__() to return dict, not {}".format(
+    raise TypeError('expected {}.__query_expr__() to return dict, not {}'.format(
         type(filter).__name__,
         type(query_repr).__name__))
 
@@ -329,12 +332,12 @@ def field_name(field) -> str:
     try:
         name = field.__field_name__()
     except AttributeError:
-        raise TypeError("expected str or object with __field__name__, not " + str(field)) from None
+        raise TypeError('expected str or object with __field__name__, not ' + str(field)) from None
 
     if isinstance(name, str):
         return name
 
-    raise TypeError("expected {}.__field_name__() to return str, not {}".format(
+    raise TypeError('expected {}.__field_name__() to return str, not {}'.format(
         type(field).__name__,
         type(name).__name__))
 
@@ -358,7 +361,7 @@ def build_expr(item) -> Expr:
 
     if isinstance(item, tuple):
         if len(item) != 2:
-            raise ValueError("Expecting tuple of length two, instead got {}".format(item))
+            raise ValueError('Expecting tuple of length two, instead got {}'.format(item))
 
         first, second = item
         if first.startswith('$'):
@@ -397,7 +400,7 @@ def build_expr(item) -> Expr:
     try:
         return item.__expr__()
     except AttributeError:
-        raise TypeError("expected dict or object with __expr__, not " +
+        raise TypeError('expected dict or object with __expr__, not ' +
                         type(item).__name__) from None
 
 

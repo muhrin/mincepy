@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+import argparse
+import datetime
+
 import pytest
 
 import mincepy
@@ -5,7 +9,7 @@ from mincepy import expr
 from mincepy import fields
 from mincepy import saving
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods, invalid-name, pointless-statement, protected-access
 
 
 class Image(fields.WithFields):
@@ -39,6 +43,86 @@ class Profile(fields.WithFields):
     def __init__(self, name, thumbnail):
         self.name = name
         self.thumbnail = thumbnail
+
+
+def test_field_basics():
+    # Can't use full stop in field name
+    with pytest.raises(ValueError):
+        fields.FieldProperties(store_as='my.field')
+
+    # Try getting an invalid attribute
+    field = fields.field(type=Image)
+    with pytest.raises(AttributeError):
+        field.area
+
+    # However, this is fine with dynamic fields
+    field = fields.field(dynamic=True)
+    assert isinstance(field.area, fields.Field)
+    # The dynamic property should be propagated
+    assert isinstance(field.area.height, fields.Field)
+
+    # By default a field is read/write/deletable depending on the object
+    field = fields.field(attr='value')
+    ns = argparse.Namespace()
+    field.__set__(ns, 5)
+    assert field.__get__(ns) == 5
+    field.__delete__(ns)
+    assert 'value' not in ns.__dict__
+
+    # however, if it is converted to a property it becomes read-only until a setter is given
+    ns = argparse.Namespace()
+    ns.value = 5
+    field = fields.field(attr='value')(lambda obj: getattr(obj, 'value'))
+    assert field.__get__(ns) == 5
+    with pytest.raises(AttributeError):
+        field.__set__(ns, 10)
+    # But if we add the setter...
+    field.setter(lambda obj, value: setattr(obj, 'value', value))
+    field.__set__(ns, 10)
+    assert field.__get__(ns) == 10
+
+    # Now check deleting
+    with pytest.raises(AttributeError):
+        field.__delete__(ns)
+    field.deleter(lambda obj: delattr(obj, 'value'))
+    field.__delete__(ns)
+    with pytest.raises(AttributeError):
+        field.__get__(ns)
+
+    # Test unreadable attribute
+    field = fields.field(attr='unexistent')
+
+    class Test:
+        pass
+
+    with pytest.raises(AttributeError):
+        field.__get__(Test())
+
+
+def test_immutable_property():
+    """Check that we can handle immutable properties"""
+
+    class Timestamp(fields.WithFields):
+
+        def __init__(self):
+            self._creation_time = datetime.datetime.now()
+
+        @fields.field(attr='_creation_time')
+        def creation_time(self):
+            return self._creation_time
+
+        # No setter for creation time
+
+    ts = Timestamp()
+    saved_state = saving.save_instance_state(ts)
+    # Now manually fiddle the creation time
+    ctime = ts.creation_time
+    ts._creation_time = None
+    saving.load_instance_state(ts, saved_state)
+
+    # Check that it's been restored correctly
+    assert (ts._creation_time == ctime) is True  # pylint: disable=comparison-with-callable
+    assert ts.creation_time == ctime
 
 
 def test_fields():
@@ -79,6 +163,11 @@ def test_fields():
     assert img.width is None
     assert img.height is None
     assert img._creator is None
+
+    # Check that we can get field using getitem
+    width_field = Image['width']
+    assert isinstance(width_field, fields.Field)
+    assert width_field._properties.attr_name == 'width'
 
 
 def test_nested_fields():
@@ -124,3 +213,19 @@ def test_field_property():
     del seal.specie
     with pytest.raises(AttributeError):
         print(seal.specie)
+
+
+def test_with_fields_constructor():
+    """Check the default constructor provided by with fields"""
+
+    class Car(fields.WithFields):
+        make = fields.field('_make')
+        colour = fields.field()
+
+    car = Car(make='ferrari', colour='red')
+    assert car.make == 'ferrari'
+    assert car._make == 'ferrari'
+    assert car.colour == 'red'
+
+    with pytest.raises(ValueError):
+        Car(year=1085)

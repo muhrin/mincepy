@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Module that contains methods and classes for dealing with database storable attributes of
 objects"""
 
@@ -17,8 +18,8 @@ class FieldProperties:
 
     # pylint: disable=too-many-arguments
     def __init__(self,
-                 store_as: str = None,
                  attr: str = None,
+                 store_as: str = None,
                  ref=False,
                  dynamic=True,
                  field_type: Type = None,
@@ -33,8 +34,8 @@ class FieldProperties:
         if store_as and '.' in store_as:
             raise ValueError("store_as cannot contain a dot, got '{}'".format(store_as))
 
-        self.store_as = store_as
         self.attr_name = attr
+        self.store_as = store_as if store_as else attr
         self.ref = ref
         self.dynamic = dynamic
         self.field_type = field_type
@@ -44,9 +45,11 @@ class FieldProperties:
 
     def class_created(self, the_class: type, attr: str):
         """Called by the metaclass when the owning class is created, should only be done once"""
-        assert self.db_class is None, "Cannot call class_created more than once"
+        assert self.db_class is None, 'Cannot call class_created more than once'
         self.db_class = the_class
-        self.attr_name = attr
+        # Don't overwrite these two, they have been set manually and should be respected
+        if self.attr_name is None:
+            self.attr_name = attr
         if self.store_as is None:
             self.store_as = attr
 
@@ -69,7 +72,7 @@ class Field(expr.WithQueryContext, expr.Queryable):
             return object.__getattribute__(self, item)
         except AttributeError as exc:
             # Dynamically create a new field
-            if item != "__isabstractmethod__":
+            if item != '__isabstractmethod__':
                 if self._properties.field_type is not None and \
                         issubclass(self._properties.field_type, WithFields):
                     properties = get_field_properties(self._properties.field_type)
@@ -110,12 +113,12 @@ class Field(expr.WithQueryContext, expr.Queryable):
 
     def __set__(self, obj, value):
         if self._setter is None:
-            raise AttributeError("can't set attribute")
+            raise AttributeError("can't set attribute '{}'".format(self._properties.attr_name))
         self._setter(obj, value)
 
     def __delete__(self, obj):
         if self._deleter is None:
-            raise AttributeError("can't delete attribute")
+            raise AttributeError("can't delete attribute '{}'".format(self._properties.attr_name))
         self._deleter(obj)
 
     def getter(self, fget):
@@ -142,7 +145,7 @@ class Field(expr.WithQueryContext, expr.Queryable):
         """Default setter"""
         obj.__dict__[self._properties.attr_name] = value
 
-    def _delete(self, obj):
+    def _deleter(self, obj):
         """Default deleter"""
         del obj.__dict__[self._properties.attr_name]
 
@@ -153,8 +156,19 @@ class Field(expr.WithQueryContext, expr.Queryable):
         return self._properties.store_as
 
 
-def field(store_as: str = None, ref=False, default=_UNSET, type=None) -> Field:  # pylint: disable=redefined-builtin
-    properties = FieldProperties(ref=ref, store_as=store_as, default=default, field_type=type)
+def field(
+        attr: str = None,
+        ref=False,
+        default=_UNSET,
+        type=None,  # pylint: disable=redefined-builtin
+        store_as: str = None,
+        dynamic=False) -> Field:
+    properties = FieldProperties(attr=attr,
+                                 ref=ref,
+                                 store_as=store_as,
+                                 default=default,
+                                 field_type=type,
+                                 dynamic=dynamic)
     return Field(properties)
 
 
@@ -167,6 +181,9 @@ class WithFieldMeta(abc.ABCMeta):
             if isinstance(value, Field):
                 cls.init_field(value, key)
 
+    def __getitem__(cls, item):
+        return get_fields(cls)[item]
+
 
 class WithFields(metaclass=WithFieldMeta):
     """Base class for types that describe how to save objects in the database using db fields"""
@@ -174,10 +191,6 @@ class WithFields(metaclass=WithFieldMeta):
     @classmethod
     def init_field(cls, obj_field, attr_name: str):
         obj_field._properties.class_created(cls, attr_name)  # pylint: disable=protected-access
-
-    @classmethod
-    def __getitem__(cls, item):
-        return get_field_properties(cls)[item]
 
     def __init__(self, **kwargs):
         for name, field_properties in get_field_properties(type(self)).items():
@@ -192,6 +205,20 @@ class WithFields(metaclass=WithFieldMeta):
 
         if kwargs:
             raise ValueError("Got unexpected keyword argument(s) '{}'".format(kwargs))
+
+
+def get_fields(db_type: Type[WithFields]) -> Dict[str, Field]:
+    """Given a WithField type this will return all the database attributes as a dictionary where the
+    key is the attribute name"""
+    db_attrs = {}
+    for entry in reversed(db_type.__mro__):
+        if entry is object:
+            continue
+        for name, class_attr in entry.__dict__.items():
+            if isinstance(class_attr, Field):
+                db_attrs[name] = class_attr
+
+    return db_attrs
 
 
 def get_field_properties(db_type: Type[WithFields]) -> Dict[str, FieldProperties]:

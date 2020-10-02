@@ -1,30 +1,37 @@
-# yet another python formatter
-- repo: local
-  hooks:
-  # yapf = yet another python formatter
-  - id: yapf
-    name: yapf
-    entry: yapf
-    language: system
-    types: [python]
-    args: ["-i"]
-    exclude: &exclude_files >-
-      (?x)^(
-        ^docs/|
-      )$
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v2.5.0
+    hooks:
+    -   id: double-quote-string-fixer
+    -   id: end-of-file-fixer
+    -   id: fix-encoding-pragma
+        exclude: &exclude_files >
+            (?x)^(
+                docs/.*|
+            )$
+    -   id: mixed-line-ending
+    -   id: trailing-whitespace
 
-  # prospector: collection of linters
-  - id: prospector
-    language: system
-    types: [file, python]
-    name: prospector
-    description: "This hook runs Prospector: https://github.com/landscapeio/prospector"
-    entry: prospector
-    exclude: *exclude_files
+-   repo: https://github.com/PyCQA/pylint
+    rev: pylint-2.5.2
+    hooks:
+    -   id: pylint
+        language: system
+        args: [
+            '--max-line-length=120',
+            '--disable=duplicate-code',
+            '--disable=import-outside-toplevel',
+            '--disable=missing-docstring',
+            '--disable=bad-continuation',
+            '--disable=locally-disabled',
+            '--disable=too-few-public-methods',
+            '--disable=too-many-arguments',
+            '--disable=too-many-instance-attributes',
+        ]
+        exclude: *exclude_files
 
-- repo: git://github.com/pre-commit/pre-commit-hooks
-  sha: v1.1.1
-  hooks:
-  - id: check-yaml
-
-
+-   repo: https://github.com/pre-commit/mirrors-yapf
+    rev: v0.30.0
+    hooks:
+    -   id: yapf
+        types: [python]
