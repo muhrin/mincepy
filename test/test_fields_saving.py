@@ -214,13 +214,15 @@ def test_field_property():
     with pytest.raises(AttributeError):
         print(seal.specie)
 
+    assert repr(Animal.specie._properties).startswith('FieldProperties(')
+
 
 def test_with_fields_constructor():
     """Check the default constructor provided by with fields"""
 
     class Car(fields.WithFields):
         make = fields.field('_make')
-        colour = fields.field()
+        colour = fields.field(default='red')
 
     car = Car(make='ferrari', colour='red')
     assert car.make == 'ferrari'
@@ -229,3 +231,6 @@ def test_with_fields_constructor():
 
     with pytest.raises(ValueError):
         Car(year=1085)
+
+    # Test default colour
+    assert Car(make='honda').colour == 'red'

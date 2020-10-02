@@ -43,6 +43,18 @@ class FieldProperties:
         self.extras = extras or {}
         self.db_class = None
 
+    def __repr__(self):
+        return 'FieldProperties(attr={}, store_as={}, ref={}, dynamic={}, field_type={}, ' \
+               'default={}, extras={})'.format(
+            repr(self.attr_name),
+            repr(self.store_as),
+            self.ref,
+            self.dynamic,
+            repr(self.field_type),
+            repr(self.default),
+            repr(self.extras)
+        )
+
     def class_created(self, the_class: type, attr: str):
         """Called by the metaclass when the owning class is created, should only be done once"""
         assert self.db_class is None, 'Cannot call class_created more than once'
