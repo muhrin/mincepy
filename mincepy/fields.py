@@ -193,8 +193,16 @@ class WithFieldMeta(abc.ABCMeta):
             if isinstance(value, Field):
                 cls.init_field(value, key)
 
+    # Make this class a mapping such that fields can be accessed using [] operator
+
+    def __iter__(cls):
+        return get_fields(cls).__iter__()
+
+    def __len__(cls):
+        return get_fields(cls).__len__()
+
     def __getitem__(cls, item):
-        return get_fields(cls)[item]
+        return get_fields(cls).__getitem__(item)
 
 
 class WithFields(metaclass=WithFieldMeta):

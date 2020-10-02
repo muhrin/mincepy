@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 import collections
-from typing import Type, MutableMapping, Iterable, Any, Union
+from typing import Type, MutableMapping, Any, Union
 
 from . import helpers
 from . import types
@@ -118,7 +119,7 @@ class TypeRegistry:
 
     def _insert_helper(self, helper: helpers.TypeHelper):
         """Insert a helper into the registry for all the types that it supports"""
-        obj_types = helper.TYPE if isinstance(helper.TYPE, Iterable) else (helper.TYPE,)  # pylint: disable=isinstance-second-argument-not-valid-type
+        obj_types = helper.TYPE if isinstance(helper.TYPE, tuple) else (helper.TYPE,)  # pylint: disable=isinstance-second-argument-not-valid-type
 
         for obj_type in obj_types:
             self._helpers[obj_type] = helper
