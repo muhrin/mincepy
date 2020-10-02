@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Module for methods related to saving and loading objects to/from records"""
 
 from typing import Type, Union
@@ -18,11 +19,11 @@ def save_instance_state(obj, db_type: Type[fields.WithFields] = None):
             "A DbType wasn't passed and obj isn't a DbType instance other"
         db_type = type(obj)
 
-    to_check = fields.get_field_properties(db_type)
+    field_properties = fields.get_field_properties(db_type).values()
     state = {}
 
-    for name, properties in to_check.items():
-        attr_val = getattr(obj, name)
+    for properties in field_properties:
+        attr_val = getattr(obj, properties.attr_name)
         if properties.ref and attr_val is not None:
             attr_val = refs.ObjRef(attr_val)
 
@@ -56,7 +57,7 @@ def load_instance_state(obj,
 
             if properties.ref and value is not None:
                 assert isinstance(value, refs.ObjRef), \
-                    "Expected to see a reference in the saved state for key " \
+                    'Expected to see a reference in the saved state for key ' \
                     "'{}' but got '{}'".format(properties.store_as, value)
                 value = value()  # Dereference it
 

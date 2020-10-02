@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from abc import ABCMeta, abstractmethod
 import datetime
 from typing import Type, List
@@ -32,7 +33,7 @@ class Savable(fields.WithFields, expr.FilterLike):
     LATEST_MIGRATION = None  # type: mincepy.ObjectMigration
 
     def __init__(self, *args, **kwargs):
-        assert self.TYPE_ID is not None, "Must set the TYPE_ID for an object to be savable"
+        assert self.TYPE_ID is not None, 'Must set the TYPE_ID for an object to be savable'
         super().__init__(*args, **kwargs)
 
     @classmethod
@@ -139,7 +140,7 @@ class Equator:
             try:
                 yield from obj.yield_hashables(self)
             except AttributeError:
-                raise TypeError("No helper registered and no yield_hashabled method on '{}'".format(
+                raise TypeError("No helper registered and no yield_hashables method on '{}'".format(
                     type(obj))) from None
         else:
             yield from equator.yield_hashables(obj, self)
