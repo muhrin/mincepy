@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 This module collects all the frontend database entities such as collections and results that a
 user interacts with (through the historian)
@@ -70,7 +71,7 @@ class ResultSet(Generic[T]):
             return None
 
         if len(results) > 1:
-            raise exceptions.NotOneError("one() used with more than one result available")
+            raise exceptions.NotOneError('one() used with more than one result available')
 
         return self._entry_factory(results[0])
 
@@ -146,19 +147,14 @@ class EntriesCollection(Generic[T]):
         query = expr.Query(*expression)
 
         if obj_type is not None:
-            if isinstance(obj_type, expr.Expr):
-                oper = obj_type
-            else:
-                oper = expr.Eq(self._type_id_factory(obj_type))
-            query.append(expr.Comparison(records.DataRecord.type_id, oper))
+            query.append(self._get_type_expr(obj_type))
+
         if obj_id is not None:
-            if isinstance(obj_id, expr.Expr):
-                oper = obj_id
-            else:
-                oper = expr.Eq(self._obj_id_factory(obj_id))
-            query.append(expr.Comparison(records.DataRecord.obj_id, oper))
+            query.append(self._get_obj_id_expr(obj_id))
+
         if version is not None and version != -1:
             query.append(records.DataRecord.version == version)
+
         if state is not None:
             if isinstance(state, dict):
                 result = flatten_filter('state', state)
@@ -174,6 +170,28 @@ class EntriesCollection(Generic[T]):
             query.extend(result)
 
         return query
+
+    def _get_obj_id_expr(self, obj_id) -> expr.Expr:
+        if isinstance(obj_id, expr.Expr):
+            oper = obj_id
+        else:
+            if isinstance(obj_id, list):
+                oper = expr.In(list(map(self._obj_id_factory, obj_id)))
+            else:
+                oper = expr.Eq(self._obj_id_factory(obj_id))
+
+        return expr.Comparison(records.DataRecord.obj_id, oper)
+
+    def _get_type_expr(self, obj_type) -> expr.Expr:
+        if isinstance(obj_type, expr.Expr):
+            oper = obj_type
+        else:
+            if isinstance(obj_type, list):
+                oper = expr.In(list(map(self._type_id_factory, obj_type)))
+            else:
+                oper = expr.Eq(self._type_id_factory(obj_type))
+
+        return expr.Comparison(records.DataRecord.type_id, oper)
 
 
 class ObjectCollection(EntriesCollection):

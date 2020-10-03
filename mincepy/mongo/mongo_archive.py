@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from typing import Optional, Sequence, Union, Iterable, Mapping, Iterator, Dict, Tuple
 import uuid
 
@@ -179,7 +180,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def meta_get(self, obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]]):
         # Single obj id
         if not isinstance(obj_id, bson.ObjectId):
-            raise TypeError("Must pass an ObjectId, got {}".format(obj_id))
+            raise TypeError('Must pass an ObjectId, got {}'.format(obj_id))
         found = self._meta_collection.find_one({'_id': obj_id})
         if found is None:
             return found
@@ -190,7 +191,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         # Find multiple
         for obj_id in obj_ids:
             if not isinstance(obj_id, bson.ObjectId):
-                raise TypeError("Must pass an ObjectId, got {}".format(obj_id))
+                raise TypeError('Must pass an ObjectId, got {}'.format(obj_id))
 
         cur = self._meta_collection.find({'_id': q.in_(*obj_ids)})
         results = {oid: None for oid in obj_ids}
@@ -237,7 +238,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     def meta_update(self, obj_id, meta: Mapping):
         if meta.get('_id', obj_id) != obj_id:
-            raise ValueError("Cannot use the key _id, in metadata: it is reserved")
+            raise ValueError('Cannot use the key _id, in metadata: it is reserved')
 
         try:
             self._meta_collection.update_one({'_id': obj_id}, {'$set': meta}, upsert=True)
@@ -381,7 +382,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         if limit:
             pipeline.append({'$limit': limit})
 
-        pipeline.append({'$count': "total"})
+        pipeline.append({'$count': 'total'})
         result = next(coll.aggregate(pipeline))
 
         return result['total']
@@ -509,12 +510,6 @@ class MongoRecordCollection(archives.RecordCollection):
             pipeline.extend(
                 queries.pipeline_match_metadata(meta, self._meta_collection_name, db.OBJ_ID))
 
-        if skip:
-            pipeline.append({'$skip': skip})
-
-        if limit:
-            pipeline.append({'$limit': limit})
-
         if sort:
             if not isinstance(sort, dict):
                 sort_dict = {sort: 1}
@@ -522,6 +517,12 @@ class MongoRecordCollection(archives.RecordCollection):
                 sort_dict = sort
             sort_dict = db.remap(sort_dict)
             pipeline.append({'$sort': sort_dict})
+
+        if skip:
+            pipeline.append({'$skip': skip})
+
+        if limit:
+            pipeline.append({'$limit': limit})
 
         for entry in self._collection.aggregate(pipeline, allowDiskUse=True):
             yield db.remap_back(entry)
@@ -556,7 +557,7 @@ class MongoRecordCollection(archives.RecordCollection):
             pipeline.extend(
                 queries.pipeline_match_metadata(meta, self._meta_collection_name, db.OBJ_ID))
 
-        pipeline.append({'$count': "total"})
+        pipeline.append({'$count': 'total'})
         try:
             result = next(self._collection.aggregate(pipeline))
         except StopIteration:
@@ -570,7 +571,7 @@ def connect(uri: str) -> MongoArchive:
     # mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
     parsed = pymongo.uri_parser.parse_uri(uri)
     if not parsed.get('database', None):
-        raise ValueError("Failed to supply database on MongoDB uri: {}".format(uri))
+        raise ValueError('Failed to supply database on MongoDB uri: {}'.format(uri))
 
     try:
         client = pymongo.MongoClient(uri)
