@@ -81,8 +81,7 @@ class ResultSet(Generic[T]):
 
 class EntriesCollection(Generic[T]):
 
-    def __init__(self, archive_collection: archives.Collection, entry_factory: Callable[[dict],
-                                                                                        object],
+    def __init__(self, archive_collection: archives.Collection, entry_factory: Callable[[dict], T],
                  type_id_factory: Callable[[Any], Any], obj_id_factory: Callable[[Any], Any]):
         self._archive_collection = archive_collection
         self._entry_factory = entry_factory
@@ -133,7 +132,7 @@ class EntriesCollection(Generic[T]):
                              state=state,
                              extras=extras).distinct(key)
 
-    def get(self, entry_id) -> records.DataRecord:
+    def get(self, entry_id) -> T:
         return self._entry_factory(self._archive_collection.get(entry_id))
 
     def _prepare_query(self,
@@ -194,7 +193,7 @@ class EntriesCollection(Generic[T]):
         return expr.Comparison(records.DataRecord.type_id, oper)
 
 
-class ObjectCollection(EntriesCollection):
+class ObjectCollection(EntriesCollection[object]):
 
     def __init__(
         self,
