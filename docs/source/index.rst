@@ -4,6 +4,7 @@
    contain the root `toctree` directive.
 
 .. _mincePy: https://github.com/muhrin/mincepy
+.. _scientific types: https://github.com/muhrin/mincepy_sci
 .. _object-document mapper: https://en.wikipedia.org/wiki/Object-relational_mapping#Object-oriented_databases
 .. _data mapper pattern: https://en.wikipedia.org/wiki/Data_mapper_pattern
 .. _python ORMs: https://en.wikipedia.org/wiki/List_of_object-relational_mapping_software#Python
@@ -64,14 +65,20 @@ MincePy achieves this by keeping a snapshot of your object each time you save it
 Features
 ++++++++
 
-* Ability to work locally or collaboratively on a shared database.
-* Automatic tracking of in-memory objects (`identity map`_).
-* Easy addition of new Python types.
-* Object version control.
-* Tracking of references between objects.
-* Optimistic locking.
-* Plugin system makes it easy to extend mincePy to support new types.
-* Python 3.5+ compatible.
+* Out-of-the-box support for commonly used `scientific types`_, including:
+
+  * NumPy
+  * pandas
+  * ASE
+
+* Ability to work locally or collaboratively on a shared database
+* Automatic tracking of in-memory objects (`identity map`_)
+* Easy addition of new Python types
+* Object version control
+* Tracking of references between objects
+* Optimistic locking
+* Plugin system makes it easy to extend mincePy to support new types
+* Python 3.5+ compatible
 * A responsive, Qt, `gui`_:
 
 .. image:: img/mincepy-gui.png
@@ -89,6 +96,11 @@ Installation with pip:
 
     pip install mincepy
 
+Or if you'd like to include plugins for storing common scientific types, use:
+
+.. code-block:: shell
+
+    pip install mincepy[sci]
 
 Installation from git:
 

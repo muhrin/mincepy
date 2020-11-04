@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from setuptools import setup
 
-__author__ = "Martin Uhrin"
-__license__ = "GPLv3 and MIT"
+__author__ = 'Martin Uhrin'
+__license__ = 'GPLv3 and MIT'
 
 about = {}
 with open('mincepy/version.py') as f:
@@ -11,7 +11,7 @@ with open('mincepy/version.py') as f:
 setup(
     name='mincepy',
     version=about['__version__'],
-    description="Python object storage with versioning made simple",
+    description='Python object storage with versioning made simple',
     long_description=open('README.rst').read(),
     url='https://github.com/muhrin/mincepy.git',
     author='Martin Uhrin',
@@ -58,6 +58,7 @@ setup(
             'sphinx',
             'sphinx-autobuild',
         ],
+        'sci': ['mincepy-sci'],
     },
     packages=['mincepy', 'mincepy.cli', 'mincepy.mongo', 'mincepy.hist'],
     include_package_data=True,

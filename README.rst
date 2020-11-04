@@ -1,5 +1,5 @@
 .. _documentation: https://mincepy.readthedocs.org/
-.. _object-relational mapper: https://en.wikipedia.org/wiki/Object-relational_mapping
+.. _object-document mapper: https://en.wikipedia.org/wiki/Object%E2%80%93relational_mapping#Object-oriented_databases
 .. _data mapper pattern: https://en.wikipedia.org/wiki/Data_mapper_pattern
 
 mincePy
@@ -29,7 +29,7 @@ mincePy
 
 mincePy: move the database to one side and let your objects take centre stage.
 
-MincePy is an `object-relational mapper`_ (ORM) using the `data mapper pattern`_ designed specifically for computational
+MincePy is an `object-document mapper`_ (ORM) using the `data mapper pattern`_ designed specifically for computational
 and data science.  What does this all mean??  It's simple really, it means you can store, find, get the history of and
 annotate any of your python objects either in your local database or one shared with your collaborators.
 
