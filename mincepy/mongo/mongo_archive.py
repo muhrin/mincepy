@@ -76,9 +76,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         self._refman = references.ReferenceManager(database[DEFAULT_REFERENCES_COLLECTION],
                                                    self._data_collection, self._history_collection)
 
-        self._snapshots = MongoRecordCollection(self._history_collection,
+        self._snapshots = MongoRecordCollection(self, self._history_collection,
                                                 self._meta_collection.name)
-        self._objects = MongoRecordCollection(self._data_collection, self._meta_collection.name)
+        self._objects = MongoRecordCollection(self, self._data_collection,
+                                              self._meta_collection.name)
 
         self._create_indices()
 
@@ -132,8 +133,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         history_ops = []
 
         for data_op, history_op in map(bulk.to_mongo_op, ops):
-            data_ops.append(data_op)
-            history_ops.append(history_op)
+            data_ops.extend(data_op)
+            history_ops.extend(history_op)
 
         try:
             # First perform the data operations
@@ -487,14 +488,22 @@ def _flatten_filter_dict(filter: dict) -> dict:  # pylint: disable=redefined-bui
 
 class MongoRecordCollection(archives.RecordCollection):
 
-    def __init__(self, collection: pymongo.database.Collection, meta_collection_name: str):
+    def __init__(self, archive: MongoArchive, collection: pymongo.database.Collection,
+                 meta_collection_name: str):
+        self._archive = archive
         self._collection = collection
         self._meta_collection_name = meta_collection_name
+
+    @property
+    def archive(self) -> MongoArchive:
+        """Get the corresponding archive"""
+        return self._archive
 
     def find(
             self,
             filter: dict,  # pylint: disable=redefined-builtin
             *,
+            projection=None,
             meta: dict = None,
             limit=0,
             sort=None,
@@ -523,6 +532,9 @@ class MongoRecordCollection(archives.RecordCollection):
 
         if limit:
             pipeline.append({'$limit': limit})
+
+        if projection:
+            pipeline.append({'$project': db.remap(projection)})
 
         for entry in self._collection.aggregate(pipeline, allowDiskUse=True):
             yield db.remap_back(entry)

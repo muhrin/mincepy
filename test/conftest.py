@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # pylint: disable=unused-import, redefined-outer-name
 import random
 
@@ -5,7 +6,8 @@ import pytest
 
 import mincepy
 from mincepy import testing
-from mincepy.testing import archive_uri, mongodb_archive, historian
+from mincepy.testing import archive_uri, mongodb_archive, historian, clean_test_historian, clean_test_archive, \
+    archive_base_uri
 from . import utils
 
 
@@ -13,19 +15,22 @@ from . import utils
 def standard_dataset(historian: mincepy.Historian):
     with historian.transaction():
         # Put in some cars
-        testing.Car('ferrari', 'red').save()
-        testing.Car('honda', 'white').save()
-        testing.Car('fiat', 'green').save()
+        ferrari = testing.Car('ferrari', 'red')
+        ferrari.save()
+        honda = testing.Car('honda', 'white')
+        honda.save()
+        fiat = testing.Car('fiat', 'green')
+        fiat.save()
 
         # Put in some identical yellow cars
         for _ in range(4):
             testing.Car(make='renault', colour='yellow').save()
 
         # Put in some people
-        testing.Person('sonia', 30).save()
-        testing.Person('martin', 35).save()
+        testing.Person('sonia', 30, ferrari).save()
+        testing.Person('martin', 35, honda).save()
         testing.Person('gavin', 34).save()
-        testing.Person('upul', 35).save()
+        testing.Person('upul', 35, fiat).save()
 
         # Put in some people with the same name and different age
         for _ in range(100):
@@ -36,9 +41,12 @@ def standard_dataset(historian: mincepy.Historian):
 def large_dataset(historian: mincepy.Historian):
     with historian.transaction():
         # Put in some cars
-        testing.Car('ferrari', 'red').save()
-        testing.Car('honda', 'white').save()
-        testing.Car('fiat', 'green').save()
+        ferrari = testing.Car('ferrari', 'red')
+        ferrari.save()
+        honda = testing.Car('honda', 'white')
+        honda.save()
+        fiat = testing.Car('fiat', 'green')
+        fiat.save()
 
         # Put in some yellow cars
         for _ in range(100):
@@ -49,10 +57,10 @@ def large_dataset(historian: mincepy.Historian):
             testing.Car(make=utils.random_str(5), colour=utils.random_str(3)).save()
 
         # Put in some people
-        testing.Person('sonia', 30).save()
-        testing.Person('martin', 35).save()
+        testing.Person('sonia', 30, ferrari).save()
+        testing.Person('martin', 35, honda).save()
         testing.Person('gavin', 34).save()
-        testing.Person('upul', 35).save()
+        testing.Person('upul', 35, fiat).save()
 
         # Put in some with the same age
         for _ in range(100):

@@ -1,7 +1,9 @@
+# -*- coding: utf-8 -*-
 """Classes and function useful for trying out mincepy functionality"""
-#pylint: disable=cyclic-import
+# pylint: disable=cyclic-import
 import logging
 import os
+import string
 import random
 import uuid
 
@@ -13,9 +15,11 @@ import mincepy
 logger = logging.getLogger(__name__)
 
 ENV_ARCHIVE_URI = 'MINCEPY_TEST_URI'
+ENV_ARCHIVE_BASE_URI = 'MINCEPY_TEST_BASE_URI'
 DEFAULT_ARCHIVE_URI = 'mongodb://localhost/mincepy-tests'
+DEFAULT_ARCHIVE_BASE_URI = 'mongodb://127.0.0.1'
 
-# pylint: disable=redefined-outer-name
+# pylint: disable=redefined-outer-name, invalid-name
 
 try:
     import pytest
@@ -25,6 +29,10 @@ try:
     @pytest.fixture
     def archive_uri() -> str:
         return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
+
+    @pytest.fixture
+    def archive_base_uri() -> str:
+        return os.environ.get(ENV_ARCHIVE_BASE_URI, DEFAULT_ARCHIVE_BASE_URI)
 
     @pytest.fixture
     def mongodb_archive(archive_uri):
@@ -43,6 +51,24 @@ try:
         yield hist
         mincepy.set_historian(None)
 
+    @pytest.fixture
+    def clean_test_archive(archive_base_uri):
+        letters = string.ascii_lowercase
+        db_name = 'mincepy_' + ''.join(random.choice(letters) for _ in range(5))
+        uri = archive_base_uri + '/' + db_name
+        client = pymongo.MongoClient(uri)
+        db = client.get_default_database()
+        client.drop_database(db)
+        archive = mincepy.mongo.MongoArchive(db)
+        yield archive
+        client.drop_database(db)
+
+    @pytest.fixture
+    def clean_test_historian(clean_test_archive):
+        hist = mincepy.Historian(clean_test_archive)
+        hist.register_types(mincepy.testing.HISTORIAN_TYPES)
+        yield hist
+
 except ImportError:
     logger.debug("pytest fixtures missing because pytest isn't installed")
 
@@ -58,7 +84,7 @@ class Car(mincepy.ConvenientSavable):
         self.colour = colour
 
     def __str__(self) -> str:
-        return "{} {}".format(self.colour, self.make)
+        return '{} {}'.format(self.colour, self.make)
 
 
 class Garage(mincepy.ConvenientSavable):

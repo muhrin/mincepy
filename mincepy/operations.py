@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Module containing record operations that can be performed sent to the archive to perform"""
 import abc
 
@@ -49,7 +50,7 @@ class Update(Operation):
     def __init__(self, sid: records.SnapshotId, update: dict):
         diff = set(update.keys()) - set(records.DataRecord._fields)
         if diff:
-            raise ValueError("Invalid keys found in the update operation: {}".format(diff))
+            raise ValueError('Invalid keys found in the update operation: {}'.format(diff))
 
         self._sid = sid
         self._update = update
@@ -83,3 +84,28 @@ class Delete(Operation):
     def snapshot_id(self) -> records.SnapshotId:
         """The snapshot being deleted"""
         return self._sid
+
+
+class Merge(Operation):
+    """Merge a record into the archive.  This could be:
+        * An entirely new snapshot, i.e. the object id doesn't exist in the archive at all
+        * A new version of a record, i.e. the object id does exist but this version is newer than any other
+        * An old version of a record, i.e. the object id does exist but this version is older than the latest
+
+    In any case the snapshot id should no exist in the database already.
+    """
+
+    def __init__(self, record: records.DataRecord):
+        self._record = record
+
+    @property
+    def obj_id(self):
+        return self._record.obj_id
+
+    @property
+    def snapshot_id(self):
+        return self._record.snapshot_id
+
+    @property
+    def record(self) -> records.DataRecord:
+        return self._record

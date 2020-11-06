@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
 import pytest
 
 import mincepy
 from mincepy import testing
 from mincepy.testing import Car
+
+# pylint: disable=protected-access
 
 
 def test_transaction_snapshots(historian: mincepy.Historian):
@@ -166,7 +169,7 @@ def test_delete_referenced(historian: mincepy.Historian):
     except mincepy.ReferenceError as exc:
         assert exc.references == {car.obj_id}
     else:
-        assert False, "Reference error should have been raised"
+        assert False, 'Reference error should have been raised'
 
     historian.delete(garage)
     # Now safe to delete car
@@ -329,3 +332,62 @@ def test_get_obj_id(historian: mincepy.Historian):
         historian.delete(car)
         assert historian.get_obj_id(car) is None
     assert historian.get_obj_id(car) is None
+
+
+def test_merge(historian: mincepy.Historian, clean_test_historian):
+    local_historian = historian
+    remote_historian = clean_test_historian
+
+    remote_skoda = testing.Car(make='skoda', colour='green')
+    skoda_id = remote_historian.save(remote_skoda)
+    assert remote_skoda._historian is remote_historian
+
+    result = local_historian.merge(clean_test_historian.objects.find(obj_id=skoda_id))
+    assert remote_historian.get_snapshot_id(remote_skoda) in result.merged
+    assert local_historian.find(obj_id=skoda_id).count() == 1
+
+    # Now, let's update and see if we can merge
+    remote_skoda.colour = 'yellow'
+    remote_historian.save(remote_skoda)
+
+    result = local_historian.merge(remote_historian.objects.find(obj_id=skoda_id))
+    assert remote_historian.get_snapshot_id(remote_skoda) in result.merged
+    assert local_historian.snapshots.find(obj_id=skoda_id).count() == 2
+    assert local_historian.find(obj_id=skoda_id).one().colour == 'yellow'
+
+    # Now, change both to the same thing
+    local_skoda = local_historian.load(skoda_id)
+    assert local_skoda._historian is local_historian
+    assert local_skoda is not remote_skoda
+
+    local_skoda.colour = 'blue'
+    local_skoda.save()
+
+    remote_skoda.colour = 'blue'
+    remote_skoda.save()
+    result = local_historian.merge(remote_historian.objects.find(obj_id=skoda_id))
+    assert not result.merged  # None should have been transferred
+
+    # Now check that conflicts are correctly handled
+    remote_skoda.colour = 'brown'
+    remote_skoda.save()
+    local_skoda.colour = 'grey'
+    local_skoda.save()
+    with pytest.raises(mincepy.MergeError):
+        local_historian.merge(clean_test_historian.objects.find(obj_id=skoda_id))
+
+
+def test_large_merge(
+        historian: mincepy.Historian,
+        large_dataset,  # pylint: disable=unused-argument
+        clean_test_historian: mincepy.Historian):
+    local_historian = historian
+    remote_historian = clean_test_historian
+
+    all_objects = local_historian.find()
+    assert all_objects.count() > 0
+
+    # Merge the large dataset into the remote historian
+    result = remote_historian.merge(all_objects)
+    assert len(result.all) == len(result.merged) == local_historian.find().count()
+    assert local_historian.find().count() == remote_historian.find().count()

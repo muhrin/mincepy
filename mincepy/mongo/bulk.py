@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import functools
 
 import pymongo
@@ -41,7 +42,7 @@ def _(op: mincepy.operations.Insert):
     document['_id'] = str(record.snapshot_id)
     history_op = pymongo.operations.InsertOne(document)
 
-    return data_op, history_op
+    return [data_op], [history_op]
 
 
 @to_mongo_op.register(mincepy.operations.Update)
@@ -59,7 +60,7 @@ def _(op: mincepy.operations.Update):
                                            update=update)
     history_op = pymongo.operations.UpdateOne(filter={'_id': str(sid)}, update=update)
 
-    return data_op, history_op
+    return [data_op], [history_op]
 
 
 @to_mongo_op.register(mincepy.operations.Delete)
@@ -71,4 +72,41 @@ def _(op: mincepy.operations.Delete):
     data_op = pymongo.operations.DeleteOne(filter={db.OBJ_ID: sid.obj_id},)
     history_op = pymongo.operations.DeleteOne(filter={'_id': str(sid)},)
 
-    return data_op, history_op
+    return [data_op], [history_op]
+
+
+@to_mongo_op.register(mincepy.operations.Merge)
+def _(op: mincepy.operations.Merge):
+    """Merge"""
+    record = op.record
+    document = db.to_document(record)
+    document['_id'] = record.obj_id
+
+    data_ops = []
+
+    if record.is_deleted_record():
+        # Delete record, so expunge the record from the current objects
+        data_ops.append(
+            pymongo.operations.DeleteOne(filter={
+                db.OBJ_ID: record.obj_id,
+                db.VERSION: q.lt_(record.version)
+            },))
+    else:
+        # If this version is newer then replace the current one, if not, silently drop via upsert=False
+        data_ops.append(
+            pymongo.operations.ReplaceOne(filter={
+                db.OBJ_ID: record.obj_id,
+                db.VERSION: q.lt_(record.version)
+            },
+                                          replacement=document.copy(),
+                                          upsert=False))
+        data_ops.append(
+            pymongo.operations.UpdateOne(filter={db.OBJ_ID: record.obj_id},
+                                         update={'$setOnInsert': document.copy()},
+                                         upsert=True))
+
+    # History uses the sid as the document id
+    document['_id'] = str(record.snapshot_id)
+    history_op = pymongo.operations.InsertOne(document)
+
+    return data_ops, [history_op]

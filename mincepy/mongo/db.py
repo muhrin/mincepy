@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """This module contains the names of the keys in the various collections used by the mongo
 archive and methods to convert mincepy types to mongo collection entries and back"""
 import functools
@@ -99,8 +100,10 @@ def remap(record_dict: dict) -> dict:
 
 def remap_back(entry_dict: dict) -> dict:
     remapped = {}
-    for mince_key, mongo_key in KEY_MAP.items():
-        remapped[mince_key] = entry_dict[mongo_key]
+    inverse_map = KEY_MAP.inverse
+    for key, value in entry_dict.items():
+        if key in inverse_map:
+            remapped[inverse_map[key]] = value
     return remapped
 
 

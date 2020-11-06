@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+# pylint: disable=too-many-lines
 import collections
 import contextlib
 
@@ -9,7 +11,7 @@ import getpass
 import logging
 import socket
 import typing
-from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type, Dict, Callable
+from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type, Dict, Callable, List
 import weakref
 
 import deprecation
@@ -26,6 +28,7 @@ from . import helpers
 from . import hist
 from . import migrate
 from . import operations
+from . import qops
 from . import records as recordsm  # The records module
 from . import staging
 from . import tracking
@@ -49,19 +52,19 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
     have active references to them) that have been loaded and/or saved as well as enabling the
     user to lookup objects in the archive."""
 
-    @deprecation.deprecated(deprecated_in="0.14.5",
-                            removed_in="0.16.0",
+    @deprecation.deprecated(deprecated_in='0.14.5',
+                            removed_in='0.16.0',
                             current_version=version_mod.__version__,
-                            details="Use mincepy.copy() instead")
+                            details='Use mincepy.copy() instead')
     def copy(self, obj):  # pylint: disable=no-self-use
         """Create a shallow copy of the object.  Using this method allows the historian to inject
         information about where the object was copied from into the record if saved."""
         return tracking.copy(obj)
 
-    @deprecation.deprecated(deprecated_in="0.15.10",
-                            removed_in="0.17.0",
+    @deprecation.deprecated(deprecated_in='0.15.10',
+                            removed_in='0.17.0',
                             current_version=version_mod.__version__,
-                            details="Use mincepy.records.find() instead")
+                            details='Use mincepy.records.find() instead')
     def find_records(self, *args, **kwargs) -> Iterator[recordsm.DataRecord]:
         """Find records
 
@@ -69,10 +72,10 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """
         yield from self.records.find(*args, **kwargs)
 
-    @deprecation.deprecated(deprecated_in="0.15.10",
-                            removed_in="0.17.0",
+    @deprecation.deprecated(deprecated_in='0.15.10',
+                            removed_in='0.17.0',
                             current_version=version_mod.__version__,
-                            details="Use mincepy.records.distinct() instead")
+                            details='Use mincepy.records.distinct() instead')
     def find_distinct(self, *args, **kwargs):
         """Get distinct values of the given record key
 
@@ -107,19 +110,17 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._references = hist.References(self)
 
         self._snapshots = frontend.ObjectCollection(
+            self,
             self._archive.snapshots,
             record_factory=lambda record_dict: SnapshotLoadableRecord(
                 record_dict, self.load_snapshot_from_record),
-            obj_loader=self.load_snapshot_from_record,
-            type_id_factory=self._prepare_type_id,
-            obj_id_factory=self._prepare_obj_id)
+            obj_loader=self.load_snapshot_from_record)
         self._objects = frontend.ObjectCollection(
+            self,
             self._archive.objects,
             record_factory=lambda record_dict: LoadableRecord(
                 record_dict, self.load_snapshot_from_record, self._load_object_from_record),
-            obj_loader=self._load_object_from_record,
-            type_id_factory=self._prepare_type_id,
-            obj_id_factory=self._prepare_obj_id)
+            obj_loader=self._load_object_from_record)
 
     @property
     def archive(self):
@@ -203,7 +204,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """
         if obj in self._snapshots_objects:
             raise exceptions.ModificationError(
-                "Cannot save a snapshot object, that would rewrite history!")
+                'Cannot save a snapshot object, that would rewrite history!')
 
         if meta and not isinstance(meta, dict):
             raise TypeError("Metadata must be a dictionary, got type '{}'".format(type(meta)))
@@ -624,6 +625,81 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             user_info[recordsm.ExtraKeys.HOSTNAME] = self._hostname
         return user_info
 
+    def merge(self, result_set: frontend.ResultSet[object]) -> 'MergeResults':
+        """Merge a set of objects.
+
+        Given a set of results from another archive this will attempt to merge the corresponding records
+        into this historian's archive.
+        """
+        result = MergeResults()
+
+        # REMOTE
+        remote = result_set.historian  # type: Historian
+
+        # First get the records for all the objects in the result set
+        remote_partial_records = remote.archive.snapshots.find(
+            **result_set.query.__dict__,
+            **result_set._kwargs,  # pylint: disable=protected-access
+            projection={
+                recordsm.OBJ_ID: 1,
+                recordsm.VERSION: 1
+            })  # DB HIT
+        remote_snapshot_ids = {
+            recordsm.SnapshotId.from_dict(entry) for entry in remote_partial_records
+        }  # DB HIT
+
+        # get the outgoing snapshot ref. graph
+        remote_ref_graph = remote.references.get_snapshot_ref_graph(*remote_snapshot_ids)  # DB HIT
+        result.all.extend(remote_ref_graph.nodes)
+
+        # Now, get the partial records for all these snapshots indexed by the SID
+        remote_partial_records = {}
+        for entry in remote.archive.snapshots.find(
+            {'_id': qops.in_(*map(str, remote_ref_graph.nodes))},
+                projection={
+                    recordsm.OBJ_ID: 1,
+                    recordsm.VERSION: 1,
+                    recordsm.SNAPSHOT_HASH: 1
+                }):  # DB HIT
+            remote_partial_records[recordsm.SnapshotId.from_dict(entry)] = entry
+
+        # LOCAL
+        # Now, find the local snapshots along with their hashes
+        local_partial_records = {}
+        for entry in self.archive.snapshots.find(
+            {'_id': qops.in_(*map(str, remote_ref_graph.nodes))},
+                projection={
+                    recordsm.OBJ_ID: 1,
+                    recordsm.VERSION: 1,
+                    recordsm.SNAPSHOT_HASH: 1
+                }):  # DB HIT
+            local_partial_records[recordsm.SnapshotId.from_dict(entry)] = entry
+
+        # Remove all those that match and log any that have conflicting hashes
+        conflicting = []
+        for sid, local_partial in local_partial_records.items():
+            remote_record = remote_partial_records.pop(sid)
+            if remote_record[recordsm.SNAPSHOT_HASH] != local_partial[recordsm.SNAPSHOT_HASH]:
+                conflicting.append(sid)
+
+        if conflicting:
+            raise exceptions.MergeError(
+                'Cannot merge, the following snapshots have conflicting hashes: {}'.format(
+                    conflicting))
+
+        # Finally, get all the records to merge and create merge operations
+        result.merged.extend(remote_partial_records.keys())
+        ops = []
+        for remote_record in remote.archive.snapshots.find(
+            {'_id': qops.in_(*map(str, result.merged))}):  # DB HIT
+            ops.append(operations.Merge(recordsm.DataRecord(**remote_record)))
+
+        # Finally write the new records into our archive
+        if ops:
+            self._archive.bulk_write(ops)  # DB HIT
+
+        return result
+
     @contextlib.contextmanager
     def in_transaction(self):
         """This context will either re-use an existing transaction, if one is currently taking place
@@ -691,7 +767,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 conflicting.add(edge[1])
 
         if conflicting:
-            raise exceptions.ReferenceError("Cannot perform delete", conflicting)
+            raise exceptions.ReferenceError('Cannot perform delete', conflicting)
 
     def _commit_transaction(self, trans: Transaction):
         """Commit a transaction that is finishing"""
@@ -741,7 +817,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             if record.is_deleted_record():
                 raise exceptions.ObjectDeleted(obj_id)
 
-            logger.debug("Loading object from record: %s", record.snapshot_id)
+            logger.debug('Loading object from record: %s', record.snapshot_id)
             # Ok, just use the one from the archive
             return depositor.load_from_record(record)
 
@@ -766,13 +842,13 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             try:
                 obj = self._live_objects.get_object(obj_id)
             except exceptions.NotFound:
-                logger.debug("Loading object from record: %s", record.snapshot_id)
+                logger.debug('Loading object from record: %s', record.snapshot_id)
                 # Ok, just use the one from the archive
                 return depositor.load_from_record(record)
             else:
                 if record.version != self.get_snapshot_id(obj).version:
                     # The one in the archive is newer, so use that
-                    logger.debug("Updating object from record: %s", record.snapshot_id)
+                    logger.debug('Updating object from record: %s', record.snapshot_id)
                     depositor.update_from_record(obj, record)
 
                 return obj
@@ -782,7 +858,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             try:
                 helper = self._ensure_compatible(type(obj))
             except TypeError:
-                raise TypeError("Type is incompatible with the historian: {}".format(
+                raise TypeError('Type is incompatible with the historian: {}'.format(
                     type(obj).__name__)) from None
 
             # Check if an object is already being saved in the transaction
@@ -894,8 +970,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         obj_id = id(obj)
         if obj_id in self._saving_set:
             raise RuntimeError(
-                "The object is already being saved, this cannot be called twice and suggests "
-                "a circular reference is being made")
+                'The object is already being saved, this cannot be called twice and suggests '
+                'a circular reference is being made')
         self._saving_set.add(obj_id)
         try:
             yield
@@ -941,3 +1017,12 @@ class LoadableRecord(recordsm.DataRecord):
 
     def load(self) -> object:
         return self._obj_loader(self)  # pylint: disable=not-callable
+
+
+class MergeResults:
+    """Information about the results from a merge operation"""
+    __slots__ = 'all', 'merged'
+
+    def __init__(self):
+        self.all = []  # type: List[recordsm.SnapshotId]
+        self.merged = []  # type: List[recordsm.SnapshotId]

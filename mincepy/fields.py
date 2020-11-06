@@ -89,7 +89,7 @@ class Field(expr.WithQueryContext, expr.Queryable):
                         issubclass(self._properties.field_type, WithFields):
                     properties = get_field_properties(self._properties.field_type)
                     try:
-                        child_field = type(self)(properties[item], path_prefix=self._get_path())
+                        child_field = type(self)(properties[item], path_prefix=self.get_path())
                     except KeyError:
                         raise exc from None
                     else:
@@ -99,7 +99,7 @@ class Field(expr.WithQueryContext, expr.Queryable):
                 if self._properties.dynamic:
                     # Creating a dynamic child
                     new_field = type(self)(FieldProperties(store_as=item, attr=item, dynamic=True),
-                                           path_prefix=self._get_path())
+                                           path_prefix=self.get_path())
                     new_field.set_query_context(self._query_context)
                     return new_field
 
@@ -161,7 +161,7 @@ class Field(expr.WithQueryContext, expr.Queryable):
         """Default deleter"""
         del obj.__dict__[self._properties.attr_name]
 
-    def _get_path(self) -> str:
+    def get_path(self) -> str:
         if self.path_prefix:
             return self.path_prefix + '.' + self._properties.store_as
 

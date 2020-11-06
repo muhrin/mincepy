@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import abc
 from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Iterable, Dict, \
     Iterator, Any, Type, Optional
@@ -22,7 +23,7 @@ INCOMING = -1
 
 
 class Archive(Generic[IdT], metaclass=abc.ABCMeta):
-    """An archive provides the persistent storage for the historian.  It is responsible for storing,
+    """An archive provides the persistent storage for the Historian.  It is responsible for storing,
     searching and loading data records and their metadata."""
 
     # pylint: disable=too-many-public-methods
@@ -253,7 +254,7 @@ class BaseArchive(Archive[IdT]):
 
     @classmethod
     def get_id_type(cls) -> Type[IdT]:
-        assert cls.ID_TYPE, "The ID type has not been set on this archive"
+        assert cls.ID_TYPE, 'The ID type has not been set on this archive'
         return cls.ID_TYPE
 
     def save(self, record: DataRecord):
@@ -314,12 +315,19 @@ def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> \
 
 
 class Collection(metaclass=abc.ABCMeta):
+    """An abstraction for a database collection"""
+
+    @property
+    @abc.abstractmethod
+    def archive(self) -> Archive:
+        """Get the archive that this collection belongs to"""
 
     @abc.abstractmethod
     def find(
             self,
             filter: dict,  # pylint: disable=redefined-builtin
             *,
+            projection=None,
             limit=0,
             sort=None,
             skip=0,
@@ -354,12 +362,14 @@ class Collection(metaclass=abc.ABCMeta):
 
 
 class RecordCollection(Collection):
+    """An abstraction for collections holding records"""
 
     @abc.abstractmethod
     def find(
             self,
             filter: dict,  # pylint: disable=redefined-builtin
             *,
+            projection=None,
             meta: dict = None,
             limit=0,
             sort=None,

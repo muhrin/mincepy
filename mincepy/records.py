@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """This module defines the data record and other objects and functions related to storing things
 in an archive."""
 
@@ -76,6 +77,12 @@ class SnapshotId(Generic[IdT]):
     #: The type id for references
     TYPE_ID = uuid.UUID('633c7035-64fe-4d87-a91e-3b7abd8a6a28')
 
+    @classmethod
+    def from_dict(cls, sid_dict: dict) -> 'SnapshotId':
+        """Build a snapshot ID from a dictionary.  Uses OBJ_ID and VERSION keys but ignores any additional keys making
+        it useful when passing **sid_dict to the constructor would fail because of the presence of unexpected keys."""
+        return cls(sid_dict[OBJ_ID], sid_dict[VERSION])
+
     def __init__(self, obj_id, version: int):
         """Create a snapshot id by passing an object id and version"""
         super().__init__()
@@ -83,10 +90,10 @@ class SnapshotId(Generic[IdT]):
         self._version = version
 
     def __str__(self):
-        return "{}#{}".format(self._obj_id, self._version)
+        return '{}#{}'.format(self._obj_id, self._version)
 
     def __repr__(self):
-        return "SnapshotId({}, {})".format(self.obj_id, self.version)
+        return 'SnapshotId({}, {})'.format(self.obj_id, self.version)
 
     def __hash__(self):
         return (self.obj_id, self.version).__hash__()
@@ -177,10 +184,10 @@ class DataRecord(tuple, fields.WithFields):
         my_dict = self.__dict__
         key_column_width = max(map(len, my_dict.keys()))
         lines = [
-            "{:<{width}} {}".format(key, value, width=key_column_width)
+            '{:<{width}} {}'.format(key, value, width=key_column_width)
             for key, value in my_dict.items()
         ]
-        return "\n".join(lines)
+        return '\n'.join(lines)
 
     def _asdict(self):
         """Return a new OrderedDict which maps field names to their values.

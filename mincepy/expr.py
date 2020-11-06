@@ -228,34 +228,34 @@ class Queryable(metaclass=abc.ABCMeta):
     __hash__ = object.__hash__
 
     def __eq__(self, other) -> Comparison:
-        return Comparison(self._get_path(), Eq(other))
+        return Comparison(self.get_path(), Eq(other))
 
     def __ne__(self, other) -> Comparison:
-        return Comparison(self._get_path(), Ne(other))
+        return Comparison(self.get_path(), Ne(other))
 
     def __gt__(self, other) -> Comparison:
-        return Comparison(self._get_path(), Gt(other))
+        return Comparison(self.get_path(), Gt(other))
 
     def __ge__(self, other) -> Comparison:
-        return Comparison(self._get_path(), Gte(other))
+        return Comparison(self.get_path(), Gte(other))
 
     def __lt__(self, other) -> Comparison:
-        return Comparison(self._get_path(), Lt(other))
+        return Comparison(self.get_path(), Lt(other))
 
     def __le__(self, other) -> Comparison:
-        return Comparison(self._get_path(), Lte(other))
+        return Comparison(self.get_path(), Lte(other))
 
     def in_(self, *possibilities) -> Comparison:
-        return Comparison(self._get_path(), In(possibilities))
+        return Comparison(self.get_path(), In(possibilities))
 
     def nin_(self, *possibilities) -> Expr:
-        return Comparison(self._get_path(), Nin(possibilities))
+        return Comparison(self.get_path(), Nin(possibilities))
 
     def exists_(self, value: bool = True) -> Expr:
-        return Comparison(self._get_path(), Exists(value))
+        return Comparison(self.get_path(), Exists(value))
 
     @abc.abstractmethod
-    def _get_path(self) -> str:
+    def get_path(self) -> str:
         """Get the path for this object in the document"""
 
 

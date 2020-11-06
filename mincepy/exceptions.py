@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 __all__ = ('NotFound', 'ModificationError', 'ObjectDeleted', 'DuplicateKeyError', 'MigrationError',
-           'VersionError', 'IntegrityError', 'ReferenceError', 'ConnectionError')
+           'VersionError', 'IntegrityError', 'ReferenceError', 'ConnectionError', 'MergeError')
 
 
 class ConnectionError(Exception):  # pylint: disable=redefined-builtin
@@ -33,6 +34,10 @@ class VersionError(Exception):
 class IntegrityError(Exception):
     """Indicates an error that occurred because of an operation that would conflict with a database
     constraint"""
+
+
+class MergeError(Exception):
+    """Indicates that an error occurred when trying to merge"""
 
 
 class ReferenceError(IntegrityError):  # pylint: disable=redefined-builtin
