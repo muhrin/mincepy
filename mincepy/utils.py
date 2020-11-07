@@ -1,8 +1,10 @@
+# -*- coding: utf-8 -*-
 import collections
 import collections.abc
 import functools
 from typing import TypeVar, Generic, Any, Type
 import weakref
+
 try:
     from contextlib import nullcontext
 except ImportError:
@@ -36,7 +38,7 @@ class WeakObjectIdDict(collections.MutableMapping):
         try:
             return self._values[id(item)]
         except KeyError:
-            raise KeyError(item)
+            raise KeyError(item) from None
 
     def __setitem__(self, key, value):
         obj_id = id(key)
@@ -69,7 +71,7 @@ class DefaultFromCall:
     """Can be used as a default that is generated from a callable when needed"""
 
     def __init__(self, default_fn):
-        assert callable(default_fn), "Must supply callable"
+        assert callable(default_fn), 'Must supply callable'
         self._callable = default_fn
 
     def __call__(self, *args, **kwargs):
@@ -101,7 +103,7 @@ class NamedTupleBuilder(Generic[T]):
             return self._values[item]
         except KeyError:
             errmsg = "'{}' object has no attribute '{}'".format(self.__class__.__name__, item)
-            raise AttributeError(errmsg)
+            raise AttributeError(errmsg) from None
 
     def __setattr__(self, attr, value):
         """Set a key as an attribute."""
@@ -146,7 +148,7 @@ def to_slice(specifier) -> slice:
     if isinstance(specifier, str) and specifier == ':' or specifier == '*':
         return slice(None)
 
-    raise ValueError("Unknown slice specifier: {}".format(specifier))
+    raise ValueError('Unknown slice specifier: {}'.format(specifier))
 
 
 def sync(save=False):
@@ -177,3 +179,19 @@ def sync(save=False):
         return wrapper
 
     return inner
+
+
+class Progress:
+    """Gives information about progress of a discreet number of entries"""
+    __slots__ = 'done', '_total'
+
+    def __str__(self) -> str:
+        return '{}/{} done'.format(self.done, self._total)
+
+    def __init__(self, total: int):
+        self.done = 0
+        self._total = total
+
+    @property
+    def total(self) -> int:
+        return self._total

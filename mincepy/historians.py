@@ -15,6 +15,7 @@ from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Typ
 import weakref
 
 import deprecation
+import networkx
 
 from . import archives
 from . import builtins
@@ -625,14 +626,17 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             user_info[recordsm.ExtraKeys.HOSTNAME] = self._hostname
         return user_info
 
-    def merge(self, result_set: frontend.ResultSet[object]) -> 'MergeResults':
+    def merge(
+        self,
+        result_set: frontend.ResultSet[object],
+        batch_size=1024,
+        progress_callback: Callable[[utils.Progress, Optional['MergeResults']], None] = None
+    ) -> 'MergeResults':
         """Merge a set of objects.
 
         Given a set of results from another archive this will attempt to merge the corresponding records
         into this historian's archive.
         """
-        result = MergeResults()
-
         # REMOTE
         remote = result_set.historian  # type: Historian
 
@@ -643,36 +647,63 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             projection={
                 recordsm.OBJ_ID: 1,
                 recordsm.VERSION: 1
-            })  # DB HIT
-        remote_snapshot_ids = {
-            recordsm.SnapshotId.from_dict(entry) for entry in remote_partial_records
-        }  # DB HIT
+            })
+        remote_snapshot_ids = set(map(recordsm.SnapshotId.from_dict,
+                                      remote_partial_records))  # DB HIT
 
+        progress = utils.Progress(len(remote_snapshot_ids))
+        if progress_callback is not None:
+            progress_callback(progress, None)
+
+        result = MergeResults()
         # get the outgoing snapshot ref. graph
-        remote_ref_graph = remote.references.get_snapshot_ref_graph(*remote_snapshot_ids)  # DB HIT
-        result.all.extend(remote_ref_graph.nodes)
+        while remote_snapshot_ids:
+            # Get a batch
+            batch = set()
+            try:
+                for _ in range(batch_size):
+                    batch.add(remote_snapshot_ids.pop())
+            except KeyError:
+                pass
+            graph = remote.references.get_snapshot_ref_graph(*batch)
 
-        # Now, get the partial records for all these snapshots indexed by the SID
+            # The graph may contain nodes that are still in our list of remote snapshots to transfer
+            # so check and remove these because they will be done in this batch
+            extras = set(graph.nodes) - batch
+            remote_snapshot_ids.difference_update(extras)
+
+            partial_result = self._merge_batch(remote, graph)
+            result.update(partial_result)
+
+            progress.done = progress.total - len(remote_snapshot_ids)
+            if progress_callback is not None:
+                progress_callback(progress, partial_result)
+
+        return result
+
+    def _merge_batch(self, remote: 'Historian', remote_ref_graph: networkx.DiGraph):
+        sid_strings = list(map(str, remote_ref_graph.nodes))
+
+        # REMOTE
+        # Get the partial records for all these snapshots indexed by the SID
         remote_partial_records = {}
-        for entry in remote.archive.snapshots.find(
-            {'_id': qops.in_(*map(str, remote_ref_graph.nodes))},
-                projection={
-                    recordsm.OBJ_ID: 1,
-                    recordsm.VERSION: 1,
-                    recordsm.SNAPSHOT_HASH: 1
-                }):  # DB HIT
+        for entry in remote.archive.snapshots.find({'_id': qops.in_(*sid_strings)},
+                                                   projection={
+                                                       recordsm.OBJ_ID: 1,
+                                                       recordsm.VERSION: 1,
+                                                       recordsm.SNAPSHOT_HASH: 1
+                                                   }):  # DB HIT
             remote_partial_records[recordsm.SnapshotId.from_dict(entry)] = entry
 
         # LOCAL
-        # Now, find the local snapshots along with their hashes
+        # Find the local snapshots along with their hashes
         local_partial_records = {}
-        for entry in self.archive.snapshots.find(
-            {'_id': qops.in_(*map(str, remote_ref_graph.nodes))},
-                projection={
-                    recordsm.OBJ_ID: 1,
-                    recordsm.VERSION: 1,
-                    recordsm.SNAPSHOT_HASH: 1
-                }):  # DB HIT
+        for entry in self.archive.snapshots.find({'_id': qops.in_(*sid_strings)},
+                                                 projection={
+                                                     recordsm.OBJ_ID: 1,
+                                                     recordsm.VERSION: 1,
+                                                     recordsm.SNAPSHOT_HASH: 1
+                                                 }):  # DB HIT
             local_partial_records[recordsm.SnapshotId.from_dict(entry)] = entry
 
         # Remove all those that match and log any that have conflicting hashes
@@ -688,17 +719,17 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                     conflicting))
 
         # Finally, get all the records to merge and create merge operations
-        result.merged.extend(remote_partial_records.keys())
         ops = []
         for remote_record in remote.archive.snapshots.find(
-            {'_id': qops.in_(*map(str, result.merged))}):  # DB HIT
+            {'_id': qops.in_(*map(str, remote_partial_records.keys()))}):  # DB HIT
             ops.append(operations.Merge(recordsm.DataRecord(**remote_record)))
 
-        # Finally write the new records into our archive
+        # and write the new records into our archive
         if ops:
             self._archive.bulk_write(ops)  # DB HIT
 
-        return result
+        return MergeResults(all_snapshots=remote_ref_graph.nodes,
+                            merged_snapshots=remote_partial_records.keys())
 
     @contextlib.contextmanager
     def in_transaction(self):
@@ -1023,6 +1054,14 @@ class MergeResults:
     """Information about the results from a merge operation"""
     __slots__ = 'all', 'merged'
 
-    def __init__(self):
+    def __init__(self, all_snapshots=None, merged_snapshots=None):
         self.all = []  # type: List[recordsm.SnapshotId]
         self.merged = []  # type: List[recordsm.SnapshotId]
+        if all_snapshots:
+            self.all.extend(all_snapshots)
+        if merged_snapshots:
+            self.merged.extend(merged_snapshots)
+
+    def update(self, result: 'MergeResults'):
+        self.all.extend(result.all)
+        self.merged.extend(result.merged)

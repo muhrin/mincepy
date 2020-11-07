@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import itertools
 import logging
 from typing import Sequence, Union, Callable, Iterator, Iterable
@@ -74,7 +75,11 @@ class ReferenceManager:
 
         search_ids = self._prepare_for_ref_search(ids)
         pipeline = self._get_ref_pipeline(search_ids, direction=direction, max_dist=search_max_dist)
-        ref_results = {result['_id']: result for result in self._references.aggregate(pipeline)}
+        # Need to allow disk use as the graph can get huge
+        ref_results = {
+            result['_id']: result
+            for result in self._references.aggregate(pipeline, allowDiskUse=True)
+        }
 
         graph = networkx.DiGraph()
 
@@ -93,6 +98,9 @@ class ReferenceManager:
 
                 # Then the edges
                 for entry in itertools.chain([result], refs):
+                    if 'refs' not in entry:
+                        continue
+
                     this = node_factory(entry['_id'])
 
                     for neighbour_id in entry['refs']:
@@ -129,6 +137,30 @@ class ReferenceManager:
             # Only do graph lookup if checking depth that involves a hop
             pipeline.append({'$graphLookup': lookup_params})
 
+            pipeline.append({
+                '$project': {
+                    '_id': 1,
+                    'refs': {
+                        '$cond': {
+                            'if': {
+                                '$eq': [[], '$refs']
+                            },
+                            'then': '$$REMOVE',
+                            'else': '$refs'
+                        },
+                    },
+                    'references': {
+                        '$cond': {
+                            'if': {
+                                '$eq': [[], '$references']
+                            },
+                            'then': '$$REMOVE',
+                            'else': '$references'
+                        },
+                    }
+                }
+            })
+
         return pipeline
 
     def _prepare_for_ref_search(self, ids: Sequence[Union[bson.ObjectId, mincepy.SnapshotId]]):
@@ -164,7 +196,7 @@ class ReferenceManager:
             collection = self._data_collection
             id_func = lambda schema_entry: schema_entry[1].obj_id
         else:
-            raise ValueError("Unsupported collection: {}".format(collection_name))
+            raise ValueError('Unsupported collection: {}'.format(collection_name))
 
         to_insert = []
         for data_entry in self._get_missing_entries(collection):
@@ -192,7 +224,8 @@ class ReferenceManager:
                 'references': []
             }
         }]
-        yield from collection.aggregate(pipeline)
+        # Need to allow disk use as the graph can get huge
+        yield from collection.aggregate(pipeline, allowDiskUse=True)
 
 
 def _generate_ref_entry(data_entry: dict, id_func: Callable) -> dict:

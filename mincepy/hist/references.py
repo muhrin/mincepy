@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from typing import Generic, TypeVar, Set, overload
 
 import networkx
