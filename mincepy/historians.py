@@ -25,6 +25,7 @@ from . import depositors
 from . import refs
 from . import exceptions
 from . import expr
+from . import files
 from . import helpers
 from . import hist
 from . import migrate
@@ -91,6 +92,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # Register default types
         self._type_registry = type_registry.TypeRegistry()
         self.register_type(refs.ObjRef)
+        self.register_types(builtins.HISTORIAN_TYPES)
         self.register_type(builtins.SnapshotIdHelper())
         self.register_types(archive.get_types())
 
@@ -166,7 +168,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
     def create_file(self, filename: str = None, encoding: str = None) -> builtins.BaseFile:
         """Create a new file.  The historian will supply file type compatible with the archive in
          use."""
-        return self._archive.create_file(filename, encoding)
+        return files.File(self._archive.file_store, filename, encoding)
 
     def save(self, *objs: object):
         """Save multiple objects producing corresponding object identifiers.  This returns a
@@ -657,15 +659,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """
         # REMOTE
         remote = result_set.historian  # type: Historian
-
-        # First get the records for all the objects in the result set
-        remote_partial_records = remote.archive.snapshots.find(
-            **result_set.query.__dict__,
-            **result_set._kwargs,  # pylint: disable=protected-access
-            projection={
-                recordsm.OBJ_ID: 1,
-                recordsm.VERSION: 1
-            })
+        # Get information about the records that we've been asked to merge
+        remote_partial_records = result_set._project(recordsm.OBJ_ID, recordsm.VERSION)  # pylint: disable=protected-access
         remote_snapshot_ids = set(map(recordsm.SnapshotId.from_dict,
                                       remote_partial_records))  # DB HIT
 
@@ -738,12 +733,29 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         # Finally, get all the records to merge and create merge operations
         ops = []
+        files_to_transfer = []
         for remote_record in remote.archive.snapshots.find(
             {'_id': qops.in_(*map(str, remote_partial_records.keys()))}):  # DB HIT
-            ops.append(operations.Merge(recordsm.DataRecord(**remote_record)))
+            record = recordsm.DataRecord(**remote_record)
+            ops.append(operations.Merge(record))
+            files_in_record = record.get_files()
+            if files_in_record:
+                # Extract the second entry in the tuple as this contains the actual state dictionary
+                files_to_transfer.extend(entry[1] for entry in files_in_record)
 
         # and write the new records into our archive
         if ops:
+            # Copy the files first.  This way if the user cancels prematurely the files are there but no the objects
+            # that refer to them.  The other way around would result in the objects being there but failing when
+            # someone tries to load the files
+            file_store = self.archive.file_store
+            for file_dict in files_to_transfer:
+                file_id = file_dict[expr.field_name(files.File.file_id)]
+                filename = file_dict[expr.field_name(files.File.filename)] or ''
+
+                with remote.archive.file_store.open_download_stream(file_id) as down_stream:
+                    file_store.upload_from_stream_with_id(file_id, filename, down_stream)
+
             self._archive.bulk_write(ops)  # DB HIT
 
         return result_types.MergeResult(all_snapshots=remote_ref_graph.nodes,

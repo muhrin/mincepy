@@ -6,11 +6,11 @@ import copy
 import collections
 import datetime
 import operator
-from typing import Optional, Iterable, Sequence, Union, Tuple, Any, Mapping, TypeVar, Generic
-import uuid
+from typing import Optional, Iterable, Sequence, Union, Tuple, Any, Mapping, TypeVar, Generic, List
 
 import pytray.tree
 
+from . import type_ids
 from . import fields
 from . import utils
 
@@ -73,9 +73,6 @@ class SnapshotId(Generic[IdT]):
     it therefore composed of the object id and the version number."""
 
     __slots__ = '_obj_id', '_version'
-
-    #: The type id for references
-    TYPE_ID = uuid.UUID('633c7035-64fe-4d87-a91e-3b7abd8a6a28')
 
     @classmethod
     def from_dict(cls, sid_dict: dict) -> 'SnapshotId':
@@ -247,10 +244,10 @@ class DataRecord(tuple, fields.WithFields):
         return DataRecordBuilder(DataRecord, defaults)
 
     def get_references(self) -> Iterable[Tuple[EntryPath, SnapshotId]]:
-        """Get all the references to other objects contained in this record"""
+        """Get the snapshot ids of all objects referenced by this record"""
         references = []
         if self.state_types is not None and self.state is not None:
-            for entry_info in filter(lambda entry: entry[1] == SnapshotId.TYPE_ID,
+            for entry_info in filter(lambda entry: entry[1] == type_ids.OBJ_REF_TYPE_ID,
                                      self.state_types):
                 path = entry_info[0]
                 sid_info = pytray.tree.get_by_path(self.state, path)
@@ -258,6 +255,17 @@ class DataRecord(tuple, fields.WithFields):
                     sid = SnapshotId(**sid_info)
                     references.append((path, sid))
         return references
+
+    def get_files(self) -> List[Tuple[EntryPath, dict]]:
+        """Get the state dictionaries for all the files contained in this record (if any)"""
+        results = []
+        if self.state_types is not None and self.state is not None:
+            for entry_info in filter(lambda entry: entry[1] == type_ids.FILE_TYPE_ID,
+                                     self.state_types):
+                path = entry_info[0]
+                file_dict = pytray.tree.get_by_path(self.state, path)
+                results.append((path, file_dict))
+        return results
 
     def get_state_schema(self) -> 'StateSchema':
         """Get the schema for the state.  This contains the types and versions for each member of

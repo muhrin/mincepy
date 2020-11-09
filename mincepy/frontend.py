@@ -99,6 +99,14 @@ class ResultSet(Generic[T]):
         """Return the number of entries in the result set"""
         return self._archive_collection.count(self._query.get_filter(), **self._kwargs)
 
+    def _project(self, *field: str) -> Iterator:
+        """Get raw fields from the record dictionary"""
+        projection = {name: 1 for name in field}
+        for entry in self._archive_collection.find(**self._query.__dict__,
+                                                   projection=projection,
+                                                   **self._kwargs):
+            yield entry
+
 
 class EntriesCollection(Generic[T]):
     """A collection of archive entries.  This is the base class but it can be specialised to provide specific

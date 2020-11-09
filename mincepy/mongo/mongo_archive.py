@@ -20,7 +20,6 @@ from mincepy import exceptions
 from . import bulk
 from . import migrate
 from . import migrations
-from . import files
 from . import db
 from . import references
 from . import queries
@@ -63,7 +62,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     @classmethod
     def get_types(cls) -> Sequence:
-        return ObjectIdHelper(), files.GridFsFile
+        return (ObjectIdHelper(),)
 
     def __init__(self, database: pymongo.database.Database):
         self._database = database
@@ -124,9 +123,6 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             return bson.ObjectId(value)
         except bson.errors.InvalidId as exc:
             raise ValueError(str(exc)) from None
-
-    def create_file(self, filename: str = None, encoding: str = None):
-        return files.GridFsFile(self._file_bucket, filename, encoding)
 
     def get_gridfs_bucket(self) -> gridfs.GridFSBucket:
         return self._file_bucket

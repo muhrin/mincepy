@@ -12,6 +12,7 @@ from . import records
 from . import refs
 from .utils import sync
 from . import types
+from . import type_ids
 
 __all__ = ('List', 'LiveList', 'LiveRefList', 'RefList', 'Str', 'Dict', 'RefDict', 'LiveDict',
            'LiveRefDict', 'BaseFile', 'File')
@@ -340,7 +341,7 @@ class LiveRefDict(Reffer, LiveDict):
 class SnapshotIdHelper(helpers.TypeHelper):
     """Add ability to store references"""
     TYPE = records.SnapshotId
-    TYPE_ID = uuid.UUID('05fe092b-07b3-4ffc-8cf2-cee27aa37e81')
+    TYPE_ID = type_ids.SNAPSHOT_ID_TYPE_ID
 
     def eq(self, one, other):  # pylint: disable=invalid-name, no-self-use
         if not (isinstance(one, records.SnapshotId) and isinstance(other, records.SnapshotId)):
@@ -365,4 +366,4 @@ class SnapshotIdHelper(helpers.TypeHelper):
 
 
 HISTORIAN_TYPES = (Str, List, RefList, LiveList, LiveRefList, Dict, RefDict, LiveDict, LiveRefDict,
-                   ObjProxy)
+                   ObjProxy, File)

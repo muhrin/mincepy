@@ -30,7 +30,7 @@ class MergeResult:
 class DeleteResult:
     """Information about results from a delete operation."""
 
-    __slots__ = '_deleted', '_not_found'
+    __slots__ = '_deleted', '_not_found', '_files_transferred'
 
     def __init__(self, deleted: list, not_found: Iterable = None):
         self._deleted = tuple(deleted)

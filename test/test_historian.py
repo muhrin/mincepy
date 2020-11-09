@@ -411,3 +411,13 @@ def test_merge_file(historian: mincepy.Historian):
 
         remote_file = remote.get(file.obj_id)
         assert file.read_text() == remote_file.read_text()
+
+        # Now check that files contained within objects are correctly merged
+        file_list = mincepy.List((file,))
+        file_list.save()
+        result = remote.merge(local.find(obj_id=file_list.obj_id))
+        assert len(result.merged) == 1
+        assert historian.get_snapshot_id(file_list) in result.merged
+
+        remote_file_list = remote.get(file_list.obj_id)
+        assert file.read_text() == remote_file_list[0].read_text()

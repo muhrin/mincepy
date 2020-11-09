@@ -1,16 +1,18 @@
+# -*- coding: utf-8 -*-
 """References module"""
 from typing import Optional
 
 from . import exceptions
-from . import types
 from . import records
+from . import types
+from . import type_ids
 
 __all__ = ('ObjRef',)
 
 
 class ObjRef(types.SavableObject):
     """A reference to an object instance"""
-    TYPE_ID = records.SnapshotId.TYPE_ID
+    TYPE_ID = type_ids.OBJ_REF_TYPE_ID
     IMMUTABLE = True
 
     _obj = None
@@ -34,10 +36,10 @@ class ObjRef(types.SavableObject):
         else:
             desc.append(str(self._sid))
         desc.append("')")
-        return "".join(desc)
+        return ''.join(desc)
 
     def __repr__(self) -> str:
-        return "ObjRef({})".format(self._obj if self._obj is not None else self._sid)
+        return 'ObjRef({})'.format(self._obj if self._obj is not None else self._sid)
 
     def __call__(self, update=False):
         """Get the object being referenced.  If update is called then the latest version
@@ -45,10 +47,10 @@ class ObjRef(types.SavableObject):
         if self._obj is None:
             # This means we were loaded and need to load the object
             if self._sid is None:
-                raise RuntimeError("Cannot dereference a None reference")
+                raise RuntimeError('Cannot dereference a None reference')
             # Cache the object
             self._obj = self._loader.load(self._sid)
-            assert self._obj is not None, "Loader did not load object"
+            assert self._obj is not None, 'Loader did not load object'
             self._sid = None
             self._loader = None
         elif update:
@@ -87,7 +89,7 @@ class ObjRef(types.SavableObject):
         return None
 
     def load_instance_state(self, saved_state, loader):
-        super(ObjRef, self).load_instance_state(saved_state, loader)
+        super().load_instance_state(saved_state, loader)
         # Rely on class default values for members
         if saved_state is not None:
             if isinstance(saved_state, list):

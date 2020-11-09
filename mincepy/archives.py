@@ -69,9 +69,9 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         for the given value.
         """
 
-    @abc.abstractmethod
     def create_file(self, filename: str = None, encoding: str = None):
         """Create a new file object specific for this archive type"""
+        raise NotImplementedError('This method is now replaced by historian.create_file()')
 
     @abc.abstractmethod
     def save(self, record: DataRecord):
