@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import collections
 import collections.abc
 import functools
 from typing import TypeVar, Generic, Any, Type
@@ -11,7 +10,7 @@ except ImportError:
     from contextlib2 import nullcontext
 
 
-class WeakObjectIdDict(collections.MutableMapping):
+class WeakObjectIdDict(collections.abc.MutableMapping):
     """
     Like weakref.WeakKeyDict but internally uses object ids instead of the object reference
     itself thereby avoiding the need for the object to be hashable (and therefore immutable).
@@ -24,7 +23,7 @@ class WeakObjectIdDict(collections.MutableMapping):
             if isinstance(seq, collections.abc.Mapping):
                 for key, value in seq.items():
                     self[key] = value
-            elif isinstance(seq, collections.Iterable):
+            elif isinstance(seq, collections.abc.Iterable):
                 for key, value in seq:
                     self[key] = value
         if kwargs:

@@ -3,6 +3,7 @@
 
 from abc import ABCMeta
 import collections
+import collections.abc
 import uuid
 
 from . import base_savable
@@ -221,7 +222,7 @@ class Dict(collections.UserDict, _UserType):
         _UserType.__init__(self)
 
 
-class RefDict(collections.MutableMapping, Reffer, _UserType):
+class RefDict(collections.abc.MutableMapping, Reffer, _UserType):
     """A dictionary that stores all values as references in the database."""
     TYPE_ID = uuid.UUID('c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0')
     DATA_TYPE = dict
@@ -253,7 +254,7 @@ class RefDict(collections.MutableMapping, Reffer, _UserType):
         return self.data.__len__()
 
 
-class LiveDict(collections.MutableMapping, _UserType):
+class LiveDict(collections.abc.MutableMapping, _UserType):
     TYPE_ID = uuid.UUID('740cc832-721c-4f85-9628-706257eb55b9')
     DATA_TYPE = RefDict
 
