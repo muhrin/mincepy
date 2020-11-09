@@ -11,7 +11,7 @@ import getpass
 import logging
 import socket
 import typing
-from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type, Dict, Callable, List
+from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type, Dict, Callable
 import weakref
 
 import deprecation
@@ -31,6 +31,7 @@ from . import migrate
 from . import operations
 from . import qops
 from . import records as recordsm  # The records module
+from . import result_types
 from . import staging
 from . import tracking
 from . import types
@@ -298,44 +299,57 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # The one in the archive is newer, so use that
         return self._live_depositor.update_from_record(obj, record)
 
-    def delete(self, *obj_or_identifier):
+    def delete(self, *obj_or_identifier, imperative=True) -> result_types.DeleteResult:
         """Delete an object.
 
+        :param imperative: if True, this means that the caller explicitly expects this call to delete the passed objects
+            and it should therefore raise if an object cannot be found or has been deleted already.  If False, the
+            function will ignore these cases and continue.
         :raises mincepy.NotFound: if the object cannot be found (potentially because it was
             already deleted)
         """
         # We need the current records to be able to build the delete records
         obj_ids = list(map(self._ensure_obj_id, obj_or_identifier))
 
-        # Find the records
-        records = [None] * len(obj_ids)
+        # Find the current records
+        records = {}  # type: Dict[Any, recordsm.DataRecord]
+        left_to_find = set()
+        for obj_id in obj_ids:
+            try:
+                records[obj_id] = self.get_current_record(self.get_obj(obj_id))
+            except exceptions.ObjectDeleted:
+                if imperative:
+                    # Object deleted already so reraise
+                    raise
+            except exceptions.NotFound:
+                left_to_find.add(obj_id)
 
         # Those that we don't have cached records for and need to look up
-        left_to_find = {}  # type: Dict[Any, int]
-        for idx, obj_id in enumerate(obj_ids):
-            try:
-                records[idx] = self.get_current_record(self.get_obj(obj_id))
-            except exceptions.ObjectDeleted:
-                # Object deleted already so reraise
-                raise
-            except exceptions.NotFound:
-                left_to_find[obj_id] = idx
-
         if left_to_find:
             # Have a look in the archive
-            for record in self._objects.records.find(obj_id=expr.In(list(left_to_find.keys()))):
-                records[left_to_find[record.obj_id]] = record
-                del left_to_find[record.obj_id]
+            for record in self._objects.records.find(recordsm.DataRecord.obj_id.in_(*left_to_find)):
+                records[record.obj_id] = record
+                left_to_find.remove(record.obj_id)
 
-        if left_to_find:
-            raise exceptions.NotFound(left_to_find.keys())
+        if left_to_find and imperative:
+            raise exceptions.NotFound(left_to_find)
 
+        deleted = []
         with self.in_transaction() as trans:
-            for record in records:
+            # Mark each object as deleted in the transaction and stage the delete record for insertion
+            # in the order that they were passed to us, in case this makes a difference to the caller
+            for obj_id in obj_ids:
+                record = records.get(obj_id, None)
+                if record is None:
+                    continue
+
                 builder = recordsm.make_deleted_builder(record)
                 deleted_record = self._record_builder_created(builder).build()
                 trans.delete(record.obj_id)
                 trans.stage(operations.Insert(deleted_record))
+                deleted.append(record.obj_id)
+
+        return result_types.DeleteResult(deleted, left_to_find)
 
     def history(
             self,
@@ -633,8 +647,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self,
         result_set: frontend.ResultSet[object],
         batch_size=1024,
-        progress_callback: Callable[[utils.Progress, Optional['MergeResult']], None] = None
-    ) -> 'MergeResult':
+        progress_callback: Callable[[utils.Progress, Optional[result_types.MergeResult]],
+                                    None] = None
+    ) -> result_types.MergeResult:
         """Merge a set of objects.
 
         Given a set of results from another archive this will attempt to merge the corresponding records
@@ -656,9 +671,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         progress = utils.Progress(len(remote_snapshot_ids))
         if progress_callback is not None:
-            progress_callback(progress, MergeResult())
+            progress_callback(progress, result_types.MergeResult())
 
-        result = MergeResult()
+        result = result_types.MergeResult()
         # get the outgoing snapshot ref. graph
         while remote_snapshot_ids:
             # Get a batch
@@ -731,8 +746,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if ops:
             self._archive.bulk_write(ops)  # DB HIT
 
-        return MergeResult(all_snapshots=remote_ref_graph.nodes,
-                           merged_snapshots=remote_partial_records.keys())
+        return result_types.MergeResult(all_snapshots=remote_ref_graph.nodes,
+                                        merged_snapshots=remote_partial_records.keys())
 
     @contextlib.contextmanager
     def in_transaction(self):
@@ -1047,20 +1062,3 @@ class LoadableRecord(recordsm.DataRecord):
 
     def load(self) -> object:
         return self._obj_loader(self)  # pylint: disable=not-callable
-
-
-class MergeResult:
-    """Information about the results from a merge operation"""
-    __slots__ = 'all', 'merged'
-
-    def __init__(self, all_snapshots=None, merged_snapshots=None):
-        self.all = []  # type: List[recordsm.SnapshotId]
-        self.merged = []  # type: List[recordsm.SnapshotId]
-        if all_snapshots:
-            self.all.extend(all_snapshots)
-        if merged_snapshots:
-            self.merged.extend(merged_snapshots)
-
-    def update(self, result: 'MergeResult'):
-        self.all.extend(result.all)
-        self.merged.extend(result.merged)

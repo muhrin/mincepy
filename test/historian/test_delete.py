@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pytest
 
 import mincepy
@@ -15,8 +16,16 @@ def test_delete(historian: mincepy.Historian):
         historian.load(car_id)
 
     records = historian.history(car_id, as_objects=False)
-    assert len(records) == 2, "There should be two record, the initial and the delete"
+    assert len(records) == 2, 'There should be two record, the initial and the delete'
     assert records[-1].is_deleted_record()
+
+    # Check imperative deleting
+    with pytest.raises(mincepy.NotFound):
+        historian.delete(car_id)
+    # This, should not raise:
+    result = historian.delete(car_id, imperative=False)
+    assert not result.deleted
+    assert car_id in result.not_found
 
 
 def test_delete_from_obj_id(historian: mincepy.Historian):
