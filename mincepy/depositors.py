@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """This module contains various strategies for loading, saving and migrating objects in the archive
 """
 
@@ -21,6 +22,8 @@ __all__ = 'Saver', 'Loader', 'SnapshotLoader', 'LiveDepositor', 'Migrator'
 
 logger = logging.getLogger(__name__)
 
+CONTAINERS = list, dict
+
 
 class Base(metaclass=ABCMeta):
     """Common base for loader and saver"""
@@ -43,10 +46,10 @@ class Base(metaclass=ABCMeta):
 class Saver(Base, metaclass=ABCMeta):
     """A depositor that knows how to save records to the archive"""
 
-    @deprecation.deprecated(deprecated_in="0.14.2",
-                            removed_in="0.16.0",
+    @deprecation.deprecated(deprecated_in='0.14.2',
+                            removed_in='0.16.0',
                             current_version=version_mod.__version__,
-                            details="Use get_snapshot_id() instead")
+                            details='Use get_snapshot_id() instead')
     def ref(self, obj) -> records.SnapshotId:
         """Get a persistent reference for the given object"""
         return self.get_snapshot_id(obj)
@@ -67,7 +70,7 @@ class Saver(Base, metaclass=ABCMeta):
         helper = historian.get_helper(type(obj), auto_register=True)
         save_state = helper.save_instance_state(obj, self)
         if not historian.is_primitive(save_state):
-            raise RuntimeError("Saved state must be one of the primitive types")
+            raise RuntimeError('Saved state must be one of the primitive types')
 
         schema_entry = [path, helper.TYPE_ID]
         version = helper.get_version()
@@ -105,7 +108,13 @@ class Loader(Base, metaclass=ABCMeta):
         try:
             entry = schema[path]
         except KeyError:
-            return self._recursive_unpack(encoded, schema, path, created_callback)
+            # There is no schema entry so this is a primitive type and only containers need to (potentially)
+            # decoded further
+            if isinstance(encoded, CONTAINERS):
+                return self._recursive_unpack(encoded, schema, path, created_callback)
+
+            # Fully decoded
+            return encoded
         else:
             saved_state = encoded
             helper = self.get_historian().get_helper(entry.type_id)
@@ -190,8 +199,8 @@ class LiveDepositor(Saver, Loader):
             if updates:
                 logger.warning(
                     "Object snapshot '%s' is at an older version that your current codebase.  It "
-                    "can be migrated by using `mince migrate` from the command line.  If this "
-                    "object is saved the new entry will use the new version.", record.snapshot_id)
+                    'can be migrated by using `mince migrate` from the command line.  If this '
+                    'object is saved the new entry will use the new version.', record.snapshot_id)
 
             return loaded
 
@@ -210,7 +219,7 @@ class LiveDepositor(Saver, Loader):
     def save_from_builder(self, obj, builder: records.DataRecordBuilder):
         """Save a live object"""
         assert builder.snapshot_hash is not None, \
-            "The snapshot hash must be set on the builder before saving"
+            'The snapshot hash must be set on the builder before saving'
         historian = self.get_historian()
 
         with historian.in_transaction() as trans:  # type: transactions.Transaction
@@ -254,9 +263,9 @@ class LiveDepositor(Saver, Loader):
                     except exceptions.NotFound:
                         logger.info(
                             "Object with id '%s' is being saved but information about the "
-                            "object it was created by will not be in the record because "
-                            "the original object has not been saved yet and therefore has "
-                            "no id.", obj_id)
+                            'object it was created by will not be in the record because '
+                            'the original object has not been saved yet and therefore has '
+                            'no id.', obj_id)
 
                 # Deal with possible copied from
                 copied_from = obj_info.get(records.ExtraKeys.COPIED_FROM, None)
@@ -267,9 +276,9 @@ class LiveDepositor(Saver, Loader):
                     except exceptions.NotFound:
                         logger.info(
                             "Object with id '%s' is being saved but information about the "
-                            "object it was copied from will not be in the record because "
-                            "the original object has not been saved yet and therefore has "
-                            "no id.", obj_id)
+                            'object it was copied from will not be in the record because '
+                            'the original object has not been saved yet and therefore has '
+                            'no id.', obj_id)
 
         return extras
 
@@ -310,7 +319,7 @@ class SnapshotLoader(Loader):
             if updates:
                 logger.warning(
                     "Object snapshot '%s' is at an older version that your current codebase.  It "
-                    "can be migrated by using `mince migrate` from the command line.",
+                    'can be migrated by using `mince migrate` from the command line.',
                     record.snapshot_id)
 
             return obj
@@ -363,4 +372,4 @@ class Migrator(Saver, SnapshotLoader):
                 records.STATE_TYPES: new_schema
             }))
 
-        logger.info("Snapshot %s has been migrated to the latest version", record.snapshot_id)
+        logger.info('Snapshot %s has been migrated to the latest version', record.snapshot_id)
