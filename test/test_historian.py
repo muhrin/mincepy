@@ -334,60 +334,63 @@ def test_get_obj_id(historian: mincepy.Historian):
     assert historian.get_obj_id(car) is None
 
 
-def test_merge(historian: mincepy.Historian, clean_test_historian):
-    local_historian = historian
-    remote_historian = clean_test_historian
+def test_merge(historian: mincepy.Historian):
+    with testing.temporary_historian(
+            testing.create_archive_uri(db_name='test_historian')) as remote:
+        local = historian
+        # remote = clean_test_historian
 
-    remote_skoda = testing.Car(make='skoda', colour='green')
-    skoda_id = remote_historian.save(remote_skoda)
-    assert remote_skoda._historian is remote_historian
+        remote_skoda = testing.Car(make='skoda', colour='green')
+        skoda_id = remote.save(remote_skoda)
+        assert remote_skoda._historian is remote
 
-    result = local_historian.merge(clean_test_historian.objects.find(obj_id=skoda_id))
-    assert remote_historian.get_snapshot_id(remote_skoda) in result.merged
-    assert local_historian.find(obj_id=skoda_id).count() == 1
+        result = local.merge(remote.objects.find(obj_id=skoda_id))
+        assert remote.get_snapshot_id(remote_skoda) in result.merged
+        assert local.find(obj_id=skoda_id).count() == 1
 
-    # Now, let's update and see if we can merge
-    remote_skoda.colour = 'yellow'
-    remote_historian.save(remote_skoda)
+        # Now, let's update and see if we can merge
+        remote_skoda.colour = 'yellow'
+        remote.save(remote_skoda)
 
-    result = local_historian.merge(remote_historian.objects.find(obj_id=skoda_id))
-    assert remote_historian.get_snapshot_id(remote_skoda) in result.merged
-    assert local_historian.snapshots.find(obj_id=skoda_id).count() == 2
-    assert local_historian.find(obj_id=skoda_id).one().colour == 'yellow'
+        result = local.merge(remote.objects.find(obj_id=skoda_id))
+        assert remote.get_snapshot_id(remote_skoda) in result.merged
+        assert local.snapshots.find(obj_id=skoda_id).count() == 2
+        assert local.find(obj_id=skoda_id).one().colour == 'yellow'
 
-    # Now, change both to the same thing
-    local_skoda = local_historian.load(skoda_id)
-    assert local_skoda._historian is local_historian
-    assert local_skoda is not remote_skoda
+        # Now, change both to the same thing
+        local_skoda = local.load(skoda_id)
+        assert local_skoda._historian is local
+        assert local_skoda is not remote_skoda
 
-    local_skoda.colour = 'blue'
-    local_skoda.save()
+        local_skoda.colour = 'blue'
+        local_skoda.save()
 
-    remote_skoda.colour = 'blue'
-    remote_skoda.save()
-    result = local_historian.merge(remote_historian.objects.find(obj_id=skoda_id))
-    assert not result.merged  # None should have been transferred
+        remote_skoda.colour = 'blue'
+        remote_skoda.save()
+        result = local.merge(remote.objects.find(obj_id=skoda_id))
+        assert not result.merged  # None should have been transferred
 
-    # Now check that conflicts are correctly handled
-    remote_skoda.colour = 'brown'
-    remote_skoda.save()
-    local_skoda.colour = 'grey'
-    local_skoda.save()
-    with pytest.raises(mincepy.MergeError):
-        local_historian.merge(clean_test_historian.objects.find(obj_id=skoda_id))
+        # Now check that conflicts are correctly handled
+        remote_skoda.colour = 'brown'
+        remote_skoda.save()
+        local_skoda.colour = 'grey'
+        local_skoda.save()
+        with pytest.raises(mincepy.MergeError):
+            local.merge(remote.objects.find(obj_id=skoda_id))
 
 
 def test_large_merge(
         historian: mincepy.Historian,
         large_dataset,  # pylint: disable=unused-argument
-        clean_test_historian: mincepy.Historian):
-    local_historian = historian
-    remote_historian = clean_test_historian
+):
+    with testing.temporary_historian(
+            testing.create_archive_uri(db_name='test_historian')) as remote:
+        local = historian
 
-    all_objects = local_historian.find()
-    assert all_objects.count() > 0
+        all_objects = local.find()
+        assert all_objects.count() > 0
 
-    # Merge the large dataset into the remote historian
-    result = remote_historian.merge(all_objects)
-    assert len(result.all) == len(result.merged) == local_historian.find().count()
-    assert local_historian.find().count() == remote_historian.find().count()
+        # Merge the large dataset into the remote historian
+        result = remote.merge(all_objects)
+        assert len(result.all) == len(result.merged) == local.find().count()
+        assert local.find().count() == remote.find().count()

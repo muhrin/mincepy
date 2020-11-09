@@ -6,8 +6,7 @@ import pytest
 
 import mincepy
 from mincepy import testing
-from mincepy.testing import archive_uri, mongodb_archive, historian, clean_test_historian, clean_test_archive, \
-    archive_base_uri
+from mincepy.testing import archive_uri, mongodb_archive, historian, archive_base_uri
 from . import utils
 
 

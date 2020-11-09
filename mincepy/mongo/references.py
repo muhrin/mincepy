@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import itertools
 import logging
-from typing import Sequence, Union, Callable, Iterator, Iterable
+from typing import Sequence, Union, Callable, Iterator, Iterable, List
 
 import bson
 import networkx
@@ -79,7 +79,7 @@ class ReferenceManager:
         ref_results = {
             result['_id']: result
             for result in self._references.aggregate(pipeline, allowDiskUse=True)
-        }
+        }  # DB HIT
 
         graph = networkx.DiGraph()
 
@@ -112,10 +112,13 @@ class ReferenceManager:
         return graph
 
     def _get_ref_pipeline(self, ids: Sequence, direction=OUTGOING, max_dist: int = None) -> list:
-        """Get the reference lookup pipeline."""
+        """Get the reference lookup pipeline.  Given a sequence of ids, a direction and maximum distance this will
+        return a pipeline that can be used in an aggregation operation on the relevant collection to get the reference
+        graph."""
         if max_dist is not None and max_dist < 0:
             raise ValueError("max_dist must be positive, got '{}'".format(max_dist))
 
+        # First match the IDs that we're interested in
         pipeline = [{'$match': {'_id': aggregation.in_(*ids)}}]
 
         if max_dist is None or max_dist != 0:
@@ -137,33 +140,10 @@ class ReferenceManager:
             # Only do graph lookup if checking depth that involves a hop
             pipeline.append({'$graphLookup': lookup_params})
 
-            pipeline.append({
-                '$project': {
-                    '_id': 1,
-                    'refs': {
-                        '$cond': {
-                            'if': {
-                                '$eq': [[], '$refs']
-                            },
-                            'then': '$$REMOVE',
-                            'else': '$refs'
-                        },
-                    },
-                    'references': {
-                        '$cond': {
-                            'if': {
-                                '$eq': [[], '$references']
-                            },
-                            'then': '$$REMOVE',
-                            'else': '$references'
-                        },
-                    }
-                }
-            })
-
         return pipeline
 
     def _prepare_for_ref_search(self, ids: Sequence[Union[bson.ObjectId, mincepy.SnapshotId]]):
+        """Make sure that the references collections are up to date in preparation for a reference graph search"""
         hist_updated = False
         data_updated = False
         converted = []
@@ -186,7 +166,7 @@ class ReferenceManager:
 
         return converted
 
-    def _ensure_current(self, collection_name: str):
+    def _ensure_current(self, collection_name: str, ids=None):
         """This call ensures that the reference collection is up to date"""
         # Find all the objects that we don't have in the references collection
         if collection_name == 'history':
@@ -199,7 +179,7 @@ class ReferenceManager:
             raise ValueError('Unsupported collection: {}'.format(collection_name))
 
         to_insert = []
-        for data_entry in self._get_missing_entries(collection):
+        for data_entry in self._get_missing_entries(collection, ids):
             ref_entry = _generate_ref_entry(data_entry, id_func)
             ref_entry['_id'] = data_entry['_id']
             to_insert.append(ref_entry)
@@ -210,9 +190,15 @@ class ReferenceManager:
                          collection_name, len(to_insert))
             self._references.insert_many(to_insert)
 
-    def _get_missing_entries(self, collection: pymongo.collection.Collection) -> Iterator:
+    def _get_missing_entries(self,
+                             collection: pymongo.collection.Collection,
+                             ids: List = None) -> Iterator:
         """Given a collection get the records that do not have entries in the references cache"""
-        pipeline = [{
+        pipeline = []
+        if ids is not None:
+            pipeline.append({'$match': {'_id': {'$in': ids}}})
+
+        pipeline.extend([{
             '$lookup': {
                 'from': self._references.name,
                 'localField': '_id',
@@ -223,7 +209,7 @@ class ReferenceManager:
             '$match': {
                 'references': []
             }
-        }]
+        }])
         # Need to allow disk use as the graph can get huge
         yield from collection.aggregate(pipeline, allowDiskUse=True)
 

@@ -92,14 +92,11 @@ def _(op: mincepy.operations.Merge):
                 db.VERSION: q.lt_(record.version)
             },))
     else:
-        # If this version is newer then replace the current one, if not, silently drop via upsert=False
         data_ops.append(
-            pymongo.operations.ReplaceOne(filter={
+            pymongo.operations.DeleteOne(filter={
                 db.OBJ_ID: record.obj_id,
                 db.VERSION: q.lt_(record.version)
-            },
-                                          replacement=document.copy(),
-                                          upsert=False))
+            }))
         data_ops.append(
             pymongo.operations.UpdateOne(filter={db.OBJ_ID: record.obj_id},
                                          update={'$setOnInsert': document.copy()},

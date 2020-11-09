@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 """Classes and function useful for trying out mincepy functionality"""
 # pylint: disable=cyclic-import
+import contextlib
 import logging
 import os
 import string
 import random
+from typing import Iterator
 import uuid
 
 import bson
@@ -21,6 +23,42 @@ DEFAULT_ARCHIVE_BASE_URI = 'mongodb://127.0.0.1'
 
 # pylint: disable=redefined-outer-name, invalid-name
 
+
+def get_base_uri() -> str:
+    """Get a base URI for an archive that can be used for testing.  This will not contain the database name as multiple
+    databases can be used during a test session."""
+    return os.environ.get(ENV_ARCHIVE_BASE_URI, DEFAULT_ARCHIVE_BASE_URI)
+
+
+def create_archive_uri(base_uri='', db_name=''):
+    """Get an archive URI based on the current archive base URI plus the passed database name.
+
+    If the database name is missing a random one will be used"""
+    if not db_name:
+        letters = string.ascii_lowercase
+        db_name = 'mincepy-' + ''.join(random.choice(letters) for _ in range(5))
+    base_uri = base_uri or get_base_uri()
+    return base_uri + '/' + db_name
+
+
+@contextlib.contextmanager
+def temporary_archive(archive_uri: str) -> Iterator[mincepy.Archive]:
+    """Create a temporary archive.  The associated database will be dropped on exiting the context"""
+    client = pymongo.MongoClient(archive_uri)
+    db = client.get_default_database()  # pylint: disable=invalid-name
+    client.drop_database(db)
+    mongo_archive = mincepy.mongo.MongoArchive(db)
+    yield mongo_archive
+    client.drop_database(db)
+
+
+@contextlib.contextmanager
+def temporary_historian(archive_uri: str = '') -> Iterator[mincepy.Archive]:
+    """Create a temporary historian.  The associated database will be dropped on exiting the context."""
+    with temporary_archive(archive_uri) as archive:
+        yield mincepy.Historian(archive)
+
+
 try:
     import pytest
 
@@ -36,12 +74,8 @@ try:
 
     @pytest.fixture
     def mongodb_archive(archive_uri):
-        client = pymongo.MongoClient(archive_uri)
-        db = client.get_default_database()  # pylint: disable=invalid-name
-        client.drop_database(db)
-        mongo_archive = mincepy.mongo.MongoArchive(db)
-        yield mongo_archive
-        client.drop_database(db)
+        with temporary_archive(archive_uri) as mongo_archive:
+            yield mongo_archive
 
     @pytest.fixture(autouse=True)
     def historian(mongodb_archive):
@@ -50,24 +84,6 @@ try:
         mincepy.set_historian(hist)
         yield hist
         mincepy.set_historian(None)
-
-    @pytest.fixture
-    def clean_test_archive(archive_base_uri):
-        letters = string.ascii_lowercase
-        db_name = 'mincepy_' + ''.join(random.choice(letters) for _ in range(5))
-        uri = archive_base_uri + '/' + db_name
-        client = pymongo.MongoClient(uri)
-        db = client.get_default_database()
-        client.drop_database(db)
-        archive = mincepy.mongo.MongoArchive(db)
-        yield archive
-        client.drop_database(db)
-
-    @pytest.fixture
-    def clean_test_historian(clean_test_archive):
-        hist = mincepy.Historian(clean_test_archive)
-        hist.register_types(mincepy.testing.HISTORIAN_TYPES)
-        yield hist
 
 except ImportError:
     logger.debug("pytest fixtures missing because pytest isn't installed")

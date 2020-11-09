@@ -434,10 +434,10 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     def to_obj_id(self, obj_or_identifier):
         """
-        This call will try and get an object id from the passed parameter.  There are three
-        possibilities:
+        This call will try and get an object id from the passed parameter.  The possibilities are:
 
         1. Passed an object ID in which case it will be returned unchanged
+        2. Passed a snapshot ID, in which case the corresponding object ID will be returned
         2. Passed a live object instance, in which case the id of that object will be returned
         3. Passed a type that can be understood by the archive as an object id e.g. a string of
            version, in which case the archive will attempt to convert it
@@ -446,6 +446,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """
         if self.is_obj_id(obj_or_identifier):
             return obj_or_identifier
+
+        if isinstance(obj_or_identifier, recordsm.SnapshotId):
+            return obj_or_identifier.obj_id
 
         try:
             # Try creating it for the user by calling the constructor with the argument passed.
@@ -630,8 +633,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self,
         result_set: frontend.ResultSet[object],
         batch_size=1024,
-        progress_callback: Callable[[utils.Progress, Optional['MergeResults']], None] = None
-    ) -> 'MergeResults':
+        progress_callback: Callable[[utils.Progress, Optional['MergeResult']], None] = None
+    ) -> 'MergeResult':
         """Merge a set of objects.
 
         Given a set of results from another archive this will attempt to merge the corresponding records
@@ -653,9 +656,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         progress = utils.Progress(len(remote_snapshot_ids))
         if progress_callback is not None:
-            progress_callback(progress, None)
+            progress_callback(progress, MergeResult())
 
-        result = MergeResults()
+        result = MergeResult()
         # get the outgoing snapshot ref. graph
         while remote_snapshot_ids:
             # Get a batch
@@ -728,8 +731,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if ops:
             self._archive.bulk_write(ops)  # DB HIT
 
-        return MergeResults(all_snapshots=remote_ref_graph.nodes,
-                            merged_snapshots=remote_partial_records.keys())
+        return MergeResult(all_snapshots=remote_ref_graph.nodes,
+                           merged_snapshots=remote_partial_records.keys())
 
     @contextlib.contextmanager
     def in_transaction(self):
@@ -946,12 +949,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     def _ensure_obj_id(self, obj_or_identifier):
         """
-        This call will try and get an object id from the passed parameter.  There are three
-        possibilities:
-            1. Passed an object ID in which case it will be returned unchanged
-            2. Passed a live object instance, in which case the id of that object will be returned
-            3. Passed a type that can be understood by the archive as an object id e.g. an object id
-             string, in which case the archive will attempt to convert it
+        This call will try and get an object id from the passed parameter.  Uses .to_obj_id() and raises NotFound if it
+        is not possible to get the object id.
         """
         obj_id = self.to_obj_id(obj_or_identifier)
         if obj_id is None:
@@ -1050,7 +1049,7 @@ class LoadableRecord(recordsm.DataRecord):
         return self._obj_loader(self)  # pylint: disable=not-callable
 
 
-class MergeResults:
+class MergeResult:
     """Information about the results from a merge operation"""
     __slots__ = 'all', 'merged'
 
@@ -1062,6 +1061,6 @@ class MergeResults:
         if merged_snapshots:
             self.merged.extend(merged_snapshots)
 
-    def update(self, result: 'MergeResults'):
+    def update(self, result: 'MergeResult'):
         self.all.extend(result.all)
         self.merged.extend(result.merged)
