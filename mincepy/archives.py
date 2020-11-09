@@ -52,6 +52,11 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     def objects(self) -> 'RecordCollection':
         """Access the objects collection"""
 
+    @property
+    @abc.abstractmethod
+    def file_store(self):
+        """Get the GridFS file bucket"""
+
     @abc.abstractmethod
     def create_archive_id(self) -> IdT:
         """Create a new archive id"""

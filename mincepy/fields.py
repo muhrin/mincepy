@@ -13,6 +13,8 @@ _UNSET = ()
 
 
 class FieldProperties:
+    """Properties of a mincePy field"""
+
     __slots__ = ('store_as', 'attr_name', 'ref', 'dynamic', 'field_type', 'default', 'extras',
                  'db_class')
 
@@ -175,6 +177,7 @@ def field(
         type=None,  # pylint: disable=redefined-builtin
         store_as: str = None,
         dynamic=False) -> Field:
+    """Define a new field"""
     properties = FieldProperties(attr=attr,
                                  ref=ref,
                                  store_as=store_as,

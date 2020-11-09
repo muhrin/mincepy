@@ -1,13 +1,12 @@
+# -*- coding: utf-8 -*-
 """Module for all the built in container and other types"""
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 import collections
-from pathlib import Path
-import shutil
-from typing import BinaryIO, Optional
 import uuid
 
 from . import base_savable
+from .files import File, BaseFile
 from . import helpers
 from . import records
 from . import refs
@@ -45,7 +44,7 @@ class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
             self._on_load(loader)  # Call this here are we aren't going to call up the hierarchy
             self.data = saved_state
         else:
-            super(_UserType, self).load_instance_state(saved_state, loader)
+            super().load_instance_state(saved_state, loader)
 
 
 class ObjProxy(_UserType):
@@ -53,7 +52,7 @@ class ObjProxy(_UserType):
     TYPE_ID = uuid.UUID('d43c2db5-1e8c-428f-988f-8b198accde47')
 
     def __init__(self, data=None):
-        super(ObjProxy, self).__init__()
+        super().__init__()
         self.data = data
 
     def __call__(self):
@@ -145,7 +144,7 @@ class LiveList(collections.abc.MutableSequence, _UserType):
     TYPE_ID = uuid.UUID('c83e6206-cd29-4fda-bf76-11fce1681cd9')
 
     def __init__(self, init_list=None):
-        super(LiveList, self).__init__()
+        super().__init__()
         init_list = init_list or []
         self.data = RefList(self._create_proxy(item) for item in init_list)
 
@@ -336,103 +335,6 @@ class LiveRefDict(Reffer, LiveDict):
 
 
 # endregion
-
-
-class File(base_savable.SimpleSavable, metaclass=ABCMeta):
-    ATTRS = ('_filename', '_encoding')
-    READ_SIZE = 256  # The number of bytes to read at a time
-
-    def __init__(self, filename: str = None, encoding=None):
-        super().__init__()
-        self._filename = filename
-        self._encoding = encoding
-
-    @property
-    def filename(self) -> Optional[str]:
-        return self._filename
-
-    @property
-    def encoding(self) -> Optional[str]:
-        return self._encoding
-
-    @abstractmethod
-    def open(self, mode='r', **kwargs) -> BinaryIO:
-        """Open returning a file like object that supports close() and read()"""
-
-    def from_disk(self, path):
-        """Copy the contents of a disk file to this file"""
-        with open(str(path), 'r', encoding=self.encoding) as disk_file:
-            with self.open('w') as this:
-                shutil.copyfileobj(disk_file, this)
-
-    def to_disk(self, folder: [str, Path]):
-        """Copy the contents of this file to a file on disk in the given folder"""
-        file_path = Path(str(folder)) / self.filename
-        with open(str(file_path), 'w', encoding=self._encoding) as disk_file:
-            with self.open('r') as this:
-                shutil.copyfileobj(this, disk_file)
-
-    def write_text(self, text: str, encoding=None):
-        encoding = encoding or self._encoding
-        with self.open('w', encoding=encoding) as fileobj:
-            fileobj.write(text)
-
-    def read_text(self, encoding=None) -> str:
-        """Read the contents of the file as text.
-        This function is named as to mirror pathlib.Path"""
-        encoding = encoding or self._encoding
-        with self.open('r', encoding=encoding) as fileobj:
-            return fileobj.read()
-
-    def __str__(self):
-        contents = [str(self._filename)]
-        if self._encoding is not None:
-            contents.append("({})".format(self._encoding))
-        return " ".join(contents)
-
-    def __eq__(self, other) -> bool:
-        """Compare the contents of two files
-
-        If both files do not exist they are considered equal.
-        """
-        if not isinstance(other, BaseFile) or self.filename != other.filename:
-            return False
-
-        try:
-            with self.open() as my_file:
-                try:
-                    with other.open() as other_file:
-                        while True:
-                            my_line = my_file.readline(self.READ_SIZE)
-                            other_line = other_file.readline(self.READ_SIZE)
-                            if my_line != other_line:
-                                return False
-                            if my_line == '' and other_line == '':
-                                return True
-                except FileNotFoundError:
-                    return False
-        except FileNotFoundError:
-            # Our file doesn't exist, make sure the other doesn't either
-            try:
-                with other.open():
-                    return False
-            except FileNotFoundError:
-                return True
-
-    def yield_hashables(self, hasher):
-        """Hash the contents of the file"""
-        try:
-            with self.open('rb') as opened:
-                while True:
-                    line = opened.read(self.READ_SIZE)
-                    if line == b'':
-                        return
-                    yield line
-        except FileNotFoundError:
-            yield from hasher.yield_hashables(None)
-
-
-BaseFile = File
 
 
 class SnapshotIdHelper(helpers.TypeHelper):

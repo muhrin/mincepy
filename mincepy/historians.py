@@ -650,7 +650,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         progress_callback: Callable[[utils.Progress, Optional[result_types.MergeResult]],
                                     None] = None
     ) -> result_types.MergeResult:
-        """Merge a set of objects.
+        """Merge a set of objects into this database.
 
         Given a set of results from another archive this will attempt to merge the corresponding records
         into this historian's archive.

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import tempfile
 import uuid
 
@@ -9,9 +10,11 @@ import mincepy
 __all__ = ('GridFsFile',)
 
 
-class GridFsFile(mincepy.BaseFile):
+class GridFsFile(mincepy.File):
+    """A MongoDB GridFS file representation"""
     TYPE_ID = uuid.UUID('3bf3c24e-f6c8-4f70-956f-bdecd7aed091')
-    ATTRS = '_persistent_id', '_file_id'
+    _persistent_id = mincepy.field()
+    _file_id = mincepy.field()
 
     def __init__(self,
                  file_bucket: gridfs.GridFSBucket,
@@ -30,7 +33,7 @@ class GridFsFile(mincepy.BaseFile):
         return open(self._buffer_file, mode, **kwargs)
 
     def save_instance_state(self, saver: mincepy.Saver):
-        filename = self.filename or ""
+        filename = self.filename or ''
         with open(self._buffer_file, 'rb') as fstream:
             self._file_id = self._file_store.upload_from_stream(filename, fstream)
 
@@ -38,7 +41,7 @@ class GridFsFile(mincepy.BaseFile):
 
     def load_instance_state(self, saved_state, loader: mincepy.Loader):
         super().load_instance_state(saved_state, loader)
-        self._file_store = loader.get_archive().get_gridfs_bucket()  # type: gridfs.GridFSBucket
+        self._file_store = loader.get_archive().file_store  # type: gridfs.GridFSBucket
         # Don't copy the file over now, do it lazily when the file is first opened
         self._buffer_file = None
 

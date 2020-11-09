@@ -394,3 +394,20 @@ def test_large_merge(
         result = remote.merge(all_objects)
         assert len(result.all) == len(result.merged) == local.find().count()
         assert local.find().count() == remote.find().count()
+
+
+def test_merge_file(historian: mincepy.Historian):
+    """Test that merging files works correctly"""
+    file = historian.create_file('test.dat')
+    file.write_text('bla bla')
+    file.save()
+    with testing.temporary_historian(
+            testing.create_archive_uri(db_name='test_historian')) as remote:
+        local = historian
+        # Merge the file into the remote
+        result = remote.merge(local.find(obj_id=file.obj_id))
+        assert len(result.all) == len(result.merged) == local.find().count()
+        assert local.find().count() == remote.find().count()
+
+        remote_file = remote.get(file.obj_id)
+        assert file.read_text() == remote_file.read_text()

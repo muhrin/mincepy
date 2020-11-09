@@ -100,6 +100,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         """Access the objects collection"""
         return self._objects
 
+    @property
+    def file_store(self) -> gridfs.GridFSBucket:
+        return self._file_bucket
+
     def _create_indices(self):
         # Create all the necessary indexes
         self._data_collection.create_index(db.OBJ_ID)
