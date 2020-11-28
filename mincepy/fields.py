@@ -68,7 +68,7 @@ class FieldProperties:
             self.store_as = attr
 
 
-class Field(expr.WithQueryContext, expr.Queryable):
+class Field(expr.WithQueryContext, expr.Queryable, property):
     """Database field class.  Provides information about how to store object attributes in the
     database"""
     __doc__ = ''
@@ -222,9 +222,9 @@ class WithFields(metaclass=WithFieldMeta):
             except KeyError:
                 # Let's see if there's a default
                 if field_properties.default is not _UNSET:
-                    setattr(self, name, field_properties.default)
+                    setattr(self, field_properties.attr_name, field_properties.default)
             else:
-                setattr(self, name, passed_value)
+                setattr(self, field_properties.attr_name, passed_value)
 
         if kwargs:
             raise ValueError("Got unexpected keyword argument(s) '{}'".format(kwargs))

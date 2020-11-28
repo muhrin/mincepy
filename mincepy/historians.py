@@ -648,6 +648,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
     def merge(
         self,
         result_set: frontend.ResultSet[object],
+        *,
+        meta=None,  # pylint: disable=unused-argument
         batch_size=1024,
         progress_callback: Callable[[utils.Progress, Optional[result_types.MergeResult]],
                                     None] = None
@@ -656,6 +658,12 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         Given a set of results from another archive this will attempt to merge the corresponding records
         into this historian's archive.
+
+        :param result_set: the set of records to merge from the source historian
+        :param meta: option for merging metadata, allowed values:
+            None        - Don't merge metadata
+            'update'    - Perform dictionary update with existing metadata
+            'overwrite' - In the case of an existing metadata dictionary, overwrite it
         """
         # REMOTE
         remote = result_set.historian  # type: Historian
@@ -694,7 +702,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return result
 
-    def _merge_batch(self, remote: 'Historian', remote_ref_graph: networkx.DiGraph):
+    def _merge_batch(self, remote: 'Historian',
+                     remote_ref_graph: networkx.DiGraph) -> result_types.MergeResult:
         sid_strings = list(map(str, remote_ref_graph.nodes))
 
         # REMOTE

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import functools
 
 from .aggregation import and_, eq_
@@ -70,7 +71,8 @@ def pipeline_match_metadata(meta: dict, meta_collection: str, local_field: str):
     })
     # _meta should only contain at most one entry per document i.e. the metadata for
     # that object.  So check that for the search criteria
-    pipeline.append({'$match': {'_meta.0.{}'.format(key): value for key, value in meta.items()}})
+    meta_filter = flatten_filter('_meta.0', meta)
+    pipeline.append({'$match': and_(*meta_filter)})
 
     return pipeline
 
