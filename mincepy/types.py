@@ -24,7 +24,7 @@ PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UU
 
 
 def is_primitive(obj):
-    return isinstance(obj, PRIMITIVE_TYPES)
+    return obj.__class__ in PRIMITIVE_TYPES
 
 
 class Savable(fields.WithFields, expr.FilterLike):

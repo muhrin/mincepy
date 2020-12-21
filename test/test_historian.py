@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+import uuid
+
 import pytest
 
 import mincepy
@@ -421,3 +423,16 @@ def test_merge_file(historian: mincepy.Historian):
 
         remote_file_list = remote.get(file_list.obj_id)
         assert file.read_text() == remote_file_list[0].read_text()
+
+
+def test_primitive_subtypes(historian: mincepy.Historian):
+    """This test catches the case where someone creates a subclass of a primitive.  This should not be
+    treated as a primitive by the historian as we need to reload the correct type when retrieving from
+    the database."""
+
+    class DictSubclass(dict, mincepy.BaseSavableObject):
+        TYPE_ID = uuid.UUID('67a939ee-4be6-4006-ac77-fd1dbf3b0642')
+
+    custom_dict = DictSubclass()
+    assert not historian.is_primitive(custom_dict)
+    assert not mincepy.types.is_primitive(custom_dict)

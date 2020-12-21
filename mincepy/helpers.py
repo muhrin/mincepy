@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from abc import ABCMeta
 import logging
 from typing import Type, Optional, Sequence
@@ -56,7 +57,7 @@ class TypeHelper(fields.WithFields):
         field.path_prefix = 'state'
 
     def __init__(self):
-        assert self.TYPE is not None, "Must set the TYPE to a type of or a tuple of types"
+        assert self.TYPE is not None, 'Must set the TYPE to a type of or a tuple of types'
         if self.INJECT_CREATION_TRACKING:
             inject_creation_tracking(self.TYPE)
 
@@ -93,7 +94,7 @@ class TypeHelper(fields.WithFields):
         version = self.LATEST_MIGRATION.VERSION
         if version is None:
             raise RuntimeError("Object '{}' has a migration ({}) which has no version "
-                               "number".format(self.TYPE, self.LATEST_MIGRATION))
+                               'number'.format(self.TYPE, self.LATEST_MIGRATION))
 
         return version
 
@@ -107,7 +108,7 @@ class TypeHelper(fields.WithFields):
         if latest_version is None or (version is not None and latest_version < version):
             raise exceptions.VersionError(
                 "This codebase's version of '{}' is older ({}) than the saved version ({}).  Check "
-                "for updates.".format(pytray.pretty.type_string(self.TYPE), latest_version,
+                'for updates.'.format(pytray.pretty.type_string(self.TYPE), latest_version,
                                       version))
 
         to_apply = self._get_migrations(version)
@@ -147,7 +148,7 @@ class TypeHelper(fields.WithFields):
 class BaseHelper(TypeHelper, metaclass=ABCMeta):
     """A base helper that defaults to yielding hashables directly on the object
     and testing for equality using == given two objects.  This behaviour is fairly
-    standard and therefor more type helpers will want to subclass from this class."""
+    standard and therefore most type helpers will want to subclass from this class."""
 
     def yield_hashables(self, obj, hasher):
         yield from hasher.yield_hashables(obj)

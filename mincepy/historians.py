@@ -521,7 +521,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
     def is_primitive(self, obj) -> bool:
         """Check if the object is one of the primitives and should be saved by value in the
         archive"""
-        return isinstance(obj, self.primitives)
+        return obj.__class__ in self.primitives
 
     def is_obj_id(self, obj_id) -> bool:
         """Check if an object is of the object id type"""

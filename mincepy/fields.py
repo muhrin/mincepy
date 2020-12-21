@@ -110,7 +110,7 @@ class Field(expr.WithQueryContext, expr.Queryable, property):
     def __field_name__(self) -> str:
         return self._properties.store_as
 
-    def __call__(self, fget=None, fset=None, fdel=None, doc=None, prop_kwargs=None):
+    def __call__(self, fget=None, fset=None, fdel=None, doc=None, prop_kwargs=None) -> property:
         """This method allows the field to become a property"""
         self.getter(fget)
         self.setter(fset)
