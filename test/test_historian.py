@@ -76,22 +76,20 @@ def test_find(historian: mincepy.Historian):
     assert porsche_id in obj_ids
 
 
-def test_sync(historian: mincepy.Historian):
+def test_sync(historian: mincepy.Historian, archive_uri):
+    historian2 = mincepy.connect(archive_uri)
+    historian2.register_types(mincepy.testing.HISTORIAN_TYPES)
+
     car = Car('ferrari', 'red')
     historian.save_one(car)
 
     # Simulate saving the car from another connection
-    honda = Car('honda', 'black')
-    historian.save_one(honda)
-    honda_record = historian.get_current_record(honda)
-
-    archive = historian.archive
-    record = historian.get_current_record(car)
-    builder = record.child_builder(obj_id=historian.get_obj_id(car),
-                                   snapshot_hash=honda_record.snapshot_hash,
-                                   state=honda_record.state,
-                                   state_types=honda_record.state_types)
-    archive.save(builder.build())
+    same_car = historian2.load(car.obj_id)
+    same_car.make = 'honda'
+    same_car.colour = 'black'
+    same_car.save()
+    honda_record = historian2.get_current_record(same_car)
+    del same_car
 
     # Now update and check the state
     historian.sync(car)
@@ -106,6 +104,20 @@ def test_sync(historian: mincepy.Historian):
     # Check that syncing an unsaved object returns False (because there's nothing to do)
     assert historian.sync(Car()) is False
 
+    # Test syncing an object that is deleted
+    historian2.delete(car.obj_id)
+    with pytest.raises(mincepy.NotFound):
+        car.sync()
+    #
+    # car = Car()
+    # historian.save(car)
+    # with historian.transaction():
+    #     historian.delete(car)
+    #     with pytest.raises(mincepy.ObjectDeleted):
+    #         historian.get_current_record(car)
+    #     with pytest.raises(mincepy.ObjectDeleted):
+    #         historian.sync(car)
+
 
 def test_to_obj_id(historian: mincepy.Historian):
     car = Car()
@@ -115,6 +127,7 @@ def test_to_obj_id(historian: mincepy.Historian):
     assert historian.to_obj_id(car) == car_id
     assert historian.to_obj_id(str(car_id)) == car_id
     assert historian.to_obj_id('carrot') is None
+    assert historian.to_obj_id(historian.get_snapshot_id(car)) == car_id
 
 
 def test_copy(historian: mincepy.Historian):
@@ -213,6 +226,8 @@ def test_find_arg_types(historian: mincepy.Historian):
 def test_concurrent_modification(historian: mincepy.Historian, archive_uri: str):
     # Create a second historian connected to the same archive
     historian2 = mincepy.connect(archive_uri, use_globally=False)
+    historian2.register_type(Car)
+
     ferrari = testing.Car(colour='red', make='ferrari')
     ferrari_id = historian.save(ferrari)
     ferrari2 = historian2.load(ferrari_id)

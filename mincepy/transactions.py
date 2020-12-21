@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import contextlib
 import copy
 from typing import MutableMapping, Any, List, Sequence, Optional, Dict, Set, Union, overload
@@ -24,7 +25,7 @@ class LiveObjects:
         self._objects = weakref.WeakValueDictionary()  # type: MutableMapping[Any, object]
 
     def __str__(self):
-        return "{} live".format(len(self._objects))
+        return '{} live'.format(len(self._objects))
 
     def __contains__(self, item: object):
         """Determine if an object instance is in this live objects container"""
@@ -105,24 +106,24 @@ class Transaction:
 
     # pylint: disable=too-many-public-methods
 
-    @deprecation.deprecated(deprecated_in="0.14.4",
-                            removed_in="0.16.0",
+    @deprecation.deprecated(deprecated_in='0.14.4',
+                            removed_in='0.16.0',
                             current_version=version_mod.__version__,
-                            details="Use get_snapshot_id_for_live_object() instead")
+                            details='Use get_snapshot_id_for_live_object() instead')
     def get_reference_for_live_object(self, obj) -> records.SnapshotId:
         return self.get_snapshot_id_for_live_object(obj)
 
-    @deprecation.deprecated(deprecated_in="0.14.4",
-                            removed_in="0.16.0",
+    @deprecation.deprecated(deprecated_in='0.14.4',
+                            removed_in='0.16.0',
                             current_version=version_mod.__version__,
-                            details="Use get_live_object_from_snapshot_id() instead")
+                            details='Use get_live_object_from_snapshot_id() instead')
     def get_live_object_from_reference(self, snapshot_id: records.SnapshotId):
         return self.get_live_object(snapshot_id)
 
-    @deprecation.deprecated(deprecated_in="0.14.4",
-                            removed_in="0.16.0",
+    @deprecation.deprecated(deprecated_in='0.14.4',
+                            removed_in='0.16.0',
                             current_version=version_mod.__version__,
-                            details="Use get_live_object() instead")
+                            details='Use get_live_object() instead')
     def get_live_object_from_snapshot_id(self, snapshot_id: records.SnapshotId):
         return self.get_live_object(snapshot_id)
 
@@ -142,7 +143,7 @@ class Transaction:
         self._metas = {}  # type: Dict[Any, dict]
 
     def __str__(self):
-        return "{}, {} live ref(s), {} snapshots, {} staged".format(self._live_objects,
+        return '{}, {} live ref(s), {} snapshots, {} staged'.format(self._live_objects,
                                                                     len(self._in_progress_cache),
                                                                     len(self._snapshots),
                                                                     len(self._staged))
@@ -188,7 +189,7 @@ class Transaction:
             if self._live_objects.get_snapshot_id(obj) != snapshot_id:
                 raise RuntimeError(
                     "Problem saving object with snapshot id '{}', "
-                    "the snapshot id saved does not match that given".format(snapshot_id))
+                    'the snapshot id saved does not match that given'.format(snapshot_id))
         finally:
             del self._in_progress_cache[snapshot_id]
 
@@ -216,9 +217,9 @@ class Transaction:
         return self._live_objects.get_record(obj)
 
     def get_snapshot_id_for_live_object(self, obj) -> records.SnapshotId:
-        for ref, cached_obj in self._in_progress_cache.items():
+        for snapshot_id, cached_obj in self._in_progress_cache.items():
             if obj is cached_obj:
-                return ref
+                return snapshot_id
 
         return self._live_objects.get_snapshot_id(obj)
 
@@ -318,7 +319,7 @@ class NestedTransaction(Transaction):
         self._parent = parent
 
     def __str__(self):
-        return "{} (parent: {})".format(super().__str__(), self._parent)
+        return '{} (parent: {})'.format(super().__str__(), self._parent)
 
     def get_live_object(self, identifier) -> object:
         try:
