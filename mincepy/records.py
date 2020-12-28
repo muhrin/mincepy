@@ -8,11 +8,13 @@ import datetime
 import operator
 from typing import Optional, Iterable, Sequence, Union, Tuple, Any, Mapping, TypeVar, Generic, List
 
+import deprecation
 import pytray.tree
 
 from . import type_ids
 from . import fields
 from . import utils
+from . import version as version_mod
 
 __all__ = 'OBJ_ID', 'TYPE_ID', 'CREATION_TIME', 'VERSION', 'STATE', 'SNAPSHOT_TIME', \
           'SNAPSHOT_HASH', 'EXTRAS', 'ExtraKeys', 'DELETED', 'DataRecord', 'SnapshotRef', \
@@ -142,6 +144,34 @@ class DataRecord(tuple, fields.WithFields):
     snapshot_time = readonly_field(SNAPSHOT_TIME, store_as='stime')
     extras = readonly_field(EXTRAS)
 
+    @deprecation.deprecated(deprecated_in='0.15.20',
+                            removed_in='0.17.0',
+                            current_version=version_mod.__version__,
+                            details='Use make_child_builder free function instead')
+    def child_builder(self, **kwargs) -> 'DataRecordBuilder':
+        """
+        Get a child builder from this DataRecord instance.  The following attributes will be copied
+        over:
+
+        * obj_id
+        * type_id
+        * creation_time
+        * created_by
+
+        and version will be incremented by one.
+        """
+        defaults = self.defaults()
+        defaults.update({
+            OBJ_ID: self.obj_id,
+            TYPE_ID: self.type_id,
+            CREATION_TIME: self.creation_time,
+            VERSION: self.version + 1,
+            SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
+            EXTRAS: copy.deepcopy(self.extras),
+        })
+        defaults.update(kwargs)
+        return DataRecordBuilder(DataRecord, defaults)
+
     # pylint: disable=too-many-arguments
     def __new__(cls, obj_id, type_id, creation_time, version, state, state_types, snapshot_hash,
                 snapshot_time, extras):
@@ -219,30 +249,6 @@ class DataRecord(tuple, fields.WithFields):
         exist"""
         return self.extras.get(name, None)
 
-    def child_builder(self, **kwargs) -> 'DataRecordBuilder':
-        """
-        Get a child builder from this DataRecord instance.  The following attributes will be copied
-        over:
-
-        * obj_id
-        * type_id
-        * creation_time
-        * created_by
-
-        and version will be incremented by one.
-        """
-        defaults = self.defaults()
-        defaults.update({
-            OBJ_ID: self.obj_id,
-            TYPE_ID: self.type_id,
-            CREATION_TIME: self.creation_time,
-            VERSION: self.version + 1,
-            SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
-            EXTRAS: copy.deepcopy(self.extras),
-        })
-        defaults.update(kwargs)
-        return DataRecordBuilder(DataRecord, defaults)
-
     def get_references(self) -> Iterable[Tuple[EntryPath, SnapshotId]]:
         """Get the snapshot ids of all objects referenced by this record"""
         references = []
@@ -291,6 +297,31 @@ StateSchema = Mapping[tuple, SchemaEntry]
 DataRecordBuilder = utils.NamedTupleBuilder[DataRecord]
 
 
-def make_deleted_builder(last_record: DataRecord) -> DataRecordBuilder:
+def make_child_builder(record: DataRecord, **kwargs) -> 'DataRecordBuilder':
+    """
+    Get a child builder from this DataRecord instance.  The following attributes will be copied
+    over:
+
+    * obj_id
+    * type_id
+    * creation_time
+    * created_by
+
+    and version will be incremented by one.
+    """
+    defaults = record.defaults()
+    defaults.update({
+        OBJ_ID: record.obj_id,
+        TYPE_ID: record.type_id,
+        CREATION_TIME: record.creation_time,
+        VERSION: record.version + 1,
+        SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
+        EXTRAS: copy.deepcopy(record.extras),
+    })
+    defaults.update(kwargs)
+    return DataRecordBuilder(DataRecord, defaults)
+
+
+def make_deleted_builder(record: DataRecord) -> DataRecordBuilder:
     """Get a record that represents the deletion of this object"""
-    return last_record.child_builder(state=DELETED, state_types=None, snapshot_hash=None)
+    return make_child_builder(record, state=DELETED, state_types=None, snapshot_hash=None)

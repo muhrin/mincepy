@@ -967,7 +967,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                             # Objects identical
                             nested.rollback()
                         else:
-                            builder = record.child_builder(snapshot_hash=current_hash)
+                            builder = recordsm.make_child_builder(record,
+                                                                  snapshot_hash=current_hash)
                             record = depositor.save_from_builder(obj, builder)
 
                     return record
