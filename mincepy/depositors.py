@@ -180,7 +180,7 @@ class LiveDepositor(Saver, Loader):
         except exceptions.NotFound:
             return self._historian._load_object(snapshot_id.obj_id, self)  # pylint: disable=protected-access
 
-    def load_from_record(self, record: records.DataRecord):
+    def load_from_record(self, record: records.DataRecord) -> object:
         """Load an object from a record"""
         with self._historian.in_transaction() as trans:
 

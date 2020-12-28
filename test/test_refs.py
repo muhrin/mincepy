@@ -1,16 +1,17 @@
+# -*- coding: utf-8 -*-
 """Module for testing object references"""
 
 from argparse import Namespace
 
 import mincepy
 import mincepy.records
-from mincepy.testing import Car, Cycle
+from mincepy import testing
 
 # pylint: disable=invalid-name
 
 
 def test_obj_ref_simple(historian: mincepy.Historian):
-    a = Cycle()
+    a = testing.Cycle()
     a.ref = mincepy.ObjRef(a)
     aid = historian.save(a)
     del a
@@ -22,7 +23,7 @@ def test_obj_ref_simple(historian: mincepy.Historian):
 def test_obj_ref_snapshot(historian: mincepy.Historian):
     """Check that a historic snapshot still works with references"""
     ns = Namespace()
-    car = Car('honda', 'white')
+    car = testing.Car('honda', 'white')
     ns.car = mincepy.ObjRef(car)
     historian.save(ns)
     honda_ns_sid = historian.get_snapshot_id(ns)
@@ -47,7 +48,7 @@ def test_obj_ref_snapshot(historian: mincepy.Historian):
 
 
 def test_obj_sid_complex(historian: mincepy.Historian):
-    honda = Car('honda')
+    honda = testing.Car('honda')
     nested1 = Namespace()
     nested2 = Namespace()
     parent = Namespace()
@@ -68,7 +69,7 @@ def test_obj_sid_complex(historian: mincepy.Historian):
     assert loaded.ns2() is nested2
     assert loaded.ns1().car() is loaded.ns2().car()
 
-    fiat = Car('fiat')
+    fiat = testing.Car('fiat')
     loaded.ns2().car = mincepy.ObjRef(fiat)
     historian.save(loaded)
     parent_sid = historian.get_snapshot_id(loaded)
@@ -101,8 +102,8 @@ def test_ref_load_save_load(historian: mincepy.Historian):
     re-saved without being dereferenced in-between.  This would result in the second saved state
     being that of a null reference.  This can only be tested if the reference is stored by value
     as otherwise the historian will not re-save a reference that has not been mutated."""
-    ref_list = mincepy.List((mincepy.ObjRef(Car()),))
-    assert isinstance(ref_list[0](), Car)
+    ref_list = mincepy.List((mincepy.ObjRef(testing.Car()),))
+    assert isinstance(ref_list[0](), testing.Car)
 
     list_id = ref_list.save()
     del ref_list
@@ -115,4 +116,32 @@ def test_ref_load_save_load(historian: mincepy.Historian):
     # Re-load
     reloaded = historian.load(list_id)
     # Should still be our car but because of a bug this was a None reference
-    assert isinstance(reloaded[0](), Car)
+    assert isinstance(reloaded[0](), testing.Car)
+
+
+def test_load_changed_ref(historian: mincepy.Historian, archive_uri):
+    """Test what happens when you dereference a reference to an object that was mutated since the
+    reference was loaded"""
+    historian2 = mincepy.connect(archive_uri)
+
+    car = testing.Car(make='skoda')
+    car_id = historian.save(car)
+    car_ref = mincepy.ref(car)
+    ref_id = historian.save(car_ref)
+    ref_sid = historian.get_snapshot_id(car_ref)
+    del car, car_ref
+
+    # Now, load the reference but don't dereference it yet
+    loaded = historian.load(ref_id)
+
+    # Now, mutate the car that is being referenced
+    loaded_car = historian2.load(car_id)
+    loaded_car.make = 'honda'
+    historian2.save(loaded_car)
+
+    # Finally, dereference and check that it is as expected
+    assert loaded().make == 'honda'
+
+    # Now, check the snapshot still points to the original
+    loaded_snapshot = historian.load_snapshot(ref_sid)
+    assert loaded_snapshot().make == 'skoda'

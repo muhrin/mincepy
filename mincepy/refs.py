@@ -7,7 +7,7 @@ from . import records
 from . import types
 from . import type_ids
 
-__all__ = ('ObjRef',)
+__all__ = ('ObjRef', 'ref')
 
 
 class ObjRef(types.SavableObject):
@@ -50,7 +50,8 @@ class ObjRef(types.SavableObject):
                 raise RuntimeError('Cannot dereference a None reference')
             # Cache the object
             self._obj = self._loader.load(self._sid)
-            assert self._obj is not None, 'Loader did not load object'
+            assert self._obj is not None, 'Loader did not load object using SID {}'.format(
+                self._sid)
             self._sid = None
             self._loader = None
         elif update:
@@ -99,6 +100,11 @@ class ObjRef(types.SavableObject):
                 # New version is dict
                 self._sid = records.SnapshotId(**saved_state)
             self._loader = loader
+
+
+def ref(obj=None) -> ObjRef:
+    """Create an object reference"""
+    return ObjRef(obj)
 
 
 HISTORIAN_TYPES = (ObjRef,)

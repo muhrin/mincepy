@@ -891,7 +891,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             # Ok, just use the one from the archive
             return depositor.load_from_record(record)
 
-    def _load_object(self, obj_id, depositor: depositors.LiveDepositor):
+    def _load_object(self, obj_id, depositor: depositors.LiveDepositor) -> object:
         obj_id = self._ensure_obj_id(obj_id)
 
         # Try getting the object from the our dict of up to date ones
