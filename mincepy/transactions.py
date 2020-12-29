@@ -52,7 +52,7 @@ class LiveObjects:
         except KeyError:
             raise exceptions.NotFound(obj_id) from None
 
-    def get_record(self, obj) -> records.DataRecord:
+    def get_record(self, obj: object) -> records.DataRecord:
         try:
             return self._records[obj]
         except KeyError:

@@ -133,10 +133,11 @@ class DataRecord(tuple, fields.WithFields):
     _fields = (OBJ_ID, TYPE_ID, CREATION_TIME, VERSION, STATE, STATE_TYPES, SNAPSHOT_HASH,
                SNAPSHOT_TIME, EXTRAS)
 
+    # Object properties
     obj_id = readonly_field(OBJ_ID)
     type_id = readonly_field(TYPE_ID)
     creation_time = readonly_field(CREATION_TIME, store_as='ctime')
-
+    # Snapshot properties
     version = readonly_field(VERSION, store_as='ver')
     state = readonly_field(STATE)
     state_types = readonly_field(STATE_TYPES)

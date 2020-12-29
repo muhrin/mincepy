@@ -10,8 +10,7 @@ except ImportError:
 import getpass
 import logging
 import socket
-import typing
-from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type, Dict, Callable
+from typing import MutableMapping, Any, Optional, Iterable, Union, Iterator, Type, Dict, Callable, Sequence
 import weakref
 
 import deprecation
@@ -46,7 +45,7 @@ __all__ = 'Historian', 'ObjectEntry'
 logger = logging.getLogger(__name__)
 
 ObjectEntry = collections.namedtuple('ObjectEntry', 'ref obj')
-HistorianType = Union[helpers.TypeHelper, typing.Type[types.SavableObject]]
+HistorianType = Union[helpers.TypeHelper, Type[types.SavableObject]]
 
 
 class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-attributes
@@ -102,8 +101,6 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._live_objects = LiveObjects()
 
         self._transactions = None
-
-        self._saving_set = set()
 
         self._user = getpass.getuser()
         self._hostname = socket.gethostname()
@@ -215,7 +212,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         # Save the object and metadata
         with self.in_transaction():
-            record = self._save_object(obj, self._live_depositor)
+            record = self._live_depositor._save_object(obj)  # pylint: disable=protected-access
             if meta:
                 self.meta.update(record.obj_id, meta)
 
@@ -266,12 +263,20 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return loaded
 
-    def load_one(self, obj_id_or_snapshot_id):
+    def load_one(self, obj_id_or_snapshot_id) -> object:
         """Load one object or snapshot from the database"""
         if isinstance(obj_id_or_snapshot_id, recordsm.SnapshotId):
             return self.load_snapshot(obj_id_or_snapshot_id)
 
-        return self._load_object(obj_id_or_snapshot_id, self._live_depositor)
+        # OK, assume we're dealing with an object id
+        obj_id = self._ensure_obj_id(obj_id_or_snapshot_id)
+
+        # Try getting the object from the our dict of up to date ones
+        try:
+            return self.get_obj(obj_id)
+        except exceptions.NotFound:
+            # Going to have to load from the database
+            return self._live_depositor._load_object(obj_id)  # pylint: disable=protected-access
 
     def get(self, obj_id) -> object:
         """Get a live object using the object id"""
@@ -353,12 +358,10 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return result_types.DeleteResult(deleted, left_to_find)
 
-    def history(
-            self,
-            obj_or_obj_id,
-            idx_or_slice='*',
-            as_objects=True
-    ) -> [typing.Sequence[ObjectEntry], typing.Sequence[recordsm.DataRecord]]:
+    def history(self,
+                obj_or_obj_id,
+                idx_or_slice='*',
+                as_objects=True) -> [Sequence[ObjectEntry], Sequence[recordsm.DataRecord]]:
         """Get a sequence of object ids and instances from the history of the given object.
 
         :param obj_or_obj_id: The instance or id of the object to get the history for
@@ -543,8 +546,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self.get_helper(type_id).TYPE
 
     def get_helper(self, type_id_or_type, auto_register=False) -> helpers.TypeHelper:
-        if auto_register and issubclass(type_id_or_type, types.SavableObject):
-            self._ensure_compatible(type_id_or_type)
+        if auto_register and issubclass(type_id_or_type, types.SavableObject) and \
+                type_id_or_type not in self._type_registry:
+            self.register_type(type_id_or_type)
 
         return self._type_registry.get_helper(type_id_or_type)
 
@@ -866,11 +870,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         if trans.metas:
             self._archive.meta_set_many(trans.metas)
 
-    def _load_object_from_record(self,
-                                 record: recordsm.DataRecord,
-                                 depositor: depositors.LiveDepositor = None):
-
-        depositor = depositor or self._live_depositor
+    def _load_object_from_record(self, record: recordsm.DataRecord):
+        depositor = self._live_depositor
 
         # Try getting the object from the our dict of up to date ones
         obj_id = record.obj_id
@@ -891,99 +892,6 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             # Ok, just use the one from the archive
             return depositor.load_from_record(record)
 
-    def _load_object(self, obj_id, depositor: depositors.LiveDepositor) -> object:
-        obj_id = self._ensure_obj_id(obj_id)
-
-        # Try getting the object from the our dict of up to date ones
-        try:
-            return self.get_obj(obj_id)
-        except exceptions.NotFound:
-            pass
-
-        with self.in_transaction() as trans:
-            if trans.is_deleted(obj_id):
-                raise exceptions.ObjectDeleted(obj_id)
-
-            record = self._objects.records.get(obj_id)
-
-            if record.is_deleted_record():
-                raise exceptions.ObjectDeleted(obj_id)
-
-            try:
-                obj = self._live_objects.get_object(obj_id)
-            except exceptions.NotFound:
-                logger.debug('Loading object from record: %s', record.snapshot_id)
-                # Ok, just use the one from the archive
-                return depositor.load_from_record(record)
-            else:
-                if record.version != self.get_snapshot_id(obj).version:
-                    # The one in the archive is newer, so use that
-                    logger.debug('Updating object from record: %s', record.snapshot_id)
-                    depositor.update_from_record(obj, record)
-
-                return obj
-
-    def _save_object(self, obj, depositor) -> recordsm.DataRecord:
-        with self.in_transaction() as trans:
-            try:
-                helper = self._ensure_compatible(type(obj))
-            except TypeError:
-                raise TypeError('Type is incompatible with the historian: {}'.format(
-                    type(obj).__name__)) from None
-
-            # Check if an object is already being saved in the transaction
-            try:
-                record = trans.get_record_for_live_object(obj)
-                return record
-            except exceptions.NotFound:
-                pass
-
-            with self._saving(obj):
-                # Ok, have to save it
-                current_hash = self.hash(obj)
-
-                try:
-                    # Let's see if we have a record at all
-                    record = self._live_objects.get_record(obj)
-                except exceptions.NotFound:
-                    # Object being saved for the first time
-                    builder = self._create_builder(obj, snapshot_hash=current_hash)
-                    record = depositor.save_from_builder(obj, builder)
-                    if self.meta.sticky:
-                        # Apply the sticky meta
-                        self.meta.update(record.obj_id, self.meta.sticky)
-                    return record
-                else:
-                    if helper.IMMUTABLE:
-                        logger.info("Tried to save immutable object with id '%s' again",
-                                    record.obj_id)
-                        return record
-
-                    # Check if our record is up to date
-                    with self.transaction() as nested:
-                        loaded_obj = self._new_snapshot_depositor().load_from_record(record)
-
-                        if current_hash == record.snapshot_hash and self.eq(obj, loaded_obj):
-                            # Objects identical
-                            nested.rollback()
-                        else:
-                            builder = recordsm.make_child_builder(record,
-                                                                  snapshot_hash=current_hash)
-                            record = depositor.save_from_builder(obj, builder)
-
-                    return record
-
-    def _create_builder(self, obj, **additional) -> recordsm.DataRecordBuilder:
-        """Create a record builder for a new object object"""
-        additional = additional or {}
-        helper = self._ensure_compatible(type(obj))
-
-        builder = recordsm.DataRecord.new_builder(type_id=helper.TYPE_ID,
-                                                  obj_id=self._archive.create_archive_id(),
-                                                  version=0)
-        builder.update(additional)
-        return builder
-
     def _ensure_obj_id(self, obj_or_identifier):
         """
         This call will try and get an object id from the passed parameter.  Uses .to_obj_id() and raises NotFound if it
@@ -995,12 +903,6 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 "Could not get an object id from '{}'".format(obj_or_identifier))
 
         return obj_id
-
-    def _ensure_compatible(self, obj_type: Type[types.SavableObject]) -> helpers.TypeHelper:
-        if obj_type not in self._type_registry:
-            self.register_type(obj_type)
-
-        return self._type_registry.get_helper_from_obj_type(obj_type)
 
     def _prepare_obj_id(self, obj_id):
         if obj_id is None:
@@ -1031,19 +933,6 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     def _create_loadable_record(self, record: recordsm.DataRecord) -> 'LoadableRecord':
         return LoadableRecord(record, self.load_snapshot_from_record, self._load_object_from_record)
-
-    @contextlib.contextmanager
-    def _saving(self, obj):
-        obj_id = id(obj)
-        if obj_id in self._saving_set:
-            raise RuntimeError(
-                'The object is already being saved, this cannot be called twice and suggests '
-                'a circular reference is being made')
-        self._saving_set.add(obj_id)
-        try:
-            yield
-        finally:
-            self._saving_set.remove(obj_id)
 
     def _record_builder_created(self,
                                 builder: recordsm.DataRecordBuilder) -> recordsm.DataRecordBuilder:

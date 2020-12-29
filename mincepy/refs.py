@@ -99,6 +99,7 @@ class ObjRef(types.SavableObject):
             else:
                 # New version is dict
                 self._sid = records.SnapshotId(**saved_state)
+
             self._loader = loader
 
 

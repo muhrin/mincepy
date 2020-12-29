@@ -3,8 +3,9 @@
 """
 
 from abc import ABCMeta, abstractmethod
+import contextlib
 import logging
-from typing import Optional, MutableMapping, Any, Iterable, Sequence
+from typing import Optional, Dict, Any, Iterable, Sequence
 
 import deprecation
 from pytray import tree
@@ -31,16 +32,13 @@ class Base(metaclass=ABCMeta):
     def __init__(self, historian):
         self._historian = historian  # type: mincepy.Historian
 
-    def get_archive(self) -> archives.Archive:
-        return self._historian.archive
-
     def get_historian(self) -> 'mincepy.Historian':
-        """
-        Get the owning historian.
-
-        :return: the historian
-        """
+        """Get the owning historian"""
         return self._historian
+
+    def get_archive(self) -> archives.Archive:
+        """Get the archive of the owning historian"""
+        return self._historian.archive
 
 
 class Saver(Base, metaclass=ABCMeta):
@@ -82,7 +80,7 @@ class Saver(Base, metaclass=ABCMeta):
 
         return self.encode(save_state, schema, path)
 
-    def save_state(self, obj):
+    def save_state(self, obj) -> dict:
         """Save the state of an object and return the encoded state ready to be archived in a
         record"""
         schema = []
@@ -161,6 +159,11 @@ class Loader(Base, metaclass=ABCMeta):
 class LiveDepositor(Saver, Loader):
     """Depositor with strategy that all objects that get referenced should be saved"""
 
+    def __init__(self, *args, **kwargs):
+        # Just patch through
+        super().__init__(*args, **kwargs)
+        self._saving_set = set()
+
     def get_snapshot_id(self, obj) -> Optional[records.SnapshotId]:
         if obj is None:
             return None
@@ -172,13 +175,17 @@ class LiveDepositor(Saver, Loader):
             return self._get_current_snapshot_id(obj)
         except exceptions.NotFound:
             # Then we have to save it and get the resulting reference
-            return self._historian._save_object(obj, self).snapshot_id  # pylint: disable=protected-access
+            return self._save_object(obj).snapshot_id  # pylint: disable=protected-access
+
+    def _get_current_snapshot_id(self, obj) -> records.SnapshotId:
+        """Get the current snapshot id of an object"""
+        return self._historian.current_transaction().get_snapshot_id_for_live_object(obj)
 
     def load(self, snapshot_id: records.SnapshotId):
         try:
             return self._historian.get_obj(snapshot_id.obj_id)
         except exceptions.NotFound:
-            return self._historian._load_object(snapshot_id.obj_id, self)  # pylint: disable=protected-access
+            return self._load_object(snapshot_id.obj_id)
 
     def load_from_record(self, record: records.DataRecord) -> object:
         """Load an object from a record"""
@@ -204,8 +211,39 @@ class LiveDepositor(Saver, Loader):
 
             return loaded
 
-    def update_from_record(self, obj, record: records.DataRecord) -> bool:
-        """Do an in-place update of a object from a record"""
+    def _load_object(self, obj_id) -> object:
+        """Load an object form the database.  This method is deliberately private as it should
+        only be used by the the depositor and the historian"""
+        historian = self.get_historian()
+        archive = self.get_archive()
+        with historian.in_transaction() as trans:
+            if trans.is_deleted(obj_id):
+                raise exceptions.ObjectDeleted(obj_id)
+
+            # Get the record from the database
+            record = self._create_record(archive.objects.get(obj_id))  # DB HIT
+            assert not record.is_deleted_record(), \
+                'Found a deleted record in the objects collection ({}), ' \
+                'this should never happen!'.format(record.snapshot_id)
+
+            try:
+                obj = historian._live_objects.get_object(obj_id)  # pylint: disable=protected-access
+            except exceptions.NotFound:
+                logger.debug('Loading object from record: %s', record.snapshot_id)
+                # Ok, just use the one from the archive
+                return self.load_from_record(record)
+            else:
+                # Compare with the current, live, version
+                live_record = historian._live_objects.get_record(obj)  # pylint: disable=protected-access
+                if record.version != live_record.version:
+                    # The one in the archive is newer, so use that
+                    logger.debug('Updating object from record: %s', record.snapshot_id)
+                    self.update_from_record(obj, record)
+
+                return obj
+
+    def update_from_record(self, obj: object, record: records.DataRecord) -> bool:
+        """Do an in-place update of an object from a record"""
         historian = self.get_historian()
         helper = historian.get_helper(type(obj))
         with historian.in_transaction() as trans:
@@ -216,7 +254,58 @@ class LiveDepositor(Saver, Loader):
             helper.load_instance_state(obj, saved_state, self)
             return True
 
-    def save_from_builder(self, obj, builder: records.DataRecordBuilder):
+    def _save_object(self, obj: object) -> records.DataRecord:
+        historian = self._historian
+
+        try:
+            helper = historian.get_helper(type(obj), auto_register=True)
+        except ValueError:
+            raise TypeError('Type is incompatible with the historian: {}'.format(
+                type(obj).__name__)) from None
+
+        with historian.in_transaction() as trans:
+            # Check if an object is already being saved in the transaction
+            try:
+                record = trans.get_record_for_live_object(obj)
+                return record
+            except exceptions.NotFound:
+                pass
+
+            with self._cycle_protection(obj):
+                # Ok, have to save it
+                current_hash = historian.hash(obj)
+
+                try:
+                    # Let's see if we have a record at all
+                    record = historian._live_objects.get_record(obj)  # pylint: disable=protected-access
+                except exceptions.NotFound:
+                    # Object being saved for the first time
+                    builder = self._create_builder(helper, snapshot_hash=current_hash)
+                    record = self._save_from_builder(obj, builder)
+                    if historian.meta.sticky:
+                        # Apply the sticky meta
+                        historian.meta.update(record.obj_id, historian.meta.sticky)
+                    return record
+                else:
+                    if helper.IMMUTABLE:
+                        logger.info("Tried to save immutable object with id '%s' again",
+                                    record.obj_id)
+                        return record
+
+                    # Check if our record is up to date
+                    with historian.transaction() as nested:
+                        loaded_obj = SnapshotLoader(historian).load_from_record(record)
+
+                        if current_hash == record.snapshot_hash and historian.eq(obj, loaded_obj):
+                            # Objects identical
+                            nested.rollback()
+                        else:
+                            builder = records.make_child_builder(record, snapshot_hash=current_hash)
+                            record = self._save_from_builder(obj, builder)
+
+                    return record
+
+    def _save_from_builder(self, obj, builder: records.DataRecordBuilder):
         """Save a live object"""
         assert builder.snapshot_hash is not None, \
             'The snapshot hash must be set on the builder before saving'
@@ -226,8 +315,6 @@ class LiveDepositor(Saver, Loader):
             # Insert the object into the transaction so others can refer to it
             sid = records.SnapshotId(builder.obj_id, builder.version)
             with trans.prepare_for_saving(sid, obj):
-                # trans.insert_live_object_snapshot_id(sid, obj)
-
                 # Inject the extras
                 builder.extras.update(self._get_extras(obj, builder.obj_id, builder.version))
 
@@ -240,10 +327,6 @@ class LiveDepositor(Saver, Loader):
                 trans.stage(operations.Insert(record))  # Stage it for being saved
 
         return record
-
-    def _get_current_snapshot_id(self, obj) -> records.SnapshotId:
-        """Get the current snapshot id of an object"""
-        return self._historian.current_transaction().get_snapshot_id_for_live_object(obj)
 
     def _get_extras(self, obj, obj_id, version: int) -> dict:
         """Create the extras dictionary for a object that is going to be saved"""
@@ -282,6 +365,37 @@ class LiveDepositor(Saver, Loader):
 
         return extras
 
+    def _create_builder(self, helper, **additional) -> records.DataRecordBuilder:
+        """Create a record builder for a new object object"""
+        additional = additional or {}
+
+        builder = records.DataRecord.new_builder(type_id=helper.TYPE_ID,
+                                                 obj_id=self.get_archive().create_archive_id(),
+                                                 version=0)
+        builder.update(additional)
+        return builder
+
+    @contextlib.contextmanager
+    def _cycle_protection(self, obj: object):
+        """This context manager is used as a means of circular-reference identification.
+        Naturally, such cyclic saving should never happen however if there is a bug at least this method
+        allows us to catch it early and see the source.
+        """
+        obj_id = id(obj)
+        if obj_id in self._saving_set:
+            raise RuntimeError(
+                'The object is already being saved, this cannot be called twice and suggests '
+                'a circular reference is being made')
+        self._saving_set.add(obj_id)
+        try:
+            yield
+        finally:
+            self._saving_set.remove(obj_id)
+
+    @staticmethod
+    def _create_record(entry_dict: dict) -> records.DataRecord:
+        return records.DataRecord(**entry_dict)
+
 
 class SnapshotLoader(Loader):
     """Responsible for loading snapshots.  This object should not be reused and only
@@ -290,9 +404,9 @@ class SnapshotLoader(Loader):
 
     def __init__(self, historian):
         super().__init__(historian)
-        self._snapshots = {}  # type: MutableMapping[records.SnapshotId, Any]
+        self._snapshots = {}  # type: Dict[records.SnapshotId, object]
 
-    def load(self, snapshot_id: records.SnapshotId) -> Any:
+    def load(self, snapshot_id: records.SnapshotId) -> object:
         """Load an object from its snapshot id"""
         if not isinstance(snapshot_id, records.SnapshotId):
             raise TypeError(snapshot_id)
