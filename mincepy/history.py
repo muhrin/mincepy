@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 This module exposes some global functionality for connecting to and interacting with the current
 historian
@@ -21,20 +22,20 @@ ENV_ARCHIVE_URI = 'MINCEPY_ARCHIVE'
 CURRENT_HISTORIAN = None
 
 
-@deprecation.deprecated(deprecated_in="0.15.3",
-                        removed_in="0.16.0",
+@deprecation.deprecated(deprecated_in='0.15.3',
+                        removed_in='0.16.0',
                         current_version=version.__version__,
-                        details="Use default_archive_uri() instead")
+                        details='Use default_archive_uri() instead')
 def archive_uri() -> Optional[str]:
     """Returns the default archive URI.  This is currently being taken from the environmental
     MINCEPY_ARCHIVE, however it may chance to include a config file in the future."""
     return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
 
 
-@deprecation.deprecated(deprecated_in="0.15.3",
-                        removed_in="0.16.0",
+@deprecation.deprecated(deprecated_in='0.15.3',
+                        removed_in='0.16.0',
                         current_version=version.__version__,
-                        details="Use connect(set_global=False) instead")
+                        details='Use connect(set_global=False) instead')
 def create_default_historian():
     """Create a default historian using the current `archive_uri()`"""
     uri = default_archive_uri()
@@ -44,14 +45,15 @@ def create_default_historian():
     return None
 
 
-def connect(uri: str = '', use_globally=False) -> historians.Historian:
+def connect(uri: str = '', use_globally=False, timeout=30000) -> historians.Historian:
     """Connect to an archive and return a corresponding historian
 
     :param uri: the URI of the archive to connect to
     :param use_globally: if True sets the newly create historian as the current global historian
+    :param timeout: a connection timeout (in milliseconds)
     """
     uri = uri or default_archive_uri()
-    hist = archive_factory.create_historian(uri, apply_plugins=True)
+    hist = archive_factory.create_historian(uri, apply_plugins=True, connect_timeout=timeout)
     if use_globally:
         set_historian(hist, apply_plugins=False)
     return hist

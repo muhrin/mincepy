@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pytest
 
 import mincepy
@@ -13,6 +14,8 @@ def test_basic_save_process(historian: mincepy.Historian):
         car = testing.Car('nissan', 'white')
         car_id = historian.save(car)
     assert historian.created_by(car) == pid
+    assert historian.get_creator(car) is proc
+    assert historian.get_creator(car_id) is proc
 
     second_car = testing.Car('ford')
     historian.save(second_car)
@@ -21,6 +24,7 @@ def test_basic_save_process(historian: mincepy.Historian):
     # Now check we can get the creator id from the object id
     del car
     assert historian.created_by(car_id) == pid
+    assert historian.get_creator(car_id) is proc
 
 
 def test_save_after_creation(historian: mincepy.Historian):
@@ -56,7 +60,7 @@ def test_process_nested_running(historian: mincepy.Historian):
                 with proc.running():
                     raise RuntimeError('Failed yo')
             assert proc.is_running
-            raise TypeError("New error")
+            raise TypeError('New error')
         assert proc.is_running
     proc_id = historian.save(proc)
     del proc

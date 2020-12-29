@@ -579,7 +579,14 @@ class MongoRecordCollection(archives.RecordCollection):
             return result['total']
 
 
-def connect(uri: str) -> MongoArchive:
+def connect(uri: str, timeout=30000) -> MongoArchive:
+    """
+    Connect to the database using the passed URI string.
+
+    :param uri: specification of where to connect to
+    :param timeout: a connection time (in milliseconds)
+    :return: the connected mongo archive
+    """
     # URI Format is:
     # mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
     parsed = pymongo.uri_parser.parse_uri(uri)
@@ -587,7 +594,7 @@ def connect(uri: str) -> MongoArchive:
         raise ValueError('Failed to supply database on MongoDB uri: {}'.format(uri))
 
     try:
-        client = pymongo.MongoClient(uri)
+        client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=timeout)
         database = client[parsed['database']]
         return MongoArchive(database)
     except pymongo.errors.ServerSelectionTimeoutError as exc:

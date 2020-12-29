@@ -477,13 +477,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             # Maybe we've been passed an object
             pass
 
-        try:
-            return self.get_obj_id(obj_or_identifier)
-        except exceptions.NotFound:
-            pass
-
-        # Out of options
-        return None
+        return self.get_obj_id(obj_or_identifier)
 
     def get_snapshot_id(self, obj: object) -> recordsm.SnapshotId:
         """Get the current snapshot id for a live object.  Will return the id or raise
@@ -930,9 +924,6 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 raise TypeError("Cannot get type id(s) from '{}'".format(obj_type)) from exc
 
             return list(map(self.get_obj_type_id, obj_type))
-
-    def _create_loadable_record(self, record: recordsm.DataRecord) -> 'LoadableRecord':
-        return LoadableRecord(record, self.load_snapshot_from_record, self._load_object_from_record)
 
     def _record_builder_created(self,
                                 builder: recordsm.DataRecordBuilder) -> recordsm.DataRecordBuilder:
