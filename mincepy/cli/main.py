@@ -1,5 +1,7 @@
+# -*- coding: utf-8 -*-
 import logging
 import sys
+import uuid
 
 import click
 import pytray.pretty
@@ -35,7 +37,7 @@ def gui(uri):
     try:
         import mincepy_gui
     except ImportError:
-        click.echo("mincepy-gui not found, please install (e.g. via pip install mincepy-gui)")
+        click.echo('mincepy-gui not found, please install (e.g. via pip install mincepy-gui)')
         sys.exit(1)
     else:
         mincepy_gui.start(uri)
@@ -44,7 +46,7 @@ def gui(uri):
 @mince.command()
 def plugins():
     type_plugins = mincepy.plugins.get_types()
-    click.echo("Types:")
+    click.echo('Types:')
 
     headers = 'Type', 'Class'
     plugin_info = []
@@ -61,7 +63,7 @@ def plugins():
 
 
 @mince.command()
-@click.option('--yes', is_flag=True, default=False, help="Yes to all prompts")
+@click.option('--yes', is_flag=True, default=False, help='Yes to all prompts')
 @click.argument('uri', type=str)
 @click.pass_context
 def migrate(ctx, yes, uri):
@@ -74,15 +76,21 @@ def migrate(ctx, yes, uri):
         if isinstance(ctx.obj, dict) and 'helpers' in ctx.obj:
             hist.register_types(ctx.obj['helpers'])
 
-        click.echo("Looking for records to migrate...")
+        click.echo('Looking for records to migrate...')
         records = tuple(hist.migrations.find_migratable_records())
         if not records:
-            click.echo("No migrations necessary")
+            click.echo('No migrations necessary')
             return
 
-        click.echo("Found {} records to migrate".format(len(records)))
-        if yes or click.confirm("Migrate all?"):
+        click.echo('Found {} records to migrate'.format(len(records)))
+        if yes or click.confirm('Migrate all?'):
             set_print_logging(logging.INFO)
             hist.migrations.migrate_records(records)
         else:
             sys.exit(2)
+
+
+@mince.command()
+def tid():
+    """Create a new type id"""
+    click.echo(str(uuid.uuid4()))
