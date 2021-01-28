@@ -60,6 +60,9 @@ class ReferenceManager:
                    max_dist: int = None,
                    node_factory: Callable = None) -> networkx.DiGraph:
         """Get the reference graph for a sequence of ids"""
+        if len(ids) == 0:
+            return networkx.DiGraph()
+
         if max_dist == 0:
             # Special case for 0 distance, can't be any references just the ids as lone nodes
             graph = networkx.DiGraph()
