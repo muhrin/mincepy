@@ -50,9 +50,16 @@ class File(base_savable.SimpleSavable):
             with self.open('w') as this:
                 shutil.copyfileobj(disk_file, this)
 
-    def to_disk(self, folder: [str, pathlib.Path]):
-        """Copy the contents of this file to a file on disk in the given folder"""
-        file_path = pathlib.Path(str(folder)) / self.filename
+    def to_disk(self, path: [str, pathlib.Path]):
+        """Copy the contents of this file to disk.
+
+        :param path: the path can be either a folder in which case the file contents are written to
+            `path / self.filename` or path can be a full file path in which case that will be used.
+        """
+        file_path = pathlib.Path(str(path))
+        if file_path.is_dir():
+            file_path /= self.filename
+
         with open(str(file_path), 'w', encoding=self._encoding) as disk_file:
             with self.open('r') as this:
                 shutil.copyfileobj(this, disk_file)

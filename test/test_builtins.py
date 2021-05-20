@@ -1,10 +1,13 @@
+# -*- coding: utf-8 -*-
 from typing import MutableMapping
 
 import mincepy
-from mincepy.testing import *
+from mincepy.testing import *  # pylint: disable=unused-wildcard-import, wildcard-import
 from mincepy import builtins
 
 # region lists
+
+# pylint: disable=redefined-outer-name
 
 
 def test_ref_list(historian: mincepy.Historian):
@@ -35,7 +38,7 @@ def test_ref_list(historian: mincepy.Historian):
     assert list1_loaded[0] is list2_loaded[0]
 
 
-@pytest.mark.parametrize("list_type", (builtins.List, builtins.LiveList, builtins.LiveRefList))
+@pytest.mark.parametrize('list_type', (builtins.List, builtins.LiveList, builtins.LiveRefList))
 def test_list_primitives(list_type, historian: mincepy.Historian):
     """Test that we can store primitives in a ref list also"""
     reflist = list_type()
@@ -52,7 +55,7 @@ def test_list_primitives(list_type, historian: mincepy.Historian):
     assert loaded[2] == 10.8
 
 
-@pytest.mark.parametrize("list_type", (builtins.LiveList, builtins.LiveRefList))
+@pytest.mark.parametrize('list_type', (builtins.LiveList, builtins.LiveRefList))
 def test_live_lists(list_type, historian: mincepy.Historian):
     """Basic tests on live list. It's difficult to test the 'syncing' aspects
     of this container without another process"""
@@ -139,7 +142,7 @@ def test_ref_dict(historian: mincepy.Historian):
     assert dict1_loaded['car'] is dict2_loaded['car']
 
 
-@pytest.mark.parametrize("dict_type", (builtins.RefDict, builtins.LiveDict, builtins.LiveRefDict))
+@pytest.mark.parametrize('dict_type', (builtins.RefDict, builtins.LiveDict, builtins.LiveRefDict))
 def test_primitives(dict_type, historian: mincepy.Historian):
     """Test that we can store primitives in a ref list also"""
     refdict = dict_type()
@@ -156,8 +159,8 @@ def test_primitives(dict_type, historian: mincepy.Historian):
     assert loaded['2'] == 10.8
 
 
-@pytest.mark.parametrize("dict_type", (builtins.RefDict, builtins.LiveDict, builtins.LiveRefDict))
-def test_ref_dicts_iterate(dict_type: MutableMapping, historian: mincepy.Historian):
+@pytest.mark.parametrize('dict_type', (builtins.RefDict, builtins.LiveDict, builtins.LiveRefDict))
+def test_ref_dicts_iterate(dict_type: MutableMapping):
     to_store = {'car': Car(), 'msg': 'hello', 'number': 5}
 
     ref_dict = dict_type(to_store)
@@ -165,7 +168,7 @@ def test_ref_dicts_iterate(dict_type: MutableMapping, historian: mincepy.Histori
         assert val is to_store[key]
 
 
-@pytest.mark.parametrize("dict_type", (builtins.LiveDict, builtins.LiveRefDict))
+@pytest.mark.parametrize('dict_type', (builtins.LiveDict, builtins.LiveRefDict))
 def test_live_dicts(dict_type: MutableMapping, historian: mincepy.Historian):
     """Test live dictionary, difficult to test the sync capability"""
     dict1 = dict_type()
@@ -291,6 +294,11 @@ def test_file_to_disk(tmp_path, historian: mincepy.Historian):
     file.to_disk(tmp_path)
 
     assert disk_file_path.read_text() == 'TEST'
+
+    # Now test writing to a custom file name
+    custom_filename = tmp_path / 'test_file.txt'
+    file.to_disk(custom_filename)
+    assert custom_filename.read_text() == 'TEST'
 
 
 def test_list_state(historian: mincepy.Historian):
