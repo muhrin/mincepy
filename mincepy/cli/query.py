@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from collections import OrderedDict
 import typing
 
@@ -10,10 +11,10 @@ import mincepy.records
 
 
 @click.command()
-@click.option('--obj-type', default=None, help="The type of object to find")
-@click.option('--filter', default=None, help="Filter on the state")
-@click.option('--limit', default=0, help="Limit the number of results")
-def query(obj_type, filter, limit):
+@click.option('--obj-type', default=None, help='The type of object to find')
+@click.option('--filter', default=None, help='Filter on the state')
+@click.option('--limit', default=0, help='Limit the number of results')
+def query(obj_type, filter, limit):  # pylint: disable=redefined-builtin
     historian = mincepy.get_historian()
 
     results = historian.find_recods(obj_type, state=filter, limit=limit, version=-1)
@@ -26,7 +27,7 @@ def query(obj_type, filter, limit):
         gathered.setdefault(result.type_id, []).append(result)
 
     for type_id, records in gathered.items():
-        print("type: {}".format(type_id))
+        print('type: {}'.format(type_id))
         print_records(records, historian)
 
 
@@ -41,11 +42,11 @@ def print_records(records: typing.Sequence[mincepy.records.DataRecord], historia
     for record in records:
         try:
             helper = historian.get_helper(record.type_id)
-            type_str = get_type_name(helper.TYPE) + "#{}".format(record.version)
+            type_str = get_type_name(helper.TYPE) + '#{}'.format(record.version)
         except KeyError:
             type_str = str(record.snapshot_id)
         if record.is_deleted_record():
-            type_str += " [deleted]"
+            type_str += ' [deleted]'
         refs.append(type_str)
     columns[REF] = refs
 
@@ -65,7 +66,7 @@ def print_records(records: typing.Sequence[mincepy.records.DataRecord], historia
     print(
         tabulate(rows,
                  headers=[
-                     ".".join(path) if isinstance(path, tuple) else path for path in columns.keys()
+                     '.'.join(path) if isinstance(path, tuple) else path for path in columns.keys()
                  ]))
 
 
@@ -111,7 +112,7 @@ def get_value(title, state):
 
 def get_type_name(obj_type):
     try:
-        return "{}.{}".format(obj_type.__module__, obj_type.__name__)
+        return '{}.{}'.format(obj_type.__module__, obj_type.__name__)
     except AttributeError:
         return str(obj_type)
 
@@ -124,4 +125,4 @@ if __name__ == '__main__':
     hist = mincepy.Historian(mongo_archive)
     mincepy.set_historian(hist)
 
-    query()
+    query()  # pylint: disable=no-value-for-parameter

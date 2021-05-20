@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from . import qops as q
 from .archives import *
 from .builtins import *

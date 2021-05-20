@@ -1,8 +1,9 @@
+# -*- coding: utf-8 -*-
 from typing import Any, Optional
 
 import pytray.pretty
 
-import mincepy  # pylint: disable=unused-import
+from . import depositors  # pylint: disable=unused-import
 
 __all__ = 'ObjectMigration', 'ObjectMigrationMeta'
 
@@ -18,12 +19,12 @@ class ObjectMigrationMeta(type):
             return
 
         if cls.VERSION is None:
-            raise RuntimeError("Migration version not set")
+            raise RuntimeError('Migration version not set')
 
         if cls.PREVIOUS is not None and cls.VERSION <= cls.PREVIOUS.VERSION:
             raise RuntimeError(
-                "A migration must have a version number higher than the previous migration.  {}"
-                ".VERSION is {} while {}.VERSION is {}".format(
+                'A migration must have a version number higher than the previous migration.  {}'
+                '.VERSION is {} while {}.VERSION is {}'.format(
                     pytray.pretty.type_string(cls.PREVIOUS), cls.PREVIOUS.VERSION,
                     pytray.pretty.type_string(cls), cls.VERSION))
 
@@ -37,7 +38,7 @@ class ObjectMigration(metaclass=ObjectMigrationMeta):
     PREVIOUS = None  # type: Optional[ObjectMigration]
 
     @classmethod
-    def upgrade(cls, saved_state, loader: 'mincepy.Loader') -> Any:
+    def upgrade(cls, saved_state, loader: depositors.Loader) -> Any:
         """
         This method should take the saved state, which will have been created with the previous
         version, and return a new saved state that is compatible with this version.

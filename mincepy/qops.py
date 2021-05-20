@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Module containing functions to generate query operations.  To prevent clashes with python
 builtins we append underscores to the function names.  This also makes it safer to import this
 module as a wildcard import.
@@ -129,4 +130,4 @@ class Q_:  # pylint: disable=invalid-name
         return ne_(value)
 
     def __init__(self):
-        raise RuntimeError("Cannot instantiate, this is to be used statically")
+        raise RuntimeError('Cannot instantiate, this is to be used statically')

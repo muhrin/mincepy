@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from typing import Iterator, Sequence, Iterable
 
 import mincepy  # pylint: disable=unused-import

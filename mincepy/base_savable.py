@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import collections
 from typing import Optional
 import typing
@@ -108,14 +109,14 @@ class ConvenienceMixin:
     def set_meta(self, meta: Optional[dict]):
         """Set the metadata dictionary for this object"""
         if self._historian is None:
-            raise RuntimeError("Object must be saved before the metadata can be set")
+            raise RuntimeError('Object must be saved before the metadata can be set')
 
         self._historian.meta.set(self, meta)
 
     def update_meta(self, meta: dict):
         """Update the metadata dictionary for this object"""
         if self._historian is None:
-            raise RuntimeError("Object must be saved before the metadata can be updated")
+            raise RuntimeError('Object must be saved before the metadata can be updated')
 
         self._historian.meta.update(self, meta)
 

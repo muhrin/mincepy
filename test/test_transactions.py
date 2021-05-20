@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Module for testing saved snapshots"""
 
 import mincepy

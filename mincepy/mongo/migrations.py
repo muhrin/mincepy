@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import pymongo.database
 
 from . import migrate
@@ -60,7 +61,7 @@ class CollectionsSplit(migrate.Migration):
         for entry in old_data.find():
             obj_id = entry['_id']['oid']
             version = entry['_id']['v']
-            entry['_id'] = "{}#{}".format(obj_id, version)
+            entry['_id'] = '{}#{}'.format(obj_id, version)
             entry['obj_id'] = obj_id
             entry['ver'] = version
             history.insert_one(entry)
@@ -143,9 +144,9 @@ class DropReferencesCache(migrate.Migration):
 
     def upgrade(self, database: pymongo.database.Database):  # pylint: disable=no-self-use
         # This is an old one that was created by accident
-        database.drop_collection("data.references")
+        database.drop_collection('data.references')
         # And this will drop the current one
-        database.drop_collection("references")
+        database.drop_collection('references')
 
 
 LATEST = CollectionsSplit

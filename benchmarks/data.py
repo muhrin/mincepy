@@ -1,10 +1,7 @@
+# -*- coding: utf-8 -*-
 import contextlib
-
-import mincepy
-import mincepy.testing
 
 
 @contextlib.contextmanager
 def benchmark_dataset():
     """Populate a database with """
-    pass

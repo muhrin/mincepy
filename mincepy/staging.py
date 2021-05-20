@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from typing import MutableMapping, Any, Optional
 
 from . import utils
@@ -16,7 +17,7 @@ class StagingArea:
     staged_obj_info = utils.WeakObjectIdDict()  # type: MutableMapping[Any, dict]
 
     def __init__(self):
-        raise RuntimeError("Cannot be instantiated")
+        raise RuntimeError('Cannot be instantiated')
 
 
 def get_info(obj, create=True) -> Optional[dict]:

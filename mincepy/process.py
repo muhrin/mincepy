@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import contextlib
 import functools
 import uuid
@@ -11,10 +12,10 @@ from . import version
 __all__ = ('Process',)
 
 
-@deprecation.deprecated(deprecated_in="0.14.5",
-                        removed_in="0.16",
+@deprecation.deprecated(deprecated_in='0.14.5',
+                        removed_in='0.16',
                         current_version=version.__version__,
-                        details="Use mincepy.track() instead")
+                        details='Use mincepy.track() instead')
 def track(func):
 
     @functools.wraps(func)
@@ -31,7 +32,7 @@ class Process(base_savable.SimpleSavable):
     ATTRS = '_name', '_running'
 
     def __init__(self, name: str):
-        super(Process, self).__init__()
+        super().__init__()
         self._name = name
         self._running = 0
 

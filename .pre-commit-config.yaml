@@ -16,7 +16,21 @@ repos:
     rev: pylint-2.5.2
     hooks:
     -   id: pylint
-        language: system
+        additional_dependencies:
+          [
+          'contextlib2; python_version<"3.7"',
+          'deprecation',
+          'pymongo',
+          'bidict',
+          'mincepy-sci',
+          'networkx',  # For reference graphs
+          'pyblake2; python_version<"3.6"',
+          'pytray>=0.2.1',
+          'stevedore',
+          'click',
+          'tabulate',
+          'pytest',
+          ]
         args: [
             '--max-line-length=120',
             '--disable=duplicate-code',

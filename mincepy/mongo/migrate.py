@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import abc
 from typing import List, Type
 
@@ -32,7 +33,7 @@ class Migration(metaclass=abc.ABCMeta):
             self.NAME = self.__class__.__name__
 
         if self.VERSION is None:
-            raise RuntimeError("Migration version not set")
+            raise RuntimeError('Migration version not set')
 
     @abc.abstractmethod
     def upgrade(self, database: pymongo.database.Database):
@@ -100,8 +101,8 @@ def ensure_up_to_date(database: pymongo.database.Database, latest: Type[Migratio
     current_version = current.get(VERSION, None)
     if current_version and current_version > latest.VERSION:
         raise MigrationError(
-            "The current database version ({}) is higher than the code version ({}) you may need "
-            "to update your version of the code".format(current_version, latest.VERSION))
+            'The current database version ({}) is higher than the code version ({}) you may need '
+            'to update your version of the code'.format(current_version, latest.VERSION))
 
     migrator = MigrationManager(latest)
     return migrator.migrate(database)

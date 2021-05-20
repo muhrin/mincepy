@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 from mincepy import type_registry
-from test.common import A, B, C
+from test.common import A, B, C  # pylint: disable=wrong-import-order
 
 # pylint: disable=invalid-name
 

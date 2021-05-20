@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import numbers
 import collections.abc
 from operator import itemgetter
@@ -10,16 +11,16 @@ __all__ = ('SimpleHelper', 'BytesEquator')
 
 class SimpleHelper(helpers.TypeHelper):
 
-    def yield_hashables(self, obj, hasher):
+    def yield_hashables(self, obj, hasher):  # pylint: disable=no-self-use
         yield from obj.yield_hashables(hasher)
 
-    def eq(self, one, other) -> bool:
+    def eq(self, one, other) -> bool:  # pylint: disable=no-self-use, invalid-name
         return one == other
 
-    def save_instance_state(self, obj, saver):
+    def save_instance_state(self, obj, saver):  # pylint: disable=no-self-use
         return obj.save_instance_state(saver)
 
-    def load_instance_state(self, obj, saved_state, loader):
+    def load_instance_state(self, obj, saved_state, loader):  # pylint: disable=no-self-use
         return obj.load(saved_state, loader)
 
 

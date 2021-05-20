@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import gc
 import uuid
 
@@ -88,7 +89,7 @@ def test_storing_internal_object(historian: mincepy.Historian):
         TYPE_ID = uuid.UUID('f6f83595-6375-4bc4-89f2-d8f31a1286b0')
 
         def __init__(self, car):
-            super(Person, self).__init__()
+            super().__init__()
             self.car = car  # This person 'owns' the car
 
         def __eq__(self, other):
@@ -247,7 +248,7 @@ def test_encode_nested(historian: mincepy.Historian):
         car = mincepy.field()
 
         def __init__(self, car):
-            super(CarDelegate, self).__init__()
+            super().__init__()
             self.car = car
 
         def save_instance_state(self, saver):

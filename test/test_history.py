@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import mincepy
 from mincepy import testing
 

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from . import main
 from .dev import *
 from .main import *

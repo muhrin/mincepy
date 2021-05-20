@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import logging
 from typing import List
 
@@ -24,7 +25,7 @@ def get_types() -> List:
         try:
             all_types.extend(extension.plugin())
         except Exception:  # pylint: disable=broad-except
-            logger.exception("Failed to get types plugin from %s", extension.name)
+            logger.exception('Failed to get types plugin from %s', extension.name)
 
     mgr.map(get_type)
 

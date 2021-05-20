@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from argparse import Namespace
 import pathlib
 import uuid
@@ -16,7 +17,7 @@ def test_path_helper(historian: mincepy.Historian):
         path = mincepy.field()
 
         def __init__(self, path):
-            super(File, self).__init__()
+            super().__init__()
             self.path = path
 
     file = File(pathlib.Path('some_path'))

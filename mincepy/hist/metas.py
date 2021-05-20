@@ -1,7 +1,8 @@
+# -*- coding: utf-8 -*-
 from typing import Any, Optional, Mapping, Dict, Iterator
 
 from mincepy import archives
-from mincepy import historians  # pylint: disable=unused-import
+from mincepy import historians  # pylint: disable=unused-import, cyclic-import
 from mincepy import exceptions
 
 __all__ = ('Meta',)

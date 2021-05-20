@@ -9,10 +9,10 @@ try:  # Python3
 except ImportError:  # Python < 3.6
     from pyblake2 import blake2b
 
-import mincepy  # pylint: disable=unused-import
 from . import depositors
 from . import expr
 from . import fields
+from . import migrations  # pylint: disable=unused-import
 from . import saving
 from . import tracking
 
@@ -30,7 +30,7 @@ def is_primitive(obj):
 class Savable(fields.WithFields, expr.FilterLike):
     """Interface for an object that can save an load its instance state"""
     TYPE_ID = None
-    LATEST_MIGRATION = None  # type: mincepy.ObjectMigration
+    LATEST_MIGRATION = None  # type: migrations.ObjectMigration
 
     def __init__(self, *args, **kwargs):
         assert self.TYPE_ID is not None, 'Must set the TYPE_ID for an object to be savable'

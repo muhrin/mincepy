@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """"Tests of migrations"""
 import gc
 import logging

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Tests for the various historian find methods"""
 
 import pytest
@@ -36,7 +37,7 @@ def test_find_skip(historian: mincepy.Historian):
     # Skip two at a time limiting to two at a time, effectively paginating
     for skip in range(5):
         results = list(historian.find(obj_type=testing.Car, limit=2, skip=skip * 2))
-        assert len(results) == 2, "Got no results on page {}".format(skip)
+        assert len(results) == 2, 'Got no results on page {}'.format(skip)
         makes.remove(results[0].make)
         makes.remove(results[1].make)
 
@@ -128,8 +129,8 @@ def test_find_predicates(historian: mincepy.Historian):
 
 
 @pytest.mark.skip(
-    reason="This test takes a long time and consumes a lot of memory but if a MongoDB issue occurs "
-    "that involves running out of memory it may be useful again")
+    reason='This test takes a long time and consumes a lot of memory but if a MongoDB issue occurs '
+    'that involves running out of memory it may be useful again')
 def test_sort_with_many_entries(historian: mincepy.Historian):
     """Test for mincepy_gui issue #11 which was caused by a query with a large number of objects
     that was sorted.  This exceeded MongoDBs memory limits.  The fix is to simply allow disk use."""
@@ -149,10 +150,10 @@ def test_distinct(historian):
 
     id4 = testing.Car('honda', 'white').save()
 
-    ids = set(historian.records.distinct("obj_id"))
+    ids = set(historian.records.distinct('obj_id'))
     assert ids == {id1, id2, id3, id4}
 
-    colours = set(historian.records.distinct("state.colour"))
+    colours = set(historian.records.distinct('state.colour'))
     assert colours == {'red', 'yellow', 'brown', 'white'}
 
     colours = set(historian.records.distinct('state.colour', state={'make': 'honda'}))
@@ -162,8 +163,8 @@ def test_distinct(historian):
     car4.colour = 'yellow'
     car4.save()
 
-    assert set(historian.snapshots.records.distinct("version", obj_type=testing.Car,
+    assert set(historian.snapshots.records.distinct('version', obj_type=testing.Car,
                                                     obj_id=id4)) == {0, 1}
 
-    colours = set(historian.records.distinct("state.colour"))
+    colours = set(historian.records.distinct('state.colour'))
     assert colours == {'red', 'yellow', 'brown', 'yellow'}

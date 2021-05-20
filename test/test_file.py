@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import io
 import shutil
 
@@ -25,7 +26,7 @@ def test_file_basics(historian: mincepy.Historian):
 
 def test_file_changing(tmp_path, historian: mincepy.Historian):  # pylint: disable=unused-argument
     encoding = 'utf-8'
-    INITIAL_DATA = "Initial string"
+    INITIAL_DATA = 'Initial string'
     mince_file = historian.create_file(encoding=encoding)
 
     with mince_file.open('w') as file:
@@ -34,7 +35,7 @@ def test_file_changing(tmp_path, historian: mincepy.Historian):  # pylint: disab
     historian.save(mince_file)
 
     # Now let's append to the file
-    NEW_DATA = "Second string"
+    NEW_DATA = 'Second string'
     with mince_file.open('a') as file:
         file.write(NEW_DATA)
 
@@ -81,7 +82,7 @@ def test_nested_files_in_dict(historian: mincepy.Historian):
 
 def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):  # pylint: disable=unused-argument
     encoding = 'utf-8'
-    INITIAL_DATA = "First string".encode(encoding)
+    INITIAL_DATA = 'First string'.encode(encoding)
     my_file = historian.create_file()
     with my_file.open('wb') as file:
         file.write(INITIAL_DATA)
@@ -92,7 +93,7 @@ def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian): 
     list_id = historian.save(my_list)
 
     # Now let's append to the file
-    NEW_DATA = "Second string".encode(encoding)
+    NEW_DATA = 'Second string'.encode(encoding)
     with my_file.open('ab') as file:
         file.write(NEW_DATA)
 

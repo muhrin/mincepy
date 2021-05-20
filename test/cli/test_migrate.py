@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from click.testing import CliRunner
 
 import mincepy
@@ -20,7 +21,7 @@ def test_simple_migrate(historian: mincepy.Historian, archive_uri):
 
     # Now migrate
     runner = CliRunner()
-    result = runner.invoke(mincepy.cli.main.migrate, ["--yes", archive_uri],
+    result = runner.invoke(mincepy.cli.main.migrate, ['--yes', archive_uri],
                            obj={'helpers': [CarV2, StoreByValue]})
     assert result.exit_code == 0
 
@@ -38,7 +39,7 @@ def test_simple_migrate(historian: mincepy.Historian, archive_uri):
 
     # Now migrate
     runner = CliRunner()
-    result = runner.invoke(mincepy.cli.main.migrate, ["--yes", archive_uri],
+    result = runner.invoke(mincepy.cli.main.migrate, ['--yes', archive_uri],
                            obj={'helpers': [CarV2, StoreByRef]})
     assert result.exit_code == 0
 
