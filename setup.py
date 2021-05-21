@@ -2,7 +2,7 @@
 from setuptools import setup
 
 __author__ = 'Martin Uhrin'
-__license__ = 'GPLv3 and MIT'
+__license__ = 'LGPLv3'
 
 about = {}
 with open('mincepy/version.py') as f:
@@ -18,8 +18,7 @@ setup(
     author_email='martin.uhrin.10@ucl.ac.uk',
     license=__license__,
     classifiers=[
-        'License :: OSI Approved :: MIT License',
-        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
         'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
