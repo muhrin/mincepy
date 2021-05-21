@@ -98,7 +98,7 @@ class IntegerEquator(SimpleHelper):
     TYPE = numbers.Integral
 
     def yield_hashables(self, obj: numbers.Integral, hasher):
-        yield from hasher.yield_hashables(u'{}'.format(obj))
+        yield from hasher.yield_hashables(f'{obj}')
 
 
 class BoolEquator(SimpleHelper):

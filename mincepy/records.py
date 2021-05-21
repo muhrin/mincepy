@@ -89,10 +89,10 @@ class SnapshotId(Generic[IdT]):
         self._version = version
 
     def __str__(self):
-        return '{}#{}'.format(self._obj_id, self._version)
+        return f'{self._obj_id}#{self._version}'
 
     def __repr__(self):
-        return 'SnapshotId({}, {})'.format(self.obj_id, self.version)
+        return f'SnapshotId({self.obj_id}, {self.version})'
 
     def __hash__(self):
         return (self.obj_id, self.version).__hash__()

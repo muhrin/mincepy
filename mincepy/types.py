@@ -120,7 +120,7 @@ class Equator:
         try:
             self._equators.remove(equator)
         except ValueError as exc:
-            raise ValueError("Unknown equator '{}'".format(equator)) from exc
+            raise ValueError(f"Unknown equator '{equator}'") from exc
         finally:
             self._equators.reverse()
 
@@ -168,7 +168,7 @@ class Equator:
         :param value: the float value to convert
         :param sig: choose how many digits after the comma should be output
         """
-        fmt = u'{{:.{}g}}'.format(sig)
+        fmt = f'{{:.{sig}g}}'
         return fmt.format(value)
 
 

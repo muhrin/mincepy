@@ -25,4 +25,4 @@ def populate(uri):
         sys.exit(1)
     else:
         mincepy.testing.populate(hist)
-        click.echo("Successfully populated database at '{}'".format(uri))
+        click.echo(f"Successfully populated database at '{uri}'")

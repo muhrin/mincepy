@@ -33,12 +33,12 @@ class Expr(FilterLike, metaclass=abc.ABCMeta):
 
     def __and__(self, other: 'Expr') -> 'And':
         if not isinstance(other, Expr):
-            raise TypeError("Expected Expr got '{}'".format(other))
+            raise TypeError(f"Expected Expr got '{other}'")
         return And([self, other])
 
     def __or__(self, other: 'Expr') -> 'Or':
         if not isinstance(other, Expr):
-            raise TypeError("Expected Expr got '{}'".format(other))
+            raise TypeError(f"Expected Expr got '{other}'")
         return Or([self, other])
 
 
@@ -361,7 +361,7 @@ def build_expr(item) -> Expr:
 
     if isinstance(item, tuple):
         if len(item) != 2:
-            raise ValueError('Expecting tuple of length two, instead got {}'.format(item))
+            raise ValueError(f'Expecting tuple of length two, instead got {item}')
 
         first, second = item
         if first.startswith('$'):
@@ -386,7 +386,7 @@ def build_expr(item) -> Expr:
             if first == '$exists':
                 return Exists(second)
 
-            raise ValueError("Unknown operator '{}'".format(item))
+            raise ValueError(f"Unknown operator '{item}'")
 
         # Must be a 'match' where the first is the field
         try:

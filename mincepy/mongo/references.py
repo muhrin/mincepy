@@ -119,7 +119,7 @@ class ReferenceManager:
         return a pipeline that can be used in an aggregation operation on the relevant collection to get the reference
         graph."""
         if max_dist is not None and max_dist < 0:
-            raise ValueError("max_dist must be positive, got '{}'".format(max_dist))
+            raise ValueError(f"max_dist must be positive, got '{max_dist}'")
 
         # First match the IDs that we're interested in
         pipeline = [{'$match': {'_id': aggregation.in_(*ids)}}]
@@ -179,7 +179,7 @@ class ReferenceManager:
             collection = self._data_collection
             id_func = lambda schema_entry: schema_entry[1].obj_id
         else:
-            raise ValueError('Unsupported collection: {}'.format(collection_name))
+            raise ValueError(f'Unsupported collection: {collection_name}')
 
         to_insert = []
         for data_entry in self._get_missing_entries(collection, ids):

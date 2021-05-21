@@ -61,7 +61,7 @@ class CollectionsSplit(migrate.Migration):
         for entry in old_data.find():
             obj_id = entry['_id']['oid']
             version = entry['_id']['v']
-            entry['_id'] = '{}#{}'.format(obj_id, version)
+            entry['_id'] = f'{obj_id}#{version}'
             entry['obj_id'] = obj_id
             entry['ver'] = version
             history.insert_one(entry)

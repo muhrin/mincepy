@@ -56,7 +56,7 @@ class LiveObjects:
         try:
             return self._records[obj]
         except KeyError:
-            raise exceptions.NotFound("No live object found '{}'".format(obj)) from None
+            raise exceptions.NotFound(f"No live object found '{obj}'") from None
 
     @overload
     def get_object(self, identifier: records.SnapshotId):
@@ -81,7 +81,7 @@ class LiveObjects:
         try:
             return self._objects[identifier]
         except KeyError:
-            raise exceptions.NotFound("No live object with id '{}'".format(identifier)) from None
+            raise exceptions.NotFound(f"No live object with id '{identifier}'") from None
 
     def get_snapshot_id(self, obj) -> records.SnapshotId:
         """Given an object, get the snapshot id"""
@@ -169,7 +169,7 @@ class Transaction:
     def insert_live_object(self, obj, record: records.DataRecord):
         """Insert a live object along with an up-to-date record into the transaction"""
         if self.is_deleted(record.obj_id):
-            raise ValueError("Object with id '{}' has already been deleted!".format(record.obj_id))
+            raise ValueError(f"Object with id '{record.obj_id}' has already been deleted!")
 
         sid = record.snapshot_id
         if sid in self._in_progress_cache:
@@ -267,8 +267,7 @@ class Transaction:
         try:
             return self._snapshots[snapshot_id]
         except KeyError:
-            raise exceptions.NotFound(
-                "No snapshot with id '{}' found".format(snapshot_id)) from None
+            raise exceptions.NotFound(f"No snapshot with id '{snapshot_id}' found") from None
 
     def stage(self, op: operations.Operation):  # pylint: disable=invalid-name
         """Stage an operation to be carried out on completion of this transaction"""
@@ -319,7 +318,7 @@ class NestedTransaction(Transaction):
         self._parent = parent
 
     def __str__(self):
-        return '{} (parent: {})'.format(super().__str__(), self._parent)
+        return f'{super().__str__()} (parent: {self._parent})'
 
     def get_live_object(self, identifier) -> object:
         try:

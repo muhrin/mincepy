@@ -50,7 +50,7 @@ class Update(Operation):
     def __init__(self, sid: records.SnapshotId, update: dict):
         diff = set(update.keys()) - set(records.DataRecord._fields)
         if diff:
-            raise ValueError('Invalid keys found in the update operation: {}'.format(diff))
+            raise ValueError(f'Invalid keys found in the update operation: {diff}')
 
         self._sid = sid
         self._update = update

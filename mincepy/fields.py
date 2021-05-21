@@ -34,7 +34,7 @@ class FieldProperties:
         :param attr: the name of the class attribute
         """
         if store_as and '.' in store_as:
-            raise ValueError("store_as cannot contain a dot, got '{}'".format(store_as))
+            raise ValueError(f"store_as cannot contain a dot, got '{store_as}'")
 
         self.attr_name = attr
         self.store_as = store_as if store_as else attr
@@ -127,12 +127,12 @@ class Field(expr.WithQueryContext, expr.Queryable, property):
 
     def __set__(self, obj, value):
         if self._setter is None:
-            raise AttributeError("can't set attribute '{}'".format(self._properties.attr_name))
+            raise AttributeError(f"can't set attribute '{self._properties.attr_name}'")
         self._setter(obj, value)
 
     def __delete__(self, obj):
         if self._deleter is None:
-            raise AttributeError("can't delete attribute '{}'".format(self._properties.attr_name))
+            raise AttributeError(f"can't delete attribute '{self._properties.attr_name}'")
         self._deleter(obj)
 
     def getter(self, fget):
@@ -227,7 +227,7 @@ class WithFields(metaclass=WithFieldMeta):
                 setattr(self, field_properties.attr_name, passed_value)
 
         if kwargs:
-            raise ValueError("Got unexpected keyword argument(s) '{}'".format(kwargs))
+            raise ValueError(f"Got unexpected keyword argument(s) '{kwargs}'")
 
 
 def get_fields(db_type: Type[WithFields]) -> Dict[str, Field]:

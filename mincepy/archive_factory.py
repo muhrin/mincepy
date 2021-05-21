@@ -19,7 +19,7 @@ def create_archive(uri: str, connect_timeout=30000):
         from . import mongo  # pylint: disable=import-outside-toplevel
         archive = mongo.connect(uri, timeout=connect_timeout)
     else:
-        raise ValueError('Unknown archive string: {}'.format(uri))
+        raise ValueError(f'Unknown archive string: {uri}')
 
     logger.info('Connected to archive with uri: %s', uri)
     return archive

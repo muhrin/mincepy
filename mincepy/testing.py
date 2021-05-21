@@ -100,7 +100,7 @@ class Car(mincepy.ConvenientSavable):
         self.colour = colour
 
     def __str__(self) -> str:
-        return '{} {}'.format(self.colour, self.make)
+        return f'{self.colour} {self.make}'
 
 
 class Garage(mincepy.ConvenientSavable):

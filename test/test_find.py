@@ -37,7 +37,7 @@ def test_find_skip(historian: mincepy.Historian):
     # Skip two at a time limiting to two at a time, effectively paginating
     for skip in range(5):
         results = list(historian.find(obj_type=testing.Car, limit=2, skip=skip * 2))
-        assert len(results) == 2, 'Got no results on page {}'.format(skip)
+        assert len(results) == 2, f'Got no results on page {skip}'
         makes.remove(results[0].make)
         makes.remove(results[1].make)
 

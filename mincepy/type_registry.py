@@ -50,7 +50,7 @@ class TypeRegistry:
                 if issubclass(obj_type, known_type):
                     return type_id
 
-        raise ValueError("Type '{}' is not known".format(obj_type))
+        raise ValueError(f"Type '{obj_type}' is not known")
 
     def get_helper(self, type_id_or_type) -> helpers.TypeHelper:
         if isinstance(type_id_or_type, type):
@@ -62,7 +62,7 @@ class TypeRegistry:
         try:
             return self.get_helper_from_obj_type(self._type_ids[type_id])
         except KeyError:
-            raise TypeError("Type id '{}' not known".format(type_id)) from None
+            raise TypeError(f"Type id '{type_id}' not known") from None
 
     def get_helper_from_obj_type(self, obj_type: SavableObjectType) -> helpers.TypeHelper:
         try:
@@ -73,7 +73,7 @@ class TypeRegistry:
             for known_type, helper in self._helpers.items():
                 if issubclass(obj_type, known_type):
                     return helper
-            raise ValueError("Type '{}' has not been registered".format(obj_type)) from None
+            raise ValueError(f"Type '{obj_type}' has not been registered") from None
 
     def get_version_info(self, type_id_or_type) -> collections.OrderedDict:
         """Get version information about a type.  This will return a reverse mro ordered dictionary

@@ -27,7 +27,7 @@ def query(obj_type, filter, limit):  # pylint: disable=redefined-builtin
         gathered.setdefault(result.type_id, []).append(result)
 
     for type_id, records in gathered.items():
-        print('type: {}'.format(type_id))
+        print(f'type: {type_id}')
         print_records(records, historian)
 
 
@@ -42,7 +42,7 @@ def print_records(records: typing.Sequence[mincepy.records.DataRecord], historia
     for record in records:
         try:
             helper = historian.get_helper(record.type_id)
-            type_str = get_type_name(helper.TYPE) + '#{}'.format(record.version)
+            type_str = get_type_name(helper.TYPE) + f'#{record.version}'
         except KeyError:
             type_str = str(record.snapshot_id)
         if record.is_deleted_record():
@@ -112,7 +112,7 @@ def get_value(title, state):
 
 def get_type_name(obj_type):
     try:
-        return '{}.{}'.format(obj_type.__module__, obj_type.__name__)
+        return f'{obj_type.__module__}.{obj_type.__name__}'
     except AttributeError:
         return str(obj_type)
 

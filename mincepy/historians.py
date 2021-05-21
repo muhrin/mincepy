@@ -180,7 +180,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             if isinstance(entry, tuple):
                 if len(entry) > 2:
                     raise ValueError(
-                        "Supplied tuples can only contain (object, meta), got '{}'".format(entry))
+                        f"Supplied tuples can only contain (object, meta), got '{entry}'")
             else:
                 entry = (entry,)
             to_save.append(entry)
@@ -297,7 +297,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         record = self._objects.records.get(obj_id)
 
         if record.is_deleted_record():
-            raise exceptions.ObjectDeleted("Object with id '{}' has been deleted".format(obj_id))
+            raise exceptions.ObjectDeleted(f"Object with id '{obj_id}' has been deleted")
 
         if record.version == self.get_snapshot_id(obj).version:
             # Nothing has changed
@@ -893,8 +893,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """
         obj_id = self.to_obj_id(obj_or_identifier)
         if obj_id is None:
-            raise exceptions.NotFound(
-                "Could not get an object id from '{}'".format(obj_or_identifier))
+            raise exceptions.NotFound(f"Could not get an object id from '{obj_or_identifier}'")
 
         return obj_id
 
@@ -908,7 +907,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         except exceptions.NotFound as exc:
             # Maybe it is multiple object ids
             if not isinstance(obj_id, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
-                raise TypeError("Cannot get object id(s) from '{}'".format(obj_id)) from exc
+                raise TypeError(f"Cannot get object id(s) from '{obj_id}'") from exc
 
             return list(map(self._ensure_obj_id, obj_id))
 
@@ -921,7 +920,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         except TypeError as exc:
             # Maybe it is multiple type ids
             if not isinstance(obj_type, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
-                raise TypeError("Cannot get type id(s) from '{}'".format(obj_type)) from exc
+                raise TypeError(f"Cannot get type id(s) from '{obj_type}'") from exc
 
             return list(map(self.get_obj_type_id, obj_type))
 

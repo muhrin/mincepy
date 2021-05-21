@@ -85,8 +85,7 @@ class NamedTupleBuilder(Generic[T]):
         defaults = defaults or {}
         diff = set(defaults.keys()) - set(tuple_type._fields)
         if diff:
-            raise RuntimeError(
-                "Can't supply defaults that are not in the namedtuple: '{}'".format(diff))
+            raise RuntimeError(f"Can't supply defaults that are not in the namedtuple: '{diff}'")
 
         super().__setattr__('_tuple_type', tuple_type)
         super().__setattr__('_values', defaults)
@@ -101,7 +100,7 @@ class NamedTupleBuilder(Generic[T]):
         try:
             return self._values[item]
         except KeyError:
-            errmsg = "'{}' object has no attribute '{}'".format(self.__class__.__name__, item)
+            errmsg = f"'{self.__class__.__name__}' object has no attribute '{item}'"
             raise AttributeError(errmsg) from None
 
     def __setattr__(self, attr, value):
@@ -114,7 +113,7 @@ class NamedTupleBuilder(Generic[T]):
 
     def __repr__(self):
         """Representation of the object."""
-        return '%s(%s)' % (self.__class__.__name__, dict.__repr__(self._values))
+        return f'{self.__class__.__name__}({dict.__repr__(self._values)})'
 
     def __dir__(self):
         return self._tuple_type._fields
@@ -147,7 +146,7 @@ def to_slice(specifier) -> slice:
     if isinstance(specifier, str) and specifier == ':' or specifier == '*':
         return slice(None)
 
-    raise ValueError('Unknown slice specifier: {}'.format(specifier))
+    raise ValueError(f'Unknown slice specifier: {specifier}')
 
 
 def sync(save=False):
@@ -185,7 +184,7 @@ class Progress:
     __slots__ = 'done', '_total'
 
     def __str__(self) -> str:
-        return '{}/{} done'.format(self.done, self._total)
+        return f'{self.done}/{self._total} done'
 
     def __init__(self, total: int):
         self.done = 0

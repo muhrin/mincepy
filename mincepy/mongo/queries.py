@@ -8,8 +8,8 @@ from . import db
 def pipeline_latest_version(data_collection: str) -> list:
     """Returns a pipeline that will take the incoming data record documents and for each one find
     the latest version."""
-    oid_var = '${}'.format(db.OBJ_ID)
-    ver_var = '${}'.format(db.VERSION)
+    oid_var = f'${db.OBJ_ID}'
+    ver_var = f'${db.VERSION}'
 
     pipeline = []
     pipeline.extend([

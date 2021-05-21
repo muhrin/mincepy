@@ -104,7 +104,7 @@ class File(base_savable.SimpleSavable):
     def __str__(self):
         contents = [str(self._filename)]
         if self._encoding is not None:
-            contents.append('({})'.format(self._encoding))
+            contents.append(f'({self._encoding})')
         return ' '.join(contents)
 
     def __eq__(self, other) -> bool:

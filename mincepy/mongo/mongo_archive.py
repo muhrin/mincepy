@@ -162,7 +162,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                 db.VERSION: snapshot_id.version
             }))
         if not results:
-            raise mincepy.NotFound("Snapshot id '{}' not found".format(snapshot_id))
+            raise mincepy.NotFound(f"Snapshot id '{snapshot_id}' not found")
         return db.to_record(results[0])
 
     def get_snapshot_ids(self, obj_id: bson.ObjectId):
@@ -182,7 +182,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     def meta_get(self, obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]]):
         # Single obj id
         if not isinstance(obj_id, bson.ObjectId):
-            raise TypeError('Must pass an ObjectId, got {}'.format(obj_id))
+            raise TypeError(f'Must pass an ObjectId, got {obj_id}')
         found = self._meta_collection.find_one({'_id': obj_id})
         if found is None:
             return found
@@ -193,7 +193,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         # Find multiple
         for obj_id in obj_ids:
             if not isinstance(obj_id, bson.ObjectId):
-                raise TypeError('Must pass an ObjectId, got {}'.format(obj_id))
+                raise TypeError(f'Must pass an ObjectId, got {obj_id}')
 
         cur = self._meta_collection.find({'_id': q.in_(*obj_ids)})
         results = {oid: None for oid in obj_ids}
@@ -210,7 +210,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                 raise mincepy.DuplicateKeyError(str(exc))
             else:
                 if not found:
-                    raise mincepy.NotFound("No record with snapshot id '{}' found".format(obj_id))
+                    raise mincepy.NotFound(f"No record with snapshot id '{obj_id}' found")
         else:
             # Just remove the meta entry outright
             self._meta_collection.delete_one({'_id': obj_id})
@@ -591,7 +591,7 @@ def connect(uri: str, timeout=30000) -> MongoArchive:
     # mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
     parsed = pymongo.uri_parser.parse_uri(uri)
     if not parsed.get('database', None):
-        raise ValueError('Failed to supply database on MongoDB uri: {}'.format(uri))
+        raise ValueError(f'Failed to supply database on MongoDB uri: {uri}')
 
     try:
         client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=timeout)

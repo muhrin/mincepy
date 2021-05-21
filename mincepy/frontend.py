@@ -196,7 +196,7 @@ class EntriesCollection(Generic[T]):
 
         if extras is not None:
             if not isinstance(extras, dict):
-                raise TypeError("extras must be a dict, got '{}'".format(extras))
+                raise TypeError(f"extras must be a dict, got '{extras}'")
 
             result = flatten_filter('extras', extras)
             query.extend(result)
