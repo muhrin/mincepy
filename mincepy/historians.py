@@ -154,7 +154,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     @property
     def references(self) -> hist.References:
-        """Access the references possibilities"""
+        """Access the references collection"""
         return self._references
 
     @property
@@ -307,7 +307,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self._live_depositor.update_from_record(obj, record)
 
     def delete(self, *obj_or_identifier, imperative=True) -> result_types.DeleteResult:
-        """Delete an object.
+        """Delete objects.
 
         :param imperative: if True, this means that the caller explicitly expects this call to delete the passed objects
             and it should therefore raise if an object cannot be found or has been deleted already.  If False, the
@@ -318,7 +318,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # We need the current records to be able to build the delete records
         obj_ids = list(map(self._ensure_obj_id, obj_or_identifier))
 
-        # Find the current records
+        # Find the current records (i.e. from our cache)
         records = {}  # type: Dict[Any, recordsm.DataRecord]
         left_to_find = set()
         for obj_id in obj_ids:
@@ -339,6 +339,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 left_to_find.remove(record.obj_id)
 
         if left_to_find and imperative:
+            # Still couldn't find them so raise
             raise exceptions.NotFound(left_to_find)
 
         deleted = []
@@ -768,8 +769,13 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return result_types.MergeResult(all_snapshots=remote_ref_graph.nodes,
                                         merged_snapshots=remote_partial_records.keys())
 
+    def purge(self, dry_run=True):
+        """Function to delete various unused objects from the database.
+
+        This function cannot and will never delete data the is currently in use."""
+
     @contextlib.contextmanager
-    def in_transaction(self):
+    def in_transaction(self) -> Iterator[Transaction]:
         """This context will either re-use an existing transaction, if one is currently taking place
         or create a new one if not."""
         current = self.current_transaction()
@@ -782,7 +788,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             yield trans
 
     @contextlib.contextmanager
-    def transaction(self):
+    def transaction(self) -> Iterator[Transaction]:
         """Start a new transaction.  Will be nested if there is already one underway"""
         if self._transactions:
             # Start a nested one
