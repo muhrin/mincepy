@@ -192,3 +192,26 @@ def test_snapshot_id_eq():
     assert sid1 == sid1_again
     assert sid1 != sid2
     assert sid1_again != sid2
+
+
+def test_purge(historian: mincepy.Historian):
+    """Test that snapshots.purge() removes snapshots corresponding to deleted objects"""
+    assert historian.snapshots.purge().deleted_purged == set()
+
+    car = Car()
+    car_id = car.save()
+    car.colour = 'yellow'
+    car.save()
+
+    # Insert something else just to check that it doesn't get accidentally purged
+    car2 = Car()
+    car2.save()
+
+    historian.delete(car)
+    res = historian.snapshots.purge(dry_run=False)
+
+    assert res.deleted_purged == {
+        mincepy.SnapshotId(car_id, 0),
+        mincepy.SnapshotId(car_id, 1),
+        mincepy.SnapshotId(car_id, 2)  # The deleted record
+    }

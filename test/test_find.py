@@ -168,3 +168,10 @@ def test_distinct(historian):
 
     colours = set(historian.records.distinct('state.colour'))
     assert colours == {'red', 'yellow', 'brown', 'yellow'}
+
+
+def test_find_from_class(historian):
+    """Test that we can use the class to search for all objects of that type"""
+    car = testing.Car()
+    car.save()
+    assert list(historian.find(testing.Car)) == [car]

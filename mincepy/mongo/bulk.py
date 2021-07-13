@@ -7,7 +7,7 @@ import mincepy
 from mincepy import q
 from . import db
 
-# To present 'op' being flagged
+# To prevent 'op' being flagged
 # pylint: disable=invalid-name
 
 

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from typing import List, Iterable, Tuple
+from typing import List, Iterable, Tuple, Set
 
 from . import records as recordsm
 
@@ -43,3 +43,11 @@ class DeleteResult:
     @property
     def not_found(self) -> Tuple:
         return self._not_found
+
+
+class PurgeResult:
+    """Information about results from a purge operation"""
+
+    def __init__(self, deleted: Set = None, unreferenced: Set = None):
+        self.deleted_purged = deleted
+        self.unreferenced_purged = unreferenced

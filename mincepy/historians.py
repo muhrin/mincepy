@@ -110,18 +110,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         self._migrate = migrate.Migrations(self)
         self._references = hist.References(self)
 
-        self._snapshots = frontend.ObjectCollection(
-            self,
-            self._archive.snapshots,
-            record_factory=lambda record_dict: SnapshotLoadableRecord(
-                record_dict, self.load_snapshot_from_record),
-            obj_loader=self.load_snapshot_from_record)
-        self._objects = frontend.ObjectCollection(
-            self,
-            self._archive.objects,
-            record_factory=lambda record_dict: LoadableRecord(
-                record_dict, self.load_snapshot_from_record, self._load_object_from_record),
-            obj_loader=self._load_object_from_record)
+        self._snapshots = hist.SnapshotsCollection(self, self._archive.snapshots)
+        self._objects = hist.LiveObjectsCollection(self, self._archive.objects)
 
     @property
     def archive(self):
@@ -143,12 +133,12 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self._migrate
 
     @property
-    def records(self) -> frontend.EntriesCollection['LoadableRecord']:
+    def records(self) -> frontend.EntriesCollection[recordsm.DataRecord]:
         """Access methods and properties that act on and return data records"""
         return self._objects.records
 
     @property
-    def objects(self) -> frontend.ObjectCollection:
+    def objects(self) -> hist.LiveObjectsCollection:
         """Access the snapshots"""
         return self._objects
 
@@ -158,7 +148,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self._references
 
     @property
-    def snapshots(self) -> frontend.ObjectCollection:
+    def snapshots(self) -> hist.SnapshotsCollection:
         """Access the snapshots"""
         return self._snapshots
 
@@ -667,7 +657,8 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # REMOTE
         remote = result_set.historian  # type: Historian
         # Get information about the records that we've been asked to merge
-        remote_partial_records = result_set._project(recordsm.OBJ_ID, recordsm.VERSION)  # pylint: disable=protected-access
+        # pylint: disable=protected-access
+        remote_partial_records = result_set._project(recordsm.OBJ_ID, recordsm.VERSION)
         remote_snapshot_ids = set(map(recordsm.SnapshotId.from_dict,
                                       remote_partial_records))  # DB HIT
 
@@ -700,6 +691,10 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 progress_callback(progress, partial_result)
 
         return result
+
+    def purge(self, deleted=True, dry_run=True) -> result_types.PurgeResult:
+        """Purge the archive of unused snapshots"""
+        return self.snapshots.purge(deleted=deleted, dry_run=dry_run)
 
     def _merge_batch(self, remote: 'Historian',
                      remote_ref_graph: networkx.DiGraph) -> result_types.MergeResult:
@@ -768,11 +763,6 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return result_types.MergeResult(all_snapshots=remote_ref_graph.nodes,
                                         merged_snapshots=remote_partial_records.keys())
-
-    def purge(self, dry_run=True):
-        """Function to delete various unused objects from the database.
-
-        This function cannot and will never delete data the is currently in use."""
 
     @contextlib.contextmanager
     def in_transaction(self) -> Iterator[Transaction]:
@@ -938,34 +928,3 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
     def _new_snapshot_depositor(self):
         return depositors.SnapshotLoader(self)
-
-
-class SnapshotLoadableRecord(recordsm.DataRecord):
-    __slots__ = ()
-
-    def __new__(cls, record_dict: dict, snapshot_loader: Callable[[recordsm.DataRecord], object]):
-        loadable = super().__new__(cls, **record_dict)
-        loadable._snapshot_loader = snapshot_loader
-        return loadable
-
-    def load(self) -> object:
-        return self._snapshot_loader(self)
-
-
-class LoadableRecord(recordsm.DataRecord):
-    __slots__ = ()
-    _obj_loader = None  # type: Optional[Callable[[recordsm.DataRecord], object]]
-    _snapshot_loader = None  # type: Optional[Callable[[recordsm.DataRecord], object]]
-
-    def __new__(cls, record_dict: dict, snapshot_loader: Callable[[recordsm.DataRecord], object],
-                obj_loader: Callable[[recordsm.DataRecord], object]):
-        loadable = super().__new__(cls, **record_dict)
-        loadable._obj_loader = obj_loader
-        loadable._snapshot_loader = snapshot_loader
-        return loadable
-
-    def load_snapshot(self) -> object:
-        return self._snapshot_loader(self)  # pylint: disable=not-callable
-
-    def load(self) -> object:
-        return self._obj_loader(self)  # pylint: disable=not-callable

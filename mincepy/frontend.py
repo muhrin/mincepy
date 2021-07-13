@@ -18,7 +18,7 @@ T = TypeVar('T')  # The type stored by the collection pylint: disable=invalid-na
 class ResultSet(Generic[T]):
     """The representation of the results of a query.
 
-    The actual execution of queries is delayed until the user actually requests data through one
+    The actual execution of queries is delayed until the user requests data through one
     of the methods (including iteration) of this class.
 
     In general the user should not instantiate this directly but will be returned instances from
