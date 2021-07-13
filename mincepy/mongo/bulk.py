@@ -69,7 +69,7 @@ def _(op: mincepy.operations.Delete):
     sid = op.snapshot_id
 
     # It's fine if either (or both) of these fail to find anything to update
-    data_op = pymongo.operations.DeleteOne(filter={db.OBJ_ID: sid.obj_id},)
+    data_op = pymongo.operations.DeleteOne(filter={db.OBJ_ID: sid.obj_id, db.VERSION: sid.version},)
     history_op = pymongo.operations.DeleteOne(filter={'_id': str(sid)},)
 
     return [data_op], [history_op]

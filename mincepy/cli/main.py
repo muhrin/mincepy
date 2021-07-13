@@ -94,3 +94,30 @@ def migrate(ctx, yes, uri):
 def tid():
     """Create a new type id"""
     click.echo(str(uuid.uuid4()))
+
+
+@mince.command()
+@click.argument('uri', type=str)
+@click.option('--deleted/--no-deleted', default=True, help='Purge all deleted objects')
+@click.option('--unreferenced/--no-unreferenced',
+              default=True,
+              help='Purge all snapshots that are not referenced by live objects')
+def purge(uri, deleted, unreferenced):
+    """Purge the snapshots collection of any unused objects
+    """
+    try:
+        hist = mincepy.create_historian(uri)
+    except ValueError as exc:
+        click.echo(exc)
+        sys.exit(1)
+    else:
+        click.echo('Searching records...')
+        res = hist.purge(deleted=deleted, unreferenced=unreferenced, dry_run=True)
+        click.echo(f'Found {len(res.deleted_purged)} deleted '
+                   f'and {len(res.unreferenced_purged)} unreferenced snapshot(s)')
+
+        to_delete = list(res.deleted_purged | res.unreferenced_purged)
+        if to_delete and click.confirm('Do you want to delete them?'):
+            click.echo('Deleting...')
+            hist.archive.bulk_write(list(map(mincepy.operations.Delete, to_delete)))
+            click.echo('Done')

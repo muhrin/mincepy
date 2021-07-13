@@ -208,8 +208,10 @@ def test_purge(historian: mincepy.Historian):
     car2.save()
 
     historian.delete(car)
+    records_count = historian.records.find().count()
     res = historian.snapshots.purge(dry_run=False)
 
+    assert records_count == historian.records.find().count()
     assert res.deleted_purged == {
         mincepy.SnapshotId(car_id, 0),
         mincepy.SnapshotId(car_id, 1),

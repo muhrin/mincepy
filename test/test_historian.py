@@ -462,11 +462,14 @@ def test_purge(historian: mincepy.Historian):
     car.colour = 'blue'
     car.save()
 
+    records_count = historian.records.find().count()
+
     # This should not perge anything as v0 of the car has a reference from the garage, while
     # v1 is the current, live, version
     res = historian.purge(dry_run=False)
     assert not res.deleted_purged
     assert not res.unreferenced_purged
+    assert records_count == historian.records.find().count()
 
     # Now mutate the car, save and purge again
     car.colour = 'white'
@@ -476,3 +479,4 @@ def test_purge(historian: mincepy.Historian):
     res = historian.purge(dry_run=False)
     assert not res.deleted_purged
     assert res.unreferenced_purged == {mincepy.SnapshotId(car_id, 1)}
+    assert records_count == historian.records.find().count()
