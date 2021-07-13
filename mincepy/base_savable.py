@@ -3,7 +3,6 @@ import collections
 from typing import Optional
 import typing
 
-import mincepy
 from . import depositors
 from . import refs
 from . import types
@@ -129,7 +128,11 @@ class ConvenienceMixin:
 
     def save(self, meta: dict = None):
         """Save the object"""
-        historian = self._historian or mincepy.get_historian()
+        if self._historian is None:
+            from . import history
+            historian = history.get_historian()
+        else:
+            historian = self._historian
         return historian.save_one(self, meta=meta)
 
     def sync(self):
@@ -141,7 +144,7 @@ class ConvenienceMixin:
         self._on_save(saver)
         return super().save_instance_state(saver)
 
-    def load_instance_state(self, saved_state, loader: 'mincepy.Loader'):
+    def load_instance_state(self, saved_state, loader: 'depositors.Loader'):
         """Take the given object and load the instance state into it"""
         super().load_instance_state(saved_state, loader)
         self._on_load(loader)
