@@ -692,9 +692,37 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         return result
 
-    def purge(self, deleted=True, dry_run=True) -> result_types.PurgeResult:
+    def purge(self, deleted=True, unreferenced=True, dry_run=True) -> result_types.PurgeResult:
         """Purge the archive of unused snapshots"""
-        return self.snapshots.purge(deleted=deleted, dry_run=dry_run)
+        snapshot_purge = self.snapshots.purge(deleted=deleted, dry_run=dry_run)
+
+        unreferenced_deleted = set()
+        if unreferenced:
+            # Let's get snapshot ids for all live object
+            live_snapshot_ids = list(
+                map(
+                    recordsm.SnapshotId.from_dict,
+                    # pylint: disable=protected-access
+                    self.objects.records.find()._project(recordsm.OBJ_ID, recordsm.VERSION)))
+            # Now, find all the snapshots that they refer to, these will be the ones we DON'T delete
+            reg_graph = self.references.get_snapshot_ref_graph(*live_snapshot_ids,
+                                                               direction=archives.OUTGOING,
+                                                               max_dist=-1)
+            to_keep = set(reg_graph.nodes)
+
+            res = self.snapshots.records.find(
+                expr.Comparison('_id', expr.Nin(list(map(str, to_keep)))))
+
+            unreferenced_deleted = set(
+                map(
+                    recordsm.SnapshotId.from_dict,
+                    # pylint: disable=protected-access
+                    res._project(recordsm.OBJ_ID, recordsm.VERSION)))
+
+            if unreferenced_deleted and not dry_run:
+                self._archive.bulk_write(list(map(operations.Delete, unreferenced_deleted)))
+
+        return result_types.PurgeResult(snapshot_purge.deleted_purged, unreferenced_deleted)
 
     def _merge_batch(self, remote: 'Historian',
                      remote_ref_graph: networkx.DiGraph) -> result_types.MergeResult:

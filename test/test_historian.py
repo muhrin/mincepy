@@ -451,3 +451,28 @@ def test_primitive_subtypes(historian: mincepy.Historian):
     custom_dict = DictSubclass()
     assert not historian.is_primitive(custom_dict)
     assert not mincepy.types.is_primitive(custom_dict)
+
+
+def test_purge(historian: mincepy.Historian):
+    car = Car()
+    garage = testing.Garage(mincepy.ObjRef(car))
+    car_id, _ = historian.save(car, garage)
+
+    # Now update the car
+    car.colour = 'blue'
+    car.save()
+
+    # This should not perge anything as v0 of the car has a reference from the garage, while
+    # v1 is the current, live, version
+    res = historian.purge(dry_run=False)
+    assert not res.deleted_purged
+    assert not res.unreferenced_purged
+
+    # Now mutate the car, save and purge again
+    car.colour = 'white'
+    car.save()
+
+    # This time, version 1 is unreferenced by anything and so can be safely deleted
+    res = historian.purge(dry_run=False)
+    assert not res.deleted_purged
+    assert res.unreferenced_purged == {mincepy.SnapshotId(car_id, 1)}
