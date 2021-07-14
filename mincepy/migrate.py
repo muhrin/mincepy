@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import Iterator, Sequence, Iterable
 
-import mincepy  # pylint: disable=unused-import
 from . import depositors
 from . import helpers
 from .qops import elem_match_, or_, lt_

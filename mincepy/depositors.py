@@ -10,7 +10,6 @@ from typing import Optional, Dict, Any, Iterable, Sequence
 import deprecation
 from pytray import tree
 
-import mincepy  # pylint: disable=unused-import
 from . import archives
 from . import exceptions
 from . import operations
