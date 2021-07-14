@@ -37,6 +37,7 @@ class TypeRegistry:
         return helper
 
     def get_type_id(self, obj_type: SavableObjectType):
+        """Given a type return the corresponding type id if it registered with this registry"""
         if obj_type in self._type_ids:
             # We've been passed a known type id
             return obj_type

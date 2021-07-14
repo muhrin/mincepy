@@ -707,7 +707,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             # Now, find all the snapshots that they refer to, these will be the ones we DON'T delete
             reg_graph = self.references.get_snapshot_ref_graph(*live_snapshot_ids,
                                                                direction=archives.OUTGOING,
-                                                               max_dist=-1)
+                                                               max_dist=-1)  # DB HIT
             to_keep = set(reg_graph.nodes)
 
             res = self.snapshots.records.find(

@@ -32,6 +32,9 @@ class SnapshotsCollection(frontend.ObjectCollection):
             res = self.records.find(recordsm.DataRecord.state == recordsm.DELETED)._project(
                 recordsm.OBJ_ID)
             obj_ids = [entry[recordsm.OBJ_ID] for entry in res]  # DB HIT
+
+            logging.debug('Found %i objects that have been deleted', len(obj_ids))
+
             # Need the object id and version to create the snapshot ids
             # pylint: disable=protected-access
             res = self.records.find(recordsm.DataRecord.obj_id.in_(*obj_ids))._project(
