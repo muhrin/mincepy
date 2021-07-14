@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import logging
 from typing import Callable
 
 from mincepy import archives
@@ -8,6 +9,8 @@ import mincepy.records as recordsm
 from mincepy import result_types
 
 __all__ = ('SnapshotsCollection',)
+
+logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 class SnapshotsCollection(frontend.ObjectCollection):
@@ -28,16 +31,20 @@ class SnapshotsCollection(frontend.ObjectCollection):
             # pylint: disable=protected-access
             res = self.records.find(recordsm.DataRecord.state == recordsm.DELETED)._project(
                 recordsm.OBJ_ID)
-            obj_ids = [entry[recordsm.OBJ_ID] for entry in res]
+            obj_ids = [entry[recordsm.OBJ_ID] for entry in res]  # DB HIT
             # Need the object id and version to create the snapshot ids
             # pylint: disable=protected-access
             res = self.records.find(recordsm.DataRecord.obj_id.in_(*obj_ids))._project(
                 recordsm.OBJ_ID, recordsm.VERSION)
-            snapshot_ids = [recordsm.SnapshotId(**entry) for entry in res]
+            snapshot_ids = [recordsm.SnapshotId(**entry) for entry in res]  # DB HIT
+
+            logging.info('Found %i objects with %i snapshots that are deleted, removing.',
+                         len(obj_ids), len(snapshot_ids))
 
             if snapshot_ids and not dry_run:
                 # Commit the changes
                 self._historian.archive.bulk_write([operations.Delete(sid) for sid in snapshot_ids])
+                logging.info('Deleted %i snapshots', len(snapshot_ids))
 
         return result_types.PurgeResult(set(snapshot_ids))
 

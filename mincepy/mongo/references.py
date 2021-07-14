@@ -181,6 +181,8 @@ class ReferenceManager:
         else:
             raise ValueError(f'Unsupported collection: {collection_name}')
 
+        logger.debug("Checking for missing reference in '%s' collection", collection_name)
+
         to_insert = []
         for data_entry in self._get_missing_entries(collection, ids):
             ref_entry = _generate_ref_entry(data_entry, id_func)
@@ -189,9 +191,9 @@ class ReferenceManager:
 
         # Now insert all the calculated refs
         if to_insert:
-            logging.info("Updating references cache for collection '%s' with %i new entries",
-                         collection_name, len(to_insert))
             self._references.insert_many(to_insert)
+            logger.info("Updated references cache for collection '%s' with %i new entries",
+                        collection_name, len(to_insert))
 
     def _get_missing_entries(self,
                              collection: pymongo.collection.Collection,

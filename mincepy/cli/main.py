@@ -102,9 +102,14 @@ def tid():
 @click.option('--unreferenced/--no-unreferenced',
               default=True,
               help='Purge all snapshots that are not referenced by live objects')
-def purge(uri, deleted, unreferenced):
+@click.option('--yes', '-y', is_flag=True, default=False, help='Yes to all prompts')
+@click.option('-v', '--verbose', count=True)
+def purge(uri, deleted, unreferenced, yes, verbose):
     """Purge the snapshots collection of any unused objects
     """
+    if verbose:
+        set_print_logging(logging.INFO if verbose == 1 else logging.DEBUG)
+
     try:
         hist = mincepy.create_historian(uri)
     except ValueError as exc:
@@ -117,7 +122,7 @@ def purge(uri, deleted, unreferenced):
                    f'and {len(res.unreferenced_purged)} unreferenced snapshot(s)')
 
         to_delete = list(res.deleted_purged | res.unreferenced_purged)
-        if to_delete and click.confirm('Do you want to delete them?'):
-            click.echo('Deleting...')
+        if to_delete and (yes or click.confirm('Do you want to delete them?')):
+            click.echo('Deleting...', nl=False)
             hist.archive.bulk_write(list(map(mincepy.operations.Delete, to_delete)))
-            click.echo('Done')
+            click.echo('done')
