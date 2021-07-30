@@ -31,6 +31,16 @@ class Base(metaclass=ABCMeta):
     def __init__(self, historian):
         self._historian = historian  # type: mincepy.Historian
 
+    @property
+    def historian(self) -> 'mincepy.Historian':
+        """Get the owning historian"""
+        return self._historian
+
+    @property
+    def archive(self) -> archives.Archive:
+        """Get the archive of the owning historian"""
+        return self._historian.archive
+
     def get_historian(self) -> 'mincepy.Historian':
         """Get the owning historian"""
         return self._historian
