@@ -28,6 +28,7 @@ setup(
     install_requires=[
         'contextlib2; python_version<"3.7"',
         'deprecation',
+        'dnspython',  # Needed to be able to connect using domain name rather than IP
         'pymongo',
         'bidict',
         'networkx',  # For reference graphs
