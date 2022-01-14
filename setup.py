@@ -29,7 +29,7 @@ setup(
         'contextlib2; python_version<"3.7"',
         'deprecation',
         'dnspython',  # Needed to be able to connect using domain name rather than IP
-        'pymongo',
+        'pymongo<4.0',
         'bidict',
         'networkx',  # For reference graphs
         'pyblake2; python_version<"3.6"',

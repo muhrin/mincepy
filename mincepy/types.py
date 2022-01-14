@@ -28,7 +28,7 @@ def is_primitive(obj):
 
 
 class Savable(fields.WithFields, expr.FilterLike):
-    """Interface for an object that can save an load its instance state"""
+    """Interface for an object that can save and load its instance state"""
     TYPE_ID = None
     LATEST_MIGRATION = None  # type: migrations.ObjectMigration
 
