@@ -19,10 +19,10 @@ setup(
     license=__license__,
     classifiers=[
         'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
     ],
     keywords='database schemaless nosql orm object-store concurrent optimistic-locking',
     install_requires=[
@@ -38,7 +38,7 @@ setup(
         'click',
         'tabulate',
     ],
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     extras_require={
         'cli': ['click', 'tabulate'],
         'gui': ['mincepy-gui'],
