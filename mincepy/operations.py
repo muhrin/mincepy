@@ -17,7 +17,7 @@ class Operation(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def snapshot_id(self):
+    def snapshot_id(self) -> records.SnapshotId:
         """The snapshot id of the object being operated on"""
 
 
@@ -35,7 +35,7 @@ class Insert(Operation):
         return self._record.obj_id
 
     @property
-    def snapshot_id(self):
+    def snapshot_id(self) -> records.SnapshotId:
         return self._record.snapshot_id
 
     @property
@@ -92,7 +92,7 @@ class Merge(Operation):
         * A new version of a record, i.e. the object id does exist but this version is newer than any other
         * An old version of a record, i.e. the object id does exist but this version is older than the latest
 
-    In any case the snapshot id should no exist in the database already.
+    In any case the snapshot id should not exist in the database already.
     """
 
     def __init__(self, record: records.DataRecord):
@@ -103,7 +103,7 @@ class Merge(Operation):
         return self._record.obj_id
 
     @property
-    def snapshot_id(self):
+    def snapshot_id(self) -> records.SnapshotId:
         return self._record.snapshot_id
 
     @property

@@ -301,7 +301,7 @@ class LiveDepositor(Saver, Loader):
                                     record.obj_id)
                         return record
 
-                    # Check if our record is up to date
+                    # Check if our record is up-to-date
                     with historian.transaction() as nested:
                         loaded_obj = SnapshotLoader(historian).load_from_record(record)
 

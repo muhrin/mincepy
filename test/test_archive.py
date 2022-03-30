@@ -1,4 +1,6 @@
 # -*- coding: utf-8 -*-
+from typing import Sequence
+
 import mincepy
 from mincepy.testing import Car
 
@@ -83,3 +85,44 @@ def test_find_using_iterator(mongodb_archive: mincepy.Archive):
 
     results = tuple(mongodb_archive.find(type_id=[1].__iter__()))
     assert len(results) == 1
+
+
+def test_archive_listener(mongodb_archive: mincepy.Archive):
+    """Test that the listener gets the correct event notifications"""
+
+    class Listener(mincepy.archives.ArchiveListener):
+
+        def __init__(self):
+            # Keep track of the events
+            self.bulk_write = []
+            self.bulk_write_complete = []
+
+        def on_bulk_write(self, archive: mincepy.Archive,
+                          ops: Sequence[mincepy.operations.Operation]):
+            self.bulk_write.append((archive, ops))
+
+        def on_bulk_write_complete(self, archive: mincepy.Archive,
+                                   ops: Sequence[mincepy.operations.Operation]):
+            self.bulk_write_complete.append((archive, ops))
+
+    listener = Listener()
+    mongodb_archive.add_archive_listener(listener)
+
+    # Let's initiate some bulk write operations
+    record_details = dict(state=None, state_types=None, snapshot_hash=None)
+    records = [
+        mincepy.DataRecord.new_builder(obj_id=123, type_id=1, **record_details).build(),
+        mincepy.DataRecord.new_builder(obj_id=456, type_id=2, **record_details).build(),
+    ]
+
+    mongodb_archive.save_many(records)
+    assert len(listener.bulk_write) == 1
+    # We should see a sequence of Insert operations
+    for oper, record in zip(listener.bulk_write[0][1], records):
+        assert isinstance(oper, mincepy.operations.Insert)
+        assert oper.record == record
+
+    assert len(listener.bulk_write_complete) == 1
+    for oper, record in zip(listener.bulk_write[0][1], records):
+        assert isinstance(oper, mincepy.operations.Insert)
+        assert oper.record == record

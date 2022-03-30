@@ -334,7 +334,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         deleted = []
         with self.in_transaction() as trans:
-            # Mark each object as deleted in the transaction and stage the delete record for insertion
+            # Mark each object as deleted in the transaction and stage the 'delete record' for insertion
             # in the order that they were passed to us, in case this makes a difference to the caller
             for obj_id in obj_ids:
                 record = records.get(obj_id, None)

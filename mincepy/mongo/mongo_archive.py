@@ -65,6 +65,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         return (ObjectIdHelper(),)
 
     def __init__(self, database: pymongo.database.Database):
+        super().__init__()
+
         self._database = database
         migrate.ensure_up_to_date(database, migrations.LATEST)
 
@@ -128,6 +130,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         return self._file_bucket
 
     def bulk_write(self, ops: Sequence[operations.Operation]):
+        self._fire_event(archives.ArchiveListener.on_bulk_write, ops)
+
         # First, convert these to corresponding mongo bulk operations.  Because of the way we split
         # objects into 'data' and 'history' we have to perform these operations on both
         data_ops = []
@@ -151,6 +155,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         self._refman.invalidate(obj_ids=[op.obj_id for op in ops],
                                 snapshot_ids=[op.snapshot_id for op in ops])
+
+        self._fire_event(archives.ArchiveListener.on_bulk_write_complete, ops)
 
     def load(self, snapshot_id: mincepy.SnapshotId) -> mincepy.DataRecord:
         if not isinstance(snapshot_id, mincepy.SnapshotId):

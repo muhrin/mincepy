@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import abc
 from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Iterable, Dict, \
-    Iterator, Any, Type, Optional
+    Iterator, Any, Type, Optional, Callable
 
 import networkx
 
@@ -10,7 +10,7 @@ from . import records
 from .records import DataRecord
 from . import operations
 
-__all__ = 'Archive', 'BaseArchive', 'ASCENDING', 'DESCENDING', 'OUTGOING', 'INCOMING'
+__all__ = 'Archive', 'BaseArchive', 'ArchiveListener', 'ASCENDING', 'DESCENDING', 'OUTGOING', 'INCOMING'
 
 IdT = TypeVar('IdT')  # The archive ID type
 
@@ -253,6 +253,14 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         all object ids they reference and so on.
         """
 
+    @abc.abstractmethod
+    def add_archive_listener(self, listener: 'ArchiveListener'):
+        """Add a listener to be notified of archive events"""
+
+    @abc.abstractmethod
+    def remove_archive_listener(self, listener: 'ArchiveListener'):
+        """Remove a listener"""
+
 
 class BaseArchive(Archive[IdT]):
     ID_TYPE = None  # type: Type[IdT]
@@ -261,6 +269,10 @@ class BaseArchive(Archive[IdT]):
     def get_id_type(cls) -> Type[IdT]:
         assert cls.ID_TYPE, 'The ID type has not been set on this archive'
         return cls.ID_TYPE
+
+    def __init__(self):
+        super().__init__()
+        self._listeners = set()
 
     def save(self, record: DataRecord):
         return self.bulk_write([operations.Insert(record)])
@@ -296,6 +308,17 @@ class BaseArchive(Archive[IdT]):
 
     def construct_archive_id(self, value) -> IdT:  # pylint: disable=no-self-use
         raise TypeError("Not possible to construct an archive id from '{}'".format(type(value)))
+
+    def add_archive_listener(self, listener: 'ArchiveListener'):
+        self._listeners.add(listener)
+
+    def remove_archive_listener(self, listener: 'ArchiveListener'):
+        self._listeners.remove(listener)
+
+    def _fire_event(self, evt: Callable, *args, **kwargs):
+        """Inform all listeners of an event.  The event should be a method from the ArchiveListener interface"""
+        for listener in self._listeners:
+            getattr(listener, evt.__name__)(self, *args, **kwargs)
 
 
 def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> \
@@ -397,3 +420,16 @@ class RecordCollection(Collection):
             *,
             meta: dict = None) -> int:
         """Get the number of entries that match the search criteria"""
+
+
+class ArchiveListener:
+    """Archive listener interface"""
+
+    def on_bulk_write(self, archive: Archive, ops: Sequence[operations.Operation]):
+        """Called when an archive is about to perform a sequence of write operations but has not performed them yet.
+        The listener must not assume that the operations will be completed as there are a number of reasons why this
+        process could be interrupted.
+        """
+
+    def on_bulk_write_complete(self, archive: Archive, ops: Sequence[operations.Operation]):
+        """Called when an archive is has successfully performed a sequence of write operations"""
