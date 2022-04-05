@@ -387,7 +387,7 @@ class LiveDepositor(Saver, Loader):
     @contextlib.contextmanager
     def _cycle_protection(self, obj: object):
         """This context manager is used as a means of circular-reference identification.
-        Naturally, such cyclic saving should never happen however if there is a bug at least this method
+        Naturally, such cyclic saving should never happen however if there is a bug, at least this method
         allows us to catch it early and see the source.
         """
         obj_id = id(obj)

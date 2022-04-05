@@ -36,7 +36,7 @@ class Meta:
         obj_ids = set(map(self._hist._ensure_obj_id, obj_or_identifiers))
         trans = self._hist.current_transaction()
         if trans:
-            # First, get what we can from the archive
+            # First, get what we can from the transaction
             found = {}
             for obj_id in obj_ids:
                 try:

@@ -63,7 +63,7 @@ IdT = TypeVar('IdT')  # The archive ID type
 
 #: The type ID - this is typically a UUID but can be something else in different contexts
 TypeId = Any
-#: A path to a field in in the record.  This is used when traversing a series of containers that can
+#: A path to a field in the record.  This is used when traversing a series of containers that can
 #: be either dictionaries or lists and are therefore indexed by strings or integers
 EntryPath = Sequence[Union[str, int]]
 #: Type that represents a path to an entry in the record state and the corresponding type id
@@ -71,7 +71,7 @@ EntryInfo = Tuple[EntryPath, TypeId]
 
 
 class SnapshotId(Generic[IdT]):
-    """A snapshot id identifies a particular version of an object (and the corresponding record), it
+    """A snapshot id identifies a particular version of an object (and the corresponding record),
     it therefore composed of the object id and the version number."""
 
     __slots__ = '_obj_id', '_version'

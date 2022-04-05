@@ -43,6 +43,9 @@ class ResultSet(Generic[T]):
         for entry in self._archive_collection.find(**self._query.__dict__, **self._kwargs):
             yield self._entry_factory(entry)
 
+    def __len__(self) -> int:
+        return self.count()
+
     @property
     def historian(self):
         """Get the Historian that this result set refers to"""
