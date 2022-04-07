@@ -8,6 +8,8 @@ __all__ = ('Expr', 'WithListOperand', 'Empty', 'Operator', 'Eq', 'Gt', 'Gte', 'I
            'Ne', 'Nin', 'Comparison', 'Logical', 'And', 'Not', 'Or', 'Nor', 'Exists', 'Queryable',
            'WithQueryContext', 'query_expr', 'field_name', 'build_expr', 'Query')
 
+import bson.regex
+
 
 class FilterLike(metaclass=abc.ABCMeta):
     """An abstract base class for objects representing a pyos path, e.g. pyos.pathlib.PurePath."""
@@ -72,8 +74,12 @@ class Empty(Expr):
 # region Match
 
 
-class Operator(Expr):
-    """An simple operator expression.
+class Operator(Expr):  # pylint: disable=abstract-method
+    """Interface for operators"""
+
+
+class SimpleOperator(Operator):
+    """A simple operator expression.
 
     Consists of an operator applied to an operand which is to be matched
     """
@@ -88,47 +94,47 @@ class Operator(Expr):
         return {self.oper: self.value}
 
 
-class Eq(Operator):
+class Eq(SimpleOperator):
     __slots__ = ()
     oper = '$eq'
 
 
-class Gt(Operator):
+class Gt(SimpleOperator):
     __slots__ = ()
     oper = '$gt'
 
 
-class Gte(Operator):
+class Gte(SimpleOperator):
     __slots__ = ()
     oper = '$gte'
 
 
-class In(Operator):
+class In(SimpleOperator):
     __slots__ = ()
     oper = '$in'
 
 
-class Lt(Operator):
+class Lt(SimpleOperator):
     __slots__ = ()
     oper = '$lt'
 
 
-class Lte(Operator):
+class Lte(SimpleOperator):
     __slots__ = ()
     oper = '$lte'
 
 
-class Ne(Operator):
+class Ne(SimpleOperator):
     __slots__ = ()
     oper = '$ne'
 
 
-class Nin(Operator):
+class Nin(SimpleOperator):
     __slots__ = ()
     oper = '$nin'
 
 
-COMPARISON_OPERATORS = {oper_type.oper: oper_type for oper_type in Operator.__subclasses__()}
+COMPARISON_OPERATORS = {oper_type.oper: oper_type for oper_type in SimpleOperator.__subclasses__()}
 
 
 class Comparison(Expr):
@@ -214,9 +220,38 @@ class Nor(WithListOperand, Logical):
 # region Element operators
 
 
-class Exists(Operator):
+class Exists(SimpleOperator):
     __slots__ = ()
     oper = '$exists'
+
+    def __init__(self, value: bool):
+        if not isinstance(value, bool):
+            raise ValueError('Exists can only be True or False')
+        super().__init__(value)
+
+
+# endregion
+
+# region Evaluation operators
+
+
+class Regex(Operator):
+    __slots__ = 'pattern', 'options'
+    oper = '$regex'
+
+    def __init__(self, pattern: Union[str, bson.regex.Regex], options: str = None):
+        if not isinstance(pattern, (str, bson.regex.Regex)):
+            raise ValueError('Must supply regex string or bson Regex object')
+        self.pattern = pattern
+        self.options = options
+
+    def __query_expr__(self) -> dict:
+        """Construct the regex expression"""
+        expr = {'$regex': self.pattern}
+        if self.options:
+            expr['$options'] = self.options
+
+        return expr
 
 
 # endregion
@@ -253,6 +288,12 @@ class Queryable(metaclass=abc.ABCMeta):
 
     def exists_(self, value: bool = True) -> Expr:
         return Comparison(self.get_path(), Exists(value))
+
+    def regex_(self, pattern, options: str = None) -> Expr:
+        return Comparison(self.get_path(), Regex(pattern, options))
+
+    def starts_with_(self, pattern, options: str = None) -> Expr:
+        return self.regex_(f'^{pattern}', options)
 
     @abc.abstractmethod
     def get_path(self) -> str:

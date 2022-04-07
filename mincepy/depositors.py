@@ -53,6 +53,8 @@ class Base(metaclass=ABCMeta):
 class Saver(Base, metaclass=ABCMeta):
     """A depositor that knows how to save records to the archive"""
 
+    _extras: Dict[str, Dict] = {}
+
     @deprecation.deprecated(deprecated_in='0.14.2',
                             removed_in='0.16.0',
                             current_version=version_mod.__version__,
@@ -95,6 +97,9 @@ class Saver(Base, metaclass=ABCMeta):
         schema = []
         saved_state = self.encode(obj, schema)
         return {records.STATE: saved_state, records.STATE_TYPES: schema}
+
+    def set_extras(self, namespace: str, extras):
+        pass
 
 
 class Loader(Base, metaclass=ABCMeta):

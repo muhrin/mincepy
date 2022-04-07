@@ -12,9 +12,9 @@ def test_expr_types_and_filters():
     age_gt = expr.Comparison('age', expr.Gt(38))
 
     # Check all operators
-    for expression in expr.Operator.__subclasses__():
+    for expression in expr.SimpleOperator.__subclasses__():
         assert expression.oper.startswith('$')
-        assert expression(123).dict() == {expression.oper: 123}
+        assert expression(True).dict() == {expression.oper: True}
 
     # Check all logicals
     for list_expr in expr.Logical.__subclasses__():
@@ -83,3 +83,87 @@ def test_query_overlapping_filter_keys():
     compound2 = gt_24 & lt_38
     query_filter = expr.Query(compound1, compound2).get_filter()
     assert query_filter == {'$and': [expr.query_expr(compound1), expr.query_expr(compound2)]}
+
+
+def test_queryable():
+    """Test queryable operators result in MongoDB expressions that we expect"""
+    field_name = 'test'
+    value = 'value'
+    list_value = 'val1', 'val2'
+
+    class TestQueryable(expr.Queryable):
+        field = field_name
+
+        def get_path(self) -> str:
+            return self.field
+
+    queryable = TestQueryable()
+
+    # Check that the field name cannot be None
+    with pytest.raises(ValueError):
+        queryable.field = None
+        queryable == value
+
+    queryable.field = field_name
+
+    # Special case for equals which drops the operator
+    assert expr.query_expr(queryable.__eq__(value)) == {field_name: value}
+
+    # Check that 'simple' operators (i.e. field <op> value)
+    simple_operators = {
+        '__ne__': '$ne',
+        '__gt__': '$gt',
+        '__ge__': '$gte',
+        '__lt__': '$lt',
+        '__le__': '$lte',
+    }
+    for attr, op in simple_operators.items():
+        query_expr = expr.query_expr(queryable.__getattribute__(attr)(value))
+        assert query_expr == {field_name: {op: value}}
+
+    # Check operators that take a list of values
+    list_operators = {
+        'in_': '$in',
+        'nin_': '$nin',
+    }
+    for attr, op in list_operators.items():
+        query_expr = expr.query_expr(queryable.__getattribute__(attr)(*list_value))
+        assert query_expr == {field_name: {op: list_value}}
+
+    # Test exists
+    assert expr.query_expr(queryable.exists_(True)) == {field_name: {'$exists': True}}
+    with pytest.raises(ValueError):
+        expr.query_expr(queryable.exists_('true'))
+
+    # Test regex
+    assert expr.query_expr(queryable.regex_(value)) == {field_name: {'$regex': value}}
+    assert expr.query_expr(queryable.regex_(value, 'i')) == {
+        field_name: {
+            '$regex': value,
+            '$options': 'i'
+        }
+    }
+    with pytest.raises(ValueError):
+        queryable.regex_(True)
+
+    # Test starts_with
+    assert expr.query_expr(queryable.starts_with_(value)) == {field_name: {'$regex': f'^{value}'}}
+
+
+def test_query_expr():
+    field_name = 'test'
+    value = 'value'
+
+    # If you pass in a dictionary it is just returned
+    assert expr.query_expr({field_name: value}) == {field_name: value}
+
+    with pytest.raises(TypeError):
+        expr.query_expr(list())
+
+    class FaultyFilterLike(expr.FilterLike):
+
+        def __query_expr__(self) -> dict:  # pylint: disable=no-self-use
+            return 'hello'
+
+    with pytest.raises(TypeError):
+        expr.query_expr(FaultyFilterLike())

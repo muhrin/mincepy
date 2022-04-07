@@ -175,3 +175,20 @@ def test_find_from_class(historian):
     car = testing.Car()
     car.save()
     assert list(historian.find(testing.Car)) == [car]
+
+
+def test_find_operators(historian):
+    for make in ('honda', 'Holden', 'skoda'):
+        testing.Car(make=make, colour='red').save()
+
+    assert historian.find(testing.Car.make == 'honda').count() == 1
+    assert historian.find(testing.Car.colour == 'red').count() == 3
+    assert historian.find(testing.Car.make.in_('skoda', 'honda')).count() == 2
+
+    # Case sensitive
+    ho_cars = list(historian.find(testing.Car.make.starts_with_('ho')))
+    assert set(car.make for car in ho_cars) == {'honda'}
+
+    # Case-insensitive
+    ho_cars = list(historian.find(testing.Car.make.starts_with_('ho', 'i')))
+    assert set(car.make for car in ho_cars) == {'Holden', 'honda'}
