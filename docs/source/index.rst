@@ -14,7 +14,7 @@
 .. _annotate: examples/quick-start.ipynb#Annotating-objects
 .. _history: examples/quick-start.ipynb#Version-control
 .. _Django: https://www.djangoproject.com/
-.. _SQLAlehcmy: https://www.sqlalchemy.org/
+.. _SQLAlchemy: https://www.sqlalchemy.org/
 .. _Storm: https://www.sqlalchemy.org/
 .. _MongoEngine: http://mongoengine.org/
 .. _identity map: examples/quick-start.ipynb#References
