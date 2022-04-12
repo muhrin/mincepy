@@ -12,13 +12,18 @@ __all__ = ('Migrations',)
 def _state_types_migration_condition(helper: helpers.TypeHelper) -> dict:
     return elem_match_(
         **{
-            '1':
-                helper.TYPE_ID,  # Type id has to match, and,
+            '1': {
+                '$eq': helper.TYPE_ID
+            },  # Type id has to match, and,
             **or_(
                 # version has to be less than the current, or,
                 {'2': lt_(helper.get_version())},
                 # there is no version number
-                {'2': None})
+                {'2': None},
+                {'2': {
+                    '$exists': False
+                }},
+            )
         })
 
 

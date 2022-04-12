@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from typing import Optional, Sequence, Union, Iterable, Mapping, Iterator, Dict, Tuple
+import weakref
 import uuid
 
 import bson
@@ -585,6 +586,9 @@ class MongoRecordCollection(archives.RecordCollection):
             return result['total']
 
 
+MOCKED = weakref.WeakValueDictionary()
+
+
 def connect(uri: str, timeout=30000) -> MongoArchive:
     """
     Connect to the database using the passed URI string.
@@ -595,13 +599,43 @@ def connect(uri: str, timeout=30000) -> MongoArchive:
     """
     # URI Format is:
     # mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
+    mocking = False
+    if uri.startswith('mongomock'):
+        mocking = True
+        uri = uri.replace('mongomock', 'mongodb')
+
     parsed = pymongo.uri_parser.parse_uri(uri)
     if not parsed.get('database', None):
         raise ValueError(f'Failed to supply database on MongoDB uri: {uri}')
 
     try:
-        client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=timeout)
-        database = client[parsed['database']]
-        return MongoArchive(database)
+        if mocking:
+            # Cache, this makes sure that if we get two requests to connect to exactly the same URI then
+            # an existing connection will be returned
+            global MOCKED  # pylint: disable=global-statement
+            if uri in MOCKED:
+                return MOCKED[uri]
+
+            archive = mongomock_connect(uri, parsed['database'], timeout)
+            MOCKED[uri] = archive
+            return archive
+
+        return pymongo_connect(uri, parsed['database'], timeout)
     except pymongo.errors.ServerSelectionTimeoutError as exc:
         raise exceptions.ConnectionError(str(exc))
+
+
+def pymongo_connect(uri, database: str, timeout=30000):
+    client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=timeout)
+    database = client[database]
+    return MongoArchive(database)
+
+
+def mongomock_connect(uri, database: str, timeout=30000) -> MongoArchive:
+    import mongomock
+    import mongomock.gridfs
+
+    mongomock.gridfs.enable_gridfs_integration()
+    client = mongomock.MongoClient(uri, serverSelectionTimeoutMS=timeout)
+    database = client[database]
+    return MongoArchive(database)

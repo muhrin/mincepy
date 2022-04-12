@@ -44,6 +44,7 @@ setup(
         'gui': ['mincepy-gui'],
         'dev': [
             'ipython',
+            'mongomock',
             'pip',
             'pytest>4',
             'pytest-benchmark',

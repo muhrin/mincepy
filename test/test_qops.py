@@ -15,6 +15,10 @@ def test_eq():
     assert qops.eq_('value') == {'$eq': 'value'}
 
 
+def test_gt():
+    assert qops.gt_('value') == {'$gt': 'value'}
+
+
 def test_gte():
     assert qops.gte_('value') == {'$gte': 'value'}
 

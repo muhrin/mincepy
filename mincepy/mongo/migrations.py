@@ -57,25 +57,27 @@ class CollectionsSplit(migrate.Migration):
         old_data = database[data_collection]
         history = database[history_collection]
 
-        # Transform the entries to the new history format
-        for entry in old_data.find():
-            obj_id = entry['_id']['oid']
-            version = entry['_id']['v']
-            entry['_id'] = f'{obj_id}#{version}'
-            entry['obj_id'] = obj_id
-            entry['ver'] = version
-            history.insert_one(entry)
+        if old_data.find().count() != 0:
+            # Transform the entries to the new history format
+            for entry in old_data.find():
+                obj_id = entry['_id']['oid']
+                version = entry['_id']['v']
+                entry['_id'] = f'{obj_id}#{version}'
+                entry['obj_id'] = obj_id
+                entry['ver'] = version
+                history.insert_one(entry)
 
         # Ok, now rename, copy over what we need and drop
         old_data.rename('old_data')
-
-        pipeline = self.pipeline_latest_version(history_collection)
-        pipeline.append({'$match': {'state': {'$ne': '!!deleted'}}})
-
         new_data = database[data_collection]
-        for entry in history.aggregate(pipeline):
-            entry['_id'] = entry['obj_id']
-            new_data.insert_one(entry)
+
+        if history.find().count() != 0:
+            pipeline = self.pipeline_latest_version(history_collection)
+            pipeline.append({'$match': {'state': {'$ne': '!!deleted'}}})
+
+            for entry in history.aggregate(pipeline):
+                entry['_id'] = entry['obj_id']
+                new_data.insert_one(entry)
 
         # Finally drop
         database.drop_collection('old_data')

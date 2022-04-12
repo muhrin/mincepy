@@ -320,3 +320,13 @@ def test_meta_distinct(historian: mincepy.Historian):
     car3.set_meta({'owner': 'martin'})
 
     assert set(historian.meta.distinct('owner')) == {'martin', 'bob'}
+
+
+@pytest.mark.skip('We do not support this feature yet')
+def test_meta_update_operators(historian: mincepy.Historian):
+    car_id = Car().save(meta=dict(num_owners=1))
+    assert historian.meta.get(car_id) == dict(num_owners=1)
+
+    # Now, perform an update operation on the number of owners
+    historian.meta.update(car_id, {'$inc': {'num_owners': 1}})
+    assert historian.meta.get(car_id) == dict(num_owners=2)

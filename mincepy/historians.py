@@ -261,7 +261,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         # OK, assume we're dealing with an object id
         obj_id = self._ensure_obj_id(obj_id_or_snapshot_id)
 
-        # Try getting the object from the our dict of up to date ones
+        # Try getting the object from our dict of up-to-date ones
         try:
             return self.get_obj(obj_id)
         except exceptions.NotFound:

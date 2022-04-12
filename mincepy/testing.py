@@ -10,7 +10,6 @@ from typing import Iterator
 import uuid
 
 import bson
-import pymongo
 
 import mincepy
 
@@ -19,6 +18,7 @@ logger = logging.getLogger(__name__)
 ENV_ARCHIVE_URI = 'MINCEPY_TEST_URI'
 ENV_ARCHIVE_BASE_URI = 'MINCEPY_TEST_BASE_URI'
 DEFAULT_ARCHIVE_URI = 'mongodb://localhost/mincepy-tests'
+# DEFAULT_ARCHIVE_URI = 'mongomock://localhost/mincepy-tests'
 DEFAULT_ARCHIVE_BASE_URI = 'mongodb://127.0.0.1'
 
 # pylint: disable=redefined-outer-name, invalid-name
@@ -42,13 +42,13 @@ def create_archive_uri(base_uri='', db_name=''):
 
 
 @contextlib.contextmanager
+# @mongomock.patch(servers=(('localhost', 27017),))
 def temporary_archive(archive_uri: str) -> Iterator[mincepy.Archive]:
     """Create a temporary archive.  The associated database will be dropped on exiting the context"""
-    client = pymongo.MongoClient(archive_uri)
-    db = client.get_default_database()  # pylint: disable=invalid-name
-    client.drop_database(db)
-    mongo_archive = mincepy.mongo.MongoArchive(db)
-    yield mongo_archive
+    archive = mincepy.mongo.connect(archive_uri)
+    db = archive.database
+    client = db.client
+    yield archive
     client.drop_database(db)
 
 

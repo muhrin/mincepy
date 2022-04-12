@@ -200,8 +200,10 @@ class ReferenceManager:
                              ids: List = None) -> Iterator:
         """Given a collection get the records that do not have entries in the references cache"""
         pipeline = []
-        if ids is not None:
-            pipeline.append({'$match': {'_id': {'$in': ids}}})
+        if ids is None:
+            pipeline.append({'$match': {db.OBJ_ID: {'$exists': True}}})
+        else:
+            pipeline.append({'$match': {db.OBJ_ID: {'$in': ids}}})
 
         pipeline.extend([{
             '$lookup': {
