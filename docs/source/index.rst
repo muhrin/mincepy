@@ -52,7 +52,7 @@ It is designed with  machine learning and big-data computational and experimenta
 Why was mincePy built?
 ++++++++++++++++++++++
 
-For Python we already have `MongoEngine`_, `Django`_, `SQLAlehcmy`_, `Storm`_ and a bunch of `other <https://en.wikipedia.org/wiki/List_of_object-relational_mapping_software#Python>`_ great ORMs, so why do we need mincePy?
+For Python we already have `MongoEngine`_, `Django`_, `SQLAlchemy`_, `Storm`_ and a bunch of `other <https://en.wikipedia.org/wiki/List_of_object-relational_mapping_software#Python>`_ great ORMs, so why do we need mincePy?
 Well, in a typical ORM you subclass some kind of model class thus every object *is a* database object *plus* whatever else the object is designed to do.
 This is great for applications where there is a tight coupling to the database but what if you can't or don't want to subclass from a model?
 What if you want to store a numpy array, a PyTorch neural network configuration or any arbitrary Python object and have it be queryable?
