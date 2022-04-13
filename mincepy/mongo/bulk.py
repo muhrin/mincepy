@@ -31,12 +31,12 @@ def _(op: mincepy.operations.Insert):
             db.VERSION: q.lt_(record.version)
         },)
     else:
-        data_op = pymongo.operations.ReplaceOne(filter={
+        data_op = pymongo.operations.UpdateOne(filter={
             db.OBJ_ID: record.obj_id,
             db.VERSION: q.lt_(record.version)
         },
-                                                replacement=document.copy(),
-                                                upsert=True)
+                                               update={'$set': document.copy()},
+                                               upsert=True)
 
     # History uses the sid as the document id
     document['_id'] = str(record.snapshot_id)
