@@ -9,7 +9,6 @@ import pymongo.collection
 
 import mincepy
 from mincepy import OUTGOING
-from mincepy import q
 from . import aggregation
 from . import db
 from . import types
@@ -52,7 +51,7 @@ class ReferenceManager:
         to_delete = list(obj_ids)
         for sid in snapshot_ids:
             to_delete.append(str(sid))
-        self._references.delete_many({'_id': q.in_(*to_delete)})
+        db.safe_bulk_delete(self._references, to_delete)
 
     def _get_graph(self,
                    ids: Sequence[Union[bson.ObjectId, types.SnapshotId]],

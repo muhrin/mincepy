@@ -3,10 +3,13 @@
 archive and methods to convert mincepy types to mongo collection entries and back"""
 import functools
 
+import pymongo.collection
+import pymongo.errors
 from bidict import bidict
 import bson
 
 import mincepy.records
+from mincepy import q
 
 SETTINGS_COLLECTION = 'settings'
 GLOBAL_SETTINGS = 'global'
@@ -126,3 +129,16 @@ def sid_from_dict(record: dict):
 def sid_from_str(sid_str: str):
     parts = sid_str.split('#')
     return mincepy.SnapshotId(bson.ObjectId(parts[0]), int(parts[1]))
+
+
+def safe_bulk_delete(collection: pymongo.collection.Collection, ids, id_key='_id'):
+    """Sometimes when you want to delete a bunch of documents using an identifier the 'delete document' itself exceeds
+    the 16MB Mongo limit.  This function will catch such cases and break up the command into suitably batches"""
+    ids = list(set(ids))  # No needs to repeat ourselves
+    try:
+        collection.delete_many({id_key: q.in_(*ids)})
+    except pymongo.errors.DocumentTooLarge:
+        # Use bulk operation instead
+        # Note, this could be spead up further by batching the deletes but for now it's not worth it
+        bulk_ops = [pymongo.DeleteOne({id_key: entry_id}) for entry_id in ids]
+        collection.bulk_write(bulk_ops)
