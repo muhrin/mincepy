@@ -23,6 +23,7 @@ repos:
           'pymongo',
           'bidict',
           'mincepy-sci',
+          'mongomock',
           'networkx',  # For reference graphs
           'pyblake2; python_version<"3.6"',
           'pytray>=0.2.1',
