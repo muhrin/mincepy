@@ -102,6 +102,9 @@ class Car(mincepy.ConvenientSavable):
     def __str__(self) -> str:
         return f'{self.colour} {self.make}'
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({repr(self.make)}, {repr(self.colour)})'
+
 
 class Garage(mincepy.ConvenientSavable):
     TYPE_ID = bson.ObjectId('5e07b40a44572f823ed9327b')
@@ -115,6 +118,9 @@ class Garage(mincepy.ConvenientSavable):
         state = super().save_instance_state(saver)
         return state
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}({repr(self.car)})'
+
 
 class Person(mincepy.ConvenientSavable):
     TYPE_ID = uuid.UUID('d60ca740-9fa6-4002-83f6-e4c91403e41b')
@@ -127,6 +133,9 @@ class Person(mincepy.ConvenientSavable):
         self.name = name
         self.age = age
         self.car = car
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({repr(self.name)}, {repr(self.age)},  {repr(self.car)})'
 
 
 class Cycle(mincepy.ConvenientSavable):
