@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import abc
 from typing import Generic, TypeVar, NamedTuple, Sequence, Union, Mapping, Iterable, Dict, \
-    Iterator, Any, Type, Optional, Callable
+    Iterator, Any, Type, Optional, Callable, List, Tuple
 
 import networkx
 
@@ -151,7 +151,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def meta_create_index(self, keys, unique=False, where_exist=False):
+    def meta_create_index(self, keys: Union[str, List[Tuple]], unique=False, where_exist=False):
         """Create an index on the metadata.  Takes either a single key or list of (key, direction)
          pairs
 

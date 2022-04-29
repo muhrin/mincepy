@@ -218,8 +218,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         except pymongo.errors.DuplicateKeyError as exc:
             raise mincepy.DuplicateKeyError(str(exc))
         else:
-            if not found:
-                raise mincepy.NotFound(f"No record with snapshot id '{obj_id}' found")
+            if found.modified_count == 0:
+                raise mincepy.NotFound(f"No record with object id '{obj_id}' found")
 
     def meta_set_many(self, metas: Mapping[bson.ObjectId, Optional[dict]]):
         ops = []
@@ -245,14 +245,14 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             raise
 
     def meta_update(self, obj_id, meta: Mapping):
-        if meta.get('_id', obj_id) != obj_id:
-            raise ValueError('Cannot use the key _id, in metadata: it is reserved')
-
         try:
             to_set = queries.expand_filter(db.META, meta)
-            self._data_collection.update_one({'_id': obj_id}, {'$set': to_set}, upsert=False)
+            res = self._data_collection.update_one({'_id': obj_id}, {'$set': to_set}, upsert=False)
         except pymongo.errors.DuplicateKeyError as exc:
             raise mincepy.DuplicateKeyError(str(exc))
+        else:
+            if res.modified_count == 0:
+                raise mincepy.NotFound(f"No record with object id '{obj_id}' found")
 
     def meta_find(
         self,
@@ -281,16 +281,27 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         yield from self._data_collection.distinct(f'{db.META}.{key}', match)
 
     def meta_create_index(self, keys, unique=True, where_exist=False):
+        if isinstance(keys, str):
+            keys = [(keys, pymongo.ASCENDING)]
+        else:
+            if not isinstance(keys, list):
+                raise TypeError(
+                    f'Keys must be a string or a list of tuples, got {keys.__class__.__name__}')
+            if len(keys) == 0:
+                return
+            for entry in keys:
+                if not isinstance(entry, tuple):
+                    raise TypeError(f'Keys must be list of tuples, got {entry.__class__.__name__}')
+
+        # Transform the keys
+        keys = [(f'{db.META}.{name}', direction) for name, direction in keys]
+
         kwargs = {}
         if where_exist:
-            if not isinstance(keys, str) and isinstance(keys, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
-                key_names = tuple(entry[0] for entry in keys)
-            else:
-                key_names = (keys,)
+            key_names = tuple(entry[0] for entry in keys)
+            kwargs['partialFilterExpression'] = q.and_(*tuple(
+                q.exists_(name) for name in key_names))
 
-            key_names = tuple(f'{db.META}.{name}' for name in key_names)
-            kwargs['partialFilterExpression'] = \
-                q.and_(*tuple(q.exists_(name) for name in key_names))
         self._data_collection.create_index(keys, unique=unique, **kwargs)
 
     # endregion
@@ -352,7 +363,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             yield db.to_record(result)
 
     def distinct(self, key: str, filter: dict = None) -> Iterator:  # pylint: disable=redefined-builtin
-        filter = db.remap(filter)
+        filter = db.remap(filter or {})
 
         if filter.get(db.VERSION, None) == -1:
             filter.pop(db.VERSION)
@@ -360,7 +371,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         else:
             coll = self._history_collection
 
-        yield from coll.distinct(db.remap_key(key), expression=_flatten_filter_dict(filter))
+        yield from coll.distinct(db.remap_key(key), filter=_flatten_filter_dict(filter))
 
     def count(self,
               obj_id: Optional[bson.ObjectId] = None,
