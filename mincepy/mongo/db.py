@@ -2,6 +2,7 @@
 """This module contains the names of the keys in the various collections used by the mongo
 archive and methods to convert mincepy types to mongo collection entries and back"""
 import functools
+from typing import Optional
 
 import pymongo.collection
 import pymongo.errors
@@ -94,8 +95,11 @@ def _(record: dict, exclude_defaults=False) -> dict:
     return entry
 
 
-def remap(record_dict: dict) -> dict:
+def remap(record_dict: Optional[dict]) -> Optional[dict]:
     """Given a dictionary return a new dictionary with the key names that we use"""
+    if record_dict is None:
+        return None
+
     remapped = {}
     for key, value in record_dict.items():
         remapped[remap_key(key)] = value
