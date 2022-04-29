@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import functools
+from typing import Mapping
 
 from .aggregation import and_, eq_
 from . import db
@@ -58,25 +59,6 @@ def pipeline_latest_version(data_collection: str) -> list:
     return pipeline
 
 
-def pipeline_match_metadata(meta: dict, meta_collection: str, local_field: str):
-    pipeline = []
-
-    pipeline.append({
-        '$lookup': {
-            'from': meta_collection,
-            'localField': local_field,
-            'foreignField': '_id',
-            'as': '_meta'
-        }
-    })
-    # _meta should only contain at most one entry per document i.e. the metadata for
-    # that object.  So check that for the search criteria
-    meta_filter = flatten_filter('_meta.0', meta)
-    pipeline.append({'$match': and_(*meta_filter)})
-
-    return pipeline
-
-
 class QueryBuilder:
     """Simple MongoDB query builder.  Creates a compound query of one or more more terms"""
 
@@ -110,6 +92,12 @@ def flatten_filter(entry_name: str, query) -> list:
         flattened = [{entry_name: query}]
 
     return flattened
+
+
+def expand_filter(entry_name: str, query: Mapping) -> dict:
+    if not query:
+        return {}
+    return {f'{entry_name}.{key}': value for key, value in query.items()}
 
 
 @functools.singledispatch

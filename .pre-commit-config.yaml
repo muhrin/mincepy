@@ -29,8 +29,9 @@ repos:
           'pytray>=0.2.1',
           'stevedore',
           'click',
-          'tabulate',
           'pytest',
+          'tabulate',
+          'tqdm',
           ]
         args: [
             '--max-line-length=120',

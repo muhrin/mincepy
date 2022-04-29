@@ -59,7 +59,6 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     DATA_COLLECTION = 'data'
     HISTORY_COLLECTION = 'history'
-    META_COLLECTION = 'meta'
 
     @classmethod
     def get_types(cls) -> Sequence:
@@ -73,15 +72,12 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         self._data_collection = database[self.DATA_COLLECTION]
         self._history_collection = database[self.HISTORY_COLLECTION]
-        self._meta_collection = database[self.META_COLLECTION]
         self._file_bucket = gridfs.GridFSBucket(database)
         self._refman = references.ReferenceManager(database[DEFAULT_REFERENCES_COLLECTION],
                                                    self._data_collection, self._history_collection)
 
-        self._snapshots = MongoRecordCollection(self, self._history_collection,
-                                                self._meta_collection.name)
-        self._objects = MongoRecordCollection(self, self._data_collection,
-                                              self._meta_collection.name)
+        self._snapshots = MongoRecordCollection(self, self._history_collection)
+        self._objects = MongoRecordCollection(self, self._data_collection)
 
         self._create_indices()
 
@@ -105,6 +101,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
     @property
     def file_store(self) -> gridfs.GridFSBucket:
         return self._file_bucket
+
+    @property
+    def schema_version(self) -> Optional[int]:
+        return migrate.get_version(self._database)
 
     def _create_indices(self):
         # Create all the necessary indexes
@@ -149,10 +149,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             self._history_collection.bulk_write(history_ops, ordered=True)
         except pymongo.errors.BulkWriteError as exc:
             write_errors = exc.details['writeErrors']
-            if write_errors:
-                raise mincepy.ModificationError(
-                    "You're trying to rewrite history, that's not allowed!")
-            raise  # Otherwise just raise what we got
+            if write_errors and write_errors[0]['code'] == 11000:
+                raise mincepy.DuplicateKeyError(str(exc)) from exc
+
+            raise  # Otherwise, just raise what we got
 
         self._refman.invalidate(obj_ids=[op.obj_id for op in ops],
                                 snapshot_ids=[op.snapshot_id for op in ops])
@@ -186,15 +186,15 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     # region Meta
 
-    def meta_get(self, obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]]):
+    def meta_get(self, obj_id: bson.ObjectId):
         # Single obj id
         if not isinstance(obj_id, bson.ObjectId):
             raise TypeError(f'Must pass an ObjectId, got {obj_id}')
-        found = self._meta_collection.find_one({'_id': obj_id})
+        found = self._data_collection.find_one({'_id': obj_id}, {db.META: 1})
         if found is None:
             return found
         found.pop('_id')
-        return found
+        return found.get(db.META, None)
 
     def meta_get_many(self, obj_ids: Iterable[bson.ObjectId]) -> Dict[bson.ObjectId, dict]:
         # Find multiple
@@ -202,37 +202,36 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             if not isinstance(obj_id, bson.ObjectId):
                 raise TypeError(f'Must pass an ObjectId, got {obj_id}')
 
-        cur = self._meta_collection.find({'_id': q.in_(*obj_ids)})
+        cur = self._data_collection.find({'_id': q.in_(*obj_ids)}, {db.META: 1})
         results = {oid: None for oid in obj_ids}
         for found in cur:
-            results[found.pop('_id')] = found
+            results[found.pop('_id')] = found[db.META]
 
         return results
 
     def meta_set(self, obj_id, meta):
-        if meta:
-            try:
-                found = self._meta_collection.replace_one({'_id': obj_id}, meta, upsert=True)
-            except pymongo.errors.DuplicateKeyError as exc:
-                raise mincepy.DuplicateKeyError(str(exc))
-            else:
-                if not found:
-                    raise mincepy.NotFound(f"No record with snapshot id '{obj_id}' found")
+        try:
+            found = self._data_collection.update_one({'_id': obj_id}, {'$set': {
+                db.META: meta
+            }},
+                                                     upsert=False)
+        except pymongo.errors.DuplicateKeyError as exc:
+            raise mincepy.DuplicateKeyError(str(exc))
         else:
-            # Just remove the meta entry outright
-            self._meta_collection.delete_one({'_id': obj_id})
+            if not found:
+                raise mincepy.NotFound(f"No record with snapshot id '{obj_id}' found")
 
     def meta_set_many(self, metas: Mapping[bson.ObjectId, Optional[dict]]):
         ops = []
         for obj_id, meta in metas.items():
-            if meta:
-                operation = pymongo.operations.ReplaceOne({'_id': obj_id}, meta, upsert=True)
-            else:
-                operation = pymongo.operations.DeleteOne({'_id': obj_id})
+            operation = pymongo.operations.UpdateOne({'_id': obj_id}, {'$set': {
+                db.META: meta
+            }},
+                                                     upsert=False)
             ops.append(operation)
 
         try:
-            self._meta_collection.bulk_write(ops, ordered=True)
+            self._data_collection.bulk_write(ops, ordered=True)
         except pymongo.errors.BulkWriteError as exc:
             # This is a rather complicated way to get the error - mongo doesn't seem to document
             # error codes, absolute madness.
@@ -250,7 +249,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             raise ValueError('Cannot use the key _id, in metadata: it is reserved')
 
         try:
-            self._meta_collection.update_one({'_id': obj_id}, {'$set': meta}, upsert=True)
+            to_set = queries.expand_filter(db.META, meta)
+            self._data_collection.update_one({'_id': obj_id}, {'$set': to_set}, upsert=False)
         except pymongo.errors.DuplicateKeyError as exc:
             raise mincepy.DuplicateKeyError(str(exc))
 
@@ -259,13 +259,14 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         filter: dict = None,  # pylint: disable=redefined-builtin
         obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None
     ) -> Iterator[Tuple[bson.ObjectId, Dict]]:
-        match = dict(filter or {})
+        match = queries.expand_filter(db.META, filter)
         if obj_id is not None:
             match['_id'] = scalar_query_spec(obj_id)
 
-        for meta in self._meta_collection.find(match):
-            oid = meta.pop('_id')
-            yield self.MetaEntry(oid, meta)
+        for entry in self._data_collection.find(match, {db.META: 1}):
+            if db.META in entry:
+                oid = entry.pop('_id')
+                yield self.MetaEntry(oid, entry[db.META])
 
     def meta_distinct(
         self,
@@ -273,11 +274,11 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         filter: dict = None,  # pylint: disable=redefined-builtin
         obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Mapping] = None
     ) -> 'Iterator':
-        match = dict(filter or {})
+        match = queries.expand_filter(db.META, filter)
         if obj_id is not None:
             match['_id'] = scalar_query_spec(obj_id)
 
-        yield from self._meta_collection.distinct(key, match)
+        yield from self._data_collection.distinct(f'{db.META}.{key}', match)
 
     def meta_create_index(self, keys, unique=True, where_exist=False):
         kwargs = {}
@@ -286,9 +287,11 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                 key_names = tuple(entry[0] for entry in keys)
             else:
                 key_names = (keys,)
+
+            key_names = tuple(f'{db.META}.{name}' for name in key_names)
             kwargs['partialFilterExpression'] = \
                 q.and_(*tuple(q.exists_(name) for name in key_names))
-        self._meta_collection.create_index(keys, unique=unique, **kwargs)
+        self._data_collection.create_index(keys, unique=unique, **kwargs)
 
     # endregion
 
@@ -384,10 +387,6 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         else:
             coll = self._history_collection
 
-        if meta:
-            pipeline.extend(
-                queries.pipeline_match_metadata(meta, self._meta_collection.name, db.OBJ_ID))
-
         if limit:
             pipeline.append({'$limit': limit})
 
@@ -410,8 +409,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                           max_dist: int = None) -> Iterator[networkx.DiGraph]:
         return self._refman.get_obj_ref_graphs(obj_ids, direction=direction, max_dist=max_dist)
 
-    def _get_pipeline(self,
-                      obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
+    @staticmethod
+    def _get_pipeline(obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
                       type_id=None,
                       _created_by=None,
                       _copied_from=None,
@@ -448,13 +447,12 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         if extras:
             query.and_(*queries.flatten_filter(db.EXTRAS, extras))
 
+        if meta:
+            query.and_(*queries.flatten_filter(db.META, meta))
+
         mfilter = query.build()
         if mfilter:
             pipeline.append({'$match': mfilter})
-
-        if meta:
-            pipeline.extend(
-                queries.pipeline_match_metadata(meta, self._meta_collection.name, db.OBJ_ID))
 
         return pipeline
 
@@ -496,11 +494,9 @@ def _flatten_filter_dict(filter: dict) -> dict:  # pylint: disable=redefined-bui
 
 class MongoRecordCollection(archives.RecordCollection):
 
-    def __init__(self, archive: MongoArchive, collection: pymongo.database.Collection,
-                 meta_collection_name: str):
+    def __init__(self, archive: MongoArchive, collection: pymongo.database.Collection):
         self._archive = archive
         self._collection = collection
-        self._meta_collection_name = meta_collection_name
 
     @property
     def archive(self) -> MongoArchive:
@@ -521,11 +517,11 @@ class MongoRecordCollection(archives.RecordCollection):
         pipeline = []
 
         if filter:
-            pipeline.append({'$match': filter})
+            if meta:
+                # Add the metadata criterion
+                filter = q.and_(filter, *queries.flatten_filter(db.META, meta))
 
-        if meta:
-            pipeline.extend(
-                queries.pipeline_match_metadata(meta, self._meta_collection_name, db.OBJ_ID))
+            pipeline.append({'$match': filter})
 
         if sort:
             if not isinstance(sort, dict):
@@ -571,11 +567,11 @@ class MongoRecordCollection(archives.RecordCollection):
         pipeline = []
 
         if filter:
-            pipeline.append({'$match': filter})
+            if meta:
+                # Add the metadata criterion
+                filter = q.and_(filter, *queries.flatten_filter(db.META, meta))
 
-        if meta:
-            pipeline.extend(
-                queries.pipeline_match_metadata(meta, self._meta_collection_name, db.OBJ_ID))
+            pipeline.append({'$match': filter})
 
         pipeline.append({'$count': 'total'})
         try:

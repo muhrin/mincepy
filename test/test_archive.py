@@ -30,6 +30,9 @@ def test_meta_find(historian: mincepy.Historian):
     results = dict(historian.archive.meta_find({}, (car1id,)))
     assert results == {car1id: {'reg': 'car1'}}
 
+    # No metadata on car2
+    assert list(historian.archive.meta_find(obj_id=car2.obj_id)) == []
+
 
 def test_meta_update_many(historian: mincepy.Historian):
     car1 = Car()
@@ -126,3 +129,12 @@ def test_archive_listener(mongodb_archive: mincepy.Archive):
     for oper, record in zip(listener.bulk_write[0][1], records):
         assert isinstance(oper, mincepy.operations.Insert)
         assert oper.record == record
+
+
+def test_distinct(historian):
+    colours = {'red', 'green', 'blue'}
+    for colour in colours:
+        Car('ferrari', colour=colour).save()
+        Car('skoda', colour=colour).save()
+
+    assert set(historian.records.distinct(Car.colour)) == colours

@@ -38,6 +38,7 @@ setup(
         'stevedore',
         'click',
         'tabulate',
+        'tqdm',
     ],
     python_requires='>=3.7',
     extras_require={

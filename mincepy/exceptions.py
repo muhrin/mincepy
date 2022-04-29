@@ -19,7 +19,7 @@ class ObjectDeleted(NotFound):
     """Raise when the user tries to interact with a deleted object"""
 
 
-class DuplicateKeyError(Exception):
+class DuplicateKeyError(ModificationError):
     """Indicates that a uniqueness constraint was violated"""
 
 
