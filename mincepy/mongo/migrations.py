@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import pymongo.database
+import tqdm
 
 from . import migrate
 from .aggregation import eq_, and_
@@ -137,18 +138,79 @@ class CollectionsSplit(migrate.Migration):
         return pipeline
 
 
-class DropReferencesCache(migrate.Migration):
-    """Here we reset the references cache (if present) as some of the code has changed"""
+class MergeMeta(migrate.Migration):
+    """
+    Merge metadata into directly into the collection of data records.
+    """
 
-    NAME = 'drop-references-cache'
+    NAME = 'merge-meta'
     VERSION = 2
     PREVIOUS = CollectionsSplit
 
     def upgrade(self, database: pymongo.database.Database):  # pylint: disable=no-self-use
-        # This is an old one that was created by accident
-        database.drop_collection('data.references')
-        # And this will drop the current one
-        database.drop_collection('references')
+        data_coll_name = 'data'  # Name of the data collection
+        meta_coll_name = 'meta'  # Name of the metadata collection
+        meta_field = 'meta'
+        new_data_coll_name = 'new_data'
+
+        colls = database.list_collection_names()
+
+        # Guard against one (or more) of the collections we need not existing
+        if data_coll_name in colls and meta_coll_name in colls:
+            meta_coll = database[meta_coll_name]
+            data_coll = database[data_coll_name]
+
+            # Join with meta and place in the new data collection
+            data_coll.aggregate([
+                {
+                    '$lookup': {
+                        'from': 'meta',
+                        'localField': 'obj_id',
+                        'foreignField': '_id',
+                        'as': meta_field
+                    }
+                },
+                {
+                    '$addFields': {
+                        meta_field: {
+                            '$arrayElemAt': [f'${meta_field}', 0]
+                        }
+                    }
+                },
+                {
+                    '$project': {
+                        f'{meta_field}._id': 0
+                    }
+                },  # Exclude the old '_id' field from meta entries
+                {
+                    '$out': new_data_coll_name
+                }
+            ])
+
+            new_data_coll = database[new_data_coll_name]
+
+            # Copy over the indexes
+            for name, index_info in tqdm.tqdm(meta_coll.index_information().items(),
+                                              desc='Copying indexes'):
+                keys = index_info['key']
+                if len(keys) == 1 and keys[0][0] == '_id':
+                    continue
+
+                keys = [(f'{meta_field}.{key[0]}', key[1]) for key in keys]
+
+                del index_info['ns']
+                del index_info['v']
+                del index_info['key']
+                new_data_coll.create_index(keys, name=name, **index_info)
+
+            # Drop the old one data
+            database.drop_collection(data_coll)
+            # Rename the new
+            new_data_coll.rename(data_coll_name)
+            # Drop the old meta
+            database.drop_collection(meta_coll_name)
+
+        super().upgrade(database)
 
 
-LATEST = CollectionsSplit
+LATEST = MergeMeta

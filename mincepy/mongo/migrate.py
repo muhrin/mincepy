@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import abc
-from typing import List, Type
+import contextlib
+import random
+import string
+from typing import List, Type, Optional
 
 import pymongo.database
 
@@ -106,3 +109,16 @@ def ensure_up_to_date(database: pymongo.database.Database, latest: Type[Migratio
 
     migrator = MigrationManager(latest)
     return migrator.migrate(database)
+
+
+def get_version(database) -> Optional[int]:
+    current = settings.get_settings(database) or {}
+    return current.get(VERSION, None)
+
+
+@contextlib.contextmanager
+def temporary_collection(database: pymongo.database.Database, coll_name=None):
+    coll_name = coll_name or ''.join(random.choices(string.ascii_letters, k=10))
+    coll = database[coll_name]
+    yield coll
+    database.drop_collection(coll_name)

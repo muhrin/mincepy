@@ -25,6 +25,7 @@ SNAPSHOT_HASH = 'hash'
 SNAPSHOT_TIME = 'stime'
 EXTRAS = mincepy.records.EXTRAS
 REFERENCES = 'refs'
+META = 'meta'  # The metadata field
 
 # Here we map the data record property names onto ones in our entry format.
 # If a record property doesn't appear here it means the name says the same
