@@ -192,3 +192,29 @@ def test_find_operators(historian):
     # Case-insensitive
     ho_cars = list(historian.find(testing.Car.make.starts_with_('ho', 'i')))
     assert set(car.make for car in ho_cars) == {'Holden', 'honda'}
+
+
+def test_find_auto_registration(historian: mincepy.Historian):
+    """This issue addresses the problem raised in https://github.com/muhrin/mincepy/issues/20"""
+
+    class User(mincepy.SimpleSavable):
+        TYPE_ID = 'User'
+        name = mincepy.field()
+        email = mincepy.field()
+        api_key = mincepy.field()
+
+    User(name='Etienne', email='hello@email.com', api_key='123').save()
+    # Unregister so that we emulate a historian that hasn't seen a `User` before
+    historian.type_registry.unregister_type(User)
+
+    # This call should not raise as `User` should be automatically registered
+    assert isinstance(historian.find(User).one(), User)
+
+    # Now try creating a second user type with the same TYPE_ID, here automatic registration should fail because
+    # otherwise we would clobber the existing helper in the registry
+    class User2(mincepy.SimpleSavable):
+        TYPE_ID = 'User'
+
+    with pytest.raises(ValueError):
+        # Should raise, because now we have the same type id and we would clobber the one already reigstered
+        assert isinstance(historian.find(User2).one(), User)

@@ -515,14 +515,14 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         """Check if an object is of the object id type"""
         return isinstance(obj_id, self._archive.get_id_type())
 
-    def register_type(self, obj_class_or_helper: HistorianType) -> helpers.TypeHelper:
-        helper = self._type_registry.register_type(obj_class_or_helper)
+    def register_type(self, obj_class_or_helper: HistorianType, replace=True) -> helpers.TypeHelper:
+        helper = self._type_registry.register_type(obj_class_or_helper, replace=replace)
         self._equator.add_equator(helper)
         return helper
 
-    def register_types(self, obj_clases_or_helpers: Iterable[HistorianType]):
+    def register_types(self, obj_clases_or_helpers: Iterable[HistorianType], replace=True):
         for item in obj_clases_or_helpers:
-            self.register_type(item)
+            self.register_type(item, replace=replace)
 
     def get_obj_type_id(self, obj_type):
         return self._type_registry.get_type_id(obj_type)

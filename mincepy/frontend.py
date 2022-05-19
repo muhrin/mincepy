@@ -4,8 +4,10 @@ This module collects all the frontend database entities such as collections and 
 user interacts with (through the historian)
 """
 import functools
+import inspect
 from typing import TypeVar, Generic, Iterable, Callable, Any, Iterator, Optional, Union
 
+import mincepy
 from . import archives
 from . import exceptions
 from . import expr
@@ -112,7 +114,7 @@ class ResultSet(Generic[T]):
 
 
 class EntriesCollection(Generic[T]):
-    """A collection of archive entries.  This is the base class but it can be specialised to provide specific
+    """A collection of archive entries.  This is the base class, but it can be specialised to provide specific
     functionality for a given collection"""
 
     def __init__(self, historian, archive_collection: archives.Collection,
@@ -179,6 +181,11 @@ class EntriesCollection(Generic[T]):
                        state=None,
                        extras: dict = None) -> expr.Query:
         """Prepare a query filter expression from the passed filter criteria"""
+        for entry in expression:
+            # Automatically register any types passed in during find (unless that type id is already is use)
+            if inspect.isclass(entry) and issubclass(entry, mincepy.SavableObject):
+                self._historian.type_registry.register_type(entry)
+
         query = expr.Query(*expression)
 
         if obj_type is not None:

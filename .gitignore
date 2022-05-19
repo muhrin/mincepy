@@ -68,3 +68,5 @@ target/
 
 # Virtual environment directories
 /venv*/
+
+.benchmarks

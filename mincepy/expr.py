@@ -397,7 +397,7 @@ def build_expr(item) -> Expr:
         if len(item) == 1:
             return build_expr(tuple(item.items())[0])
 
-        # Otherwise a dictionary is an implicit 'and'
+        # Otherwise, a dictionary is an implicit 'and'
         return And(list(map(build_expr, item.items())))
 
     if isinstance(item, tuple):
