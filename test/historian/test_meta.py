@@ -330,3 +330,25 @@ def test_meta_update_operators(historian: mincepy.Historian):
     # Now, perform an update operation on the number of owners
     historian.meta.update(car_id, {'$inc': {'num_owners': 1}})
     assert historian.meta.get(car_id) == dict(num_owners=2)
+
+
+@pytest.mark.skip(
+    'Not supported yet, once this passes we can close https://github.com/muhrin/mincepy/issues/17')
+def test_saving_unsaved_meta(historian: mincepy.Historian):
+    child_meta = {'test': 'meta'}
+
+    class Info(mincepy.SimpleSavable):
+        TYPE_ID = uuid.UUID('0d160c5d-b893-44c4-ae9c-545c0bd53df2')
+
+        def __init__(self):
+            super().__init__()
+            self.child = None
+
+        def save_instance_state(self, saver: mincepy.Saver) -> dict:
+            self.child = Car()
+            saver.get_historian().meta.set(self.child, child_meta)
+            return super().save_instance_state(saver)
+
+    info = Info()
+    info.save()
+    assert historian.meta.get(info.child) == child_meta
