@@ -29,7 +29,7 @@ class Base(metaclass=ABCMeta):
     """Common base for loader and saver"""
 
     def __init__(self, historian):
-        self._historian = historian  # type: mincepy.Historian
+        self._historian: 'mincepy.Historian' = historian
 
     @property
     def historian(self) -> 'mincepy.Historian':
@@ -135,8 +135,9 @@ class Loader(Base, metaclass=ABCMeta):
 
             new_obj = helper.new(saved_state)
             if new_obj is None:
-                raise RuntimeError("Helper '{}' failed to create a class given state '{}'".format(
-                    helper.__class__, saved_state))
+                raise RuntimeError(
+                    f"Helper '{helper.__class__}' failed to create a class given state '{saved_state}'"
+                )
 
             if created_callback is not None:
                 created_callback(path, new_obj)
@@ -237,8 +238,8 @@ class LiveDepositor(Saver, Loader):
             # Get the record from the database
             record = self._create_record(archive.objects.get(obj_id))  # DB HIT
             assert not record.is_deleted_record(), \
-                'Found a deleted record in the objects collection ({}), ' \
-                'this should never happen!'.format(record.snapshot_id)
+                f'Found a deleted record in the objects collection ({record.snapshot_id}), ' \
+                f'this should never happen!'
 
             try:
                 obj = historian._live_objects.get_object(obj_id)  # pylint: disable=protected-access
@@ -274,8 +275,8 @@ class LiveDepositor(Saver, Loader):
         try:
             helper = historian.get_helper(type(obj), auto_register=True)
         except ValueError:
-            raise TypeError('Type is incompatible with the historian: {}'.format(
-                type(obj).__name__)) from None
+            raise TypeError(
+                f'Type is incompatible with the historian: {type(obj).__name__}') from None
 
         with historian.in_transaction() as trans:
             # Check if an object is already being saved in the transaction

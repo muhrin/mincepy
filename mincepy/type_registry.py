@@ -127,8 +127,8 @@ class TypeRegistry:
             helper = obj_class_or_helper
         else:
             if not issubclass(obj_class_or_helper, types.Object):
-                raise TypeError("Type '{}' is nether a TypeHelper nor a SavableObject".format(
-                    obj_class_or_helper))
+                raise TypeError(
+                    f"Type '{obj_class_or_helper}' is nether a TypeHelper nor a SavableObject")
             helper = helpers.WrapperHelper(obj_class_or_helper)
 
         self._insert_helper(helper, replace=replace)

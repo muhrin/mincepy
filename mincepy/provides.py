@@ -5,7 +5,7 @@ from . import testing
 
 def get_types():
     """Provide a list of all historian types"""
-    types = list()
+    types = []
     types.extend(common_helpers.HISTORIAN_TYPES)
     types.extend(testing.HISTORIAN_TYPES)
 

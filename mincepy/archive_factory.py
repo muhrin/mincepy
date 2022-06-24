@@ -16,7 +16,7 @@ def create_archive(uri: str, connect_timeout=30000):
     :param connect_timeout: a connection timeout (in milliseconds)
     """
     if uri.startswith('mongodb') or uri.startswith('mongomock'):
-        from . import mongo  # pylint: disable=import-outside-toplevel
+        from . import mongo  # pylint: disable=import-outside-toplevel, cyclic-import
         archive = mongo.connect(uri, timeout=connect_timeout)
     else:
         raise ValueError(f'Unknown archive string: {uri}')

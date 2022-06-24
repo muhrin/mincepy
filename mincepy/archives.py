@@ -69,10 +69,6 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         for the given value.
         """
 
-    def create_file(self, filename: str = None, encoding: str = None):
-        """Create a new file object specific for this archive type"""
-        raise NotImplementedError('This method is now replaced by historian.create_file()')
-
     @abc.abstractmethod
     def save(self, record: DataRecord):
         """Save a data record to the archive"""
@@ -263,6 +259,10 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
 
 class BaseArchive(Archive[IdT]):
+    # This is _still_ an abstract class, pylint is just silly in not recognising that a class only becomes concrete
+    # once _all_ abstract methods are implemented.  See: https://github.com/PyCQA/pylint/issues/179
+    # pylint:disable=abstract-method
+
     ID_TYPE = None  # type: Type[IdT]
 
     @classmethod
@@ -306,8 +306,8 @@ class BaseArchive(Archive[IdT]):
         # Single one
         return self.load(refs[0])
 
-    def construct_archive_id(self, value) -> IdT:  # pylint: disable=no-self-use
-        raise TypeError("Not possible to construct an archive id from '{}'".format(type(value)))
+    def construct_archive_id(self, value) -> IdT:
+        raise TypeError(f"Not possible to construct an archive id from '{type(value)}'")
 
     def add_archive_listener(self, listener: 'ArchiveListener'):
         self._listeners.add(listener)

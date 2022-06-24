@@ -107,7 +107,7 @@ def test_queryable():
     queryable.field = field_name
 
     # Special case for equals which drops the operator
-    assert expr.query_expr(queryable.__eq__(value)) == {field_name: value}
+    assert expr.query_expr(queryable == value) == {field_name: value}
 
     # Check that 'simple' operators (i.e. field <op> value)
     simple_operators = {
@@ -118,7 +118,7 @@ def test_queryable():
         '__le__': '$lte',
     }
     for attr, op in simple_operators.items():
-        query_expr = expr.query_expr(queryable.__getattribute__(attr)(value))
+        query_expr = expr.query_expr(getattr(queryable, attr)(value))
         assert query_expr == {field_name: {op: value}}
 
     # Check operators that take a list of values
@@ -127,7 +127,7 @@ def test_queryable():
         'nin_': '$nin',
     }
     for attr, op in list_operators.items():
-        query_expr = expr.query_expr(queryable.__getattribute__(attr)(*list_value))
+        query_expr = expr.query_expr(getattr(queryable, attr)(*list_value))
         assert query_expr == {field_name: {op: list_value}}
 
     # Test exists
@@ -158,11 +158,11 @@ def test_query_expr():
     assert expr.query_expr({field_name: value}) == {field_name: value}
 
     with pytest.raises(TypeError):
-        expr.query_expr(list())
+        expr.query_expr([])
 
     class FaultyFilterLike(expr.FilterLike):
 
-        def __query_expr__(self) -> dict:  # pylint: disable=no-self-use
+        def __query_expr__(self) -> dict:
             return 'hello'
 
     with pytest.raises(TypeError):

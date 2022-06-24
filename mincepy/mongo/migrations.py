@@ -58,7 +58,7 @@ class CollectionsSplit(migrate.Migration):
         old_data = database[data_collection]
         history = database[history_collection]
 
-        if old_data.find().count() != 0:
+        if old_data.count_documents({}) != 0:
             # Transform the entries to the new history format
             for entry in old_data.find():
                 obj_id = entry['_id']['oid']
@@ -72,7 +72,7 @@ class CollectionsSplit(migrate.Migration):
         old_data.rename('old_data')
         new_data = database[data_collection]
 
-        if history.find().count() != 0:
+        if history.count_documents({}) != 0:
             pipeline = self.pipeline_latest_version(history_collection)
             pipeline.append({'$match': {'state': {'$ne': '!!deleted'}}})
 
@@ -147,7 +147,7 @@ class MergeMeta(migrate.Migration):
     VERSION = 2
     PREVIOUS = CollectionsSplit
 
-    def upgrade(self, database: pymongo.database.Database):  # pylint: disable=no-self-use
+    def upgrade(self, database: pymongo.database.Database):
         data_coll_name = 'data'  # Name of the data collection
         meta_coll_name = 'meta'  # Name of the metadata collection
         meta_field = 'meta'

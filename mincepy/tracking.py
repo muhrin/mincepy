@@ -32,9 +32,8 @@ class TrackStack:
     def pop(cls, obj):
         """Pop an object off of the stack"""
         if cls._stack[-1] != obj:
-            raise RuntimeError('Someone has corrupted the process stack!\n'
-                               "Expected to find '{}' on top but found '{}'".format(
-                                   obj, cls._stack[-1]))
+            raise RuntimeError(f'Someone has corrupted the process stack!\n'
+                               f"Expected to find '{obj}' on top but found '{cls._stack[-1]}'")
 
         cls._stack.pop()
 

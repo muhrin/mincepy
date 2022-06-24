@@ -76,7 +76,7 @@ class Str(collections.UserString, _UserType):
 class Reffer:
     """Mixin for types that want to be able to create references non-primitive types"""
 
-    # pylint: disable=too-few-public-methods, no-self-use
+    # pylint: disable=too-few-public-methods
 
     def _ref(self, obj):
         """Create a reference for a non-primitive, otherwise use the value"""
@@ -183,7 +183,7 @@ class LiveList(collections.abc.MutableSequence, _UserType):
         proxy = self._create_proxy(value)
         self.data.append(proxy)
 
-    def _create_proxy(self, obj):  # pylint: disable=no-self-use
+    def _create_proxy(self, obj):
         return ObjProxy(obj)
 
 
@@ -193,7 +193,7 @@ class LiveRefList(Reffer, LiveList):
 
     @sync()
     def __getitem__(self, item):
-        proxy = self.data[item]  # type: ObjProxy
+        proxy: ObjProxy = self.data[item]
         if self.is_saved():
             proxy.sync()
         ref = proxy()
@@ -201,7 +201,7 @@ class LiveRefList(Reffer, LiveList):
 
     @sync(save=True)
     def __setitem__(self, key, value):
-        proxy = self.data[key]  # type: ObjProxy
+        proxy: ObjProxy = self.data[key]
         proxy.assign(self._ref(value))
 
     def _create_proxy(self, obj):
@@ -297,7 +297,7 @@ class LiveDict(collections.abc.MutableMapping, _UserType):
     def __len__(self):
         return len(self.data)
 
-    def _create_proxy(self, value):  # pylint: disable=no-self-use
+    def _create_proxy(self, value):
         return ObjProxy(value)
 
 
@@ -344,26 +344,26 @@ class SnapshotIdHelper(helpers.TypeHelper):
     TYPE = records.SnapshotId
     TYPE_ID = type_ids.SNAPSHOT_ID_TYPE_ID
 
-    def eq(self, one, other):  # pylint: disable=invalid-name, no-self-use
+    def eq(self, one, other):  # pylint: disable=invalid-name
         if not (isinstance(one, records.SnapshotId) and isinstance(other, records.SnapshotId)):
             return False
 
         return one.obj_id == other.obj_id and one.version == other.version
 
-    def yield_hashables(self, obj, hasher):  # pylint: disable=no-self-use
+    def yield_hashables(self, obj, hasher):
         yield from hasher.yield_hashables(obj.obj_id)
         yield from hasher.yield_hashables(obj.version)
 
-    def save_instance_state(self, obj, _saver):  # pylint: disable=no-self-use
+    def save_instance_state(self, obj, _saver):
         return obj.to_dict()
 
-    def load_instance_state(self, obj, saved_state, _loader):  # pylint: disable=no-self-use
+    def load_instance_state(self, obj, saved_state, _loader):
         if isinstance(saved_state, list):
             # Legacy version
-            obj.__init__(*saved_state)
+            obj.__init__(*saved_state)  # pylint: disable=unnecessary-dunder-call
         else:
             # New version is a dictionary
-            obj.__init__(**saved_state)
+            obj.__init__(**saved_state)  # pylint: disable=unnecessary-dunder-call
 
 
 HISTORIAN_TYPES = (Str, List, RefList, LiveList, LiveRefList, Dict, RefDict, LiveDict, LiveRefDict,

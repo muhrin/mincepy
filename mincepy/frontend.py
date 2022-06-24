@@ -7,12 +7,12 @@ import functools
 import inspect
 from typing import TypeVar, Generic, Iterable, Callable, Any, Iterator, Optional, Union
 
-import mincepy
 from . import archives
 from . import exceptions
 from . import expr
 from . import fields
 from . import records
+from . import types
 
 T = TypeVar('T')  # The type stored by the collection pylint: disable=invalid-name
 
@@ -183,7 +183,7 @@ class EntriesCollection(Generic[T]):
         """Prepare a query filter expression from the passed filter criteria"""
         for entry in expression:
             # Automatically register any types passed in during find (unless that type id is already is use)
-            if inspect.isclass(entry) and issubclass(entry, mincepy.SavableObject):
+            if inspect.isclass(entry) and issubclass(entry, types.SavableObject):
                 self._historian.type_registry.register_type(entry)
 
         query = expr.Query(*expression)

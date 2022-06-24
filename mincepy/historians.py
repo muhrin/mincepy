@@ -58,7 +58,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                             removed_in='0.16.0',
                             current_version=version_mod.__version__,
                             details='Use mincepy.copy() instead')
-    def copy(self, obj):  # pylint: disable=no-self-use
+    def copy(self, obj):
         """Create a shallow copy of the object.  Using this method allows the historian to inject
         information about where the object was copied from into the record if saved."""
         return tracking.copy(obj)
@@ -198,7 +198,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
                 'Cannot save a snapshot object, that would rewrite history!')
 
         if meta and not isinstance(meta, dict):
-            raise TypeError("Metadata must be a dictionary, got type '{}'".format(type(meta)))
+            raise TypeError(f"Metadata must be a dictionary, got type '{type(meta)}'")
 
         # Save the object and metadata
         with self.in_transaction():
@@ -226,7 +226,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
             raise RuntimeError("Can't replace during a transaction for the time being")
 
         if not isinstance(new, type(old)):
-            raise TypeError("Can't replace type '{} with type '{}!".format(type(old), type(new)))
+            raise TypeError(f"Can't replace type '{type(old)} with type '{type(new)}!")
 
         # Get the current record and replace the object with the new one
         record = self._live_objects.get_record(old)
@@ -759,8 +759,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
 
         if conflicting:
             raise exceptions.MergeError(
-                'Cannot merge, the following snapshots have conflicting hashes: {}'.format(
-                    conflicting))
+                f'Cannot merge, the following snapshots have conflicting hashes: {conflicting}')
 
         # Finally, get all the records to merge and create merge operations
         ops = []

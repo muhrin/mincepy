@@ -11,13 +11,15 @@ import pymongo.uri_parser
 import pymongo.database
 import pymongo.errors
 
-import mincepy
-import mincepy.records
+# MincePy imports
 from mincepy import archives
+from mincepy import helpers
 from mincepy import operations
 from mincepy import q
+from mincepy import records
 from mincepy import exceptions
 
+# Local imports
 from . import bulk
 from . import migrate
 from . import migrations
@@ -29,33 +31,33 @@ __all__ = ('MongoArchive', 'connect')
 
 DEFAULT_REFERENCES_COLLECTION = 'references'
 
-scalar_query_spec = mincepy.archives.scalar_query_spec
+scalar_query_spec = archives.scalar_query_spec
 
 
-class ObjectIdHelper(mincepy.TypeHelper):
+class ObjectIdHelper(helpers.TypeHelper):
     TYPE = bson.ObjectId
     TYPE_ID = uuid.UUID('bdde0765-36d2-4f06-bb8b-536a429f32ab')
 
-    def yield_hashables(self, obj, hasher):
+    def yield_hashables(self, obj, hasher):  # pylint: disable=unused-argument
         yield obj.binary
 
-    def eq(self, one, other) -> bool:
-        return one.__eq__(other)
+    def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
+        return one == other
 
     def save_instance_state(self, obj, _depositor):
         return obj
 
     def load_instance_state(self, obj, saved_state, _depositor):
-        return obj.__init__(saved_state)
+        return obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
 
 
-class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
+class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     """MongoDB implementation of the mincepy archive"""
 
     # pylint: disable=too-many-public-methods
 
     ID_TYPE = bson.ObjectId
-    SnapshotId = mincepy.SnapshotId[bson.ObjectId]
+    SnapshotId = records.SnapshotId[bson.ObjectId]
 
     DATA_COLLECTION = 'data'
     HISTORY_COLLECTION = 'history'
@@ -116,12 +118,12 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         self._data_collection.create_index(db.TYPE_ID, unique=False)
         self._data_collection.create_index(db.VERSION, unique=False)
 
-    def create_archive_id(self):  # pylint: disable=no-self-use
+    def create_archive_id(self):
         return bson.ObjectId()
 
-    def construct_archive_id(self, value) -> bson.ObjectId:  # pylint: disable=no-self-use
+    def construct_archive_id(self, value) -> bson.ObjectId:
         if not isinstance(value, str):
-            raise TypeError("Cannot construct an ObjectID from a '{}'".format(type(value)))
+            raise TypeError(f"Cannot construct an ObjectID from a '{type(value)}'")
         try:
             return bson.ObjectId(value)
         except bson.errors.InvalidId as exc:
@@ -150,7 +152,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         except pymongo.errors.BulkWriteError as exc:
             write_errors = exc.details['writeErrors']
             if write_errors and write_errors[0]['code'] == 11000:
-                raise mincepy.DuplicateKeyError(str(exc)) from exc
+                raise exceptions.DuplicateKeyError(str(exc)) from exc
 
             raise  # Otherwise, just raise what we got
 
@@ -159,8 +161,8 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
         self._fire_event(archives.ArchiveListener.on_bulk_write_complete, ops)
 
-    def load(self, snapshot_id: mincepy.SnapshotId) -> mincepy.DataRecord:
-        if not isinstance(snapshot_id, mincepy.SnapshotId):
+    def load(self, snapshot_id: records.SnapshotId) -> records.DataRecord:
+        if not isinstance(snapshot_id, records.SnapshotId):
             raise TypeError(snapshot_id)
 
         results = tuple(
@@ -169,7 +171,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                 db.VERSION: snapshot_id.version
             }))
         if not results:
-            raise mincepy.NotFound(f"Snapshot id '{snapshot_id}' not found")
+            raise exceptions.NotFound(f"Snapshot id '{snapshot_id}' not found")
         return db.to_record(results[0])
 
     def get_snapshot_ids(self, obj_id: bson.ObjectId):
@@ -216,10 +218,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             }},
                                                      upsert=False)
         except pymongo.errors.DuplicateKeyError as exc:
-            raise mincepy.DuplicateKeyError(str(exc))
+            raise exceptions.DuplicateKeyError(str(exc))
         else:
             if found.modified_count == 0:
-                raise mincepy.NotFound(f"No record with object id '{obj_id}' found")
+                raise exceptions.NotFound(f"No record with object id '{obj_id}' found")
 
     def meta_set_many(self, metas: Mapping[bson.ObjectId, Optional[dict]]):
         ops = []
@@ -241,7 +243,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
                     # There should only be one as it is an ordered write
                     error = write_errors[0]
                     if error.get('code') == 11000:
-                        raise mincepy.DuplicateKeyError(error.get('errmsg'))
+                        raise exceptions.DuplicateKeyError(error.get('errmsg'))
             raise
 
     def meta_update(self, obj_id, meta: Mapping):
@@ -249,10 +251,10 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
             to_set = queries.expand_filter(db.META, meta)
             res = self._data_collection.update_one({'_id': obj_id}, {'$set': to_set}, upsert=False)
         except pymongo.errors.DuplicateKeyError as exc:
-            raise mincepy.DuplicateKeyError(str(exc))
+            raise exceptions.DuplicateKeyError(str(exc))
         else:
             if res.matched_count == 0:
-                raise mincepy.NotFound(f"No record with object id '{obj_id}' found")
+                raise exceptions.NotFound(f"No record with object id '{obj_id}' found")
 
     def meta_find(
         self,
@@ -408,7 +410,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     def get_snapshot_ref_graph(self,
                                *snapshot_ids: SnapshotId,
-                               direction=mincepy.OUTGOING,
+                               direction=archives.OUTGOING,
                                max_dist: int = None) -> Iterator[networkx.DiGraph]:
         return self._refman.get_snapshot_ref_graph(snapshot_ids,
                                                    direction=direction,
@@ -416,7 +418,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
 
     def get_obj_ref_graph(self,
                           *obj_ids: bson.ObjectId,
-                          direction=mincepy.OUTGOING,
+                          direction=archives.OUTGOING,
                           max_dist: int = None) -> Iterator[networkx.DiGraph]:
         return self._refman.get_obj_ref_graphs(obj_ids, direction=direction, max_dist=max_dist)
 
@@ -619,7 +621,7 @@ def connect(uri: str, timeout=30000) -> MongoArchive:
         if mocking:
             # Cache, this makes sure that if we get two requests to connect to exactly the same URI then
             # an existing connection will be returned
-            global MOCKED  # pylint: disable=global-statement
+            global MOCKED  # pylint: disable=global-statement, global-variable-not-assigned
             if uri in MOCKED:
                 return MOCKED[uri]
 

@@ -2,7 +2,7 @@
 import pathlib
 import shutil
 import tempfile
-from typing import Optional, BinaryIO
+from typing import Optional, BinaryIO, TextIO, Union
 
 from . import type_ids
 from . import base_savable
@@ -37,12 +37,12 @@ class File(base_savable.SimpleSavable):
     def file_id(self):
         return self._file_id
 
-    def open(self, mode='r', **kwargs) -> BinaryIO:
+    def open(self, mode='r', **kwargs) -> Union[BinaryIO, TextIO]:
         """Open returning a file like object that supports close() and read()"""
         self._ensure_buffer()
         if 'b' not in mode:
             kwargs.setdefault('encoding', self.encoding)
-        return open(self._buffer_file, mode, **kwargs)
+        return open(self._buffer_file, mode, **kwargs)  # pylint: disable=unspecified-encoding
 
     def from_disk(self, path):
         """Copy the contents of a disk file to this file"""
@@ -150,9 +150,9 @@ class File(base_savable.SimpleSavable):
 
 
 def _create_buffer_file():
-    tmp_file = tempfile.NamedTemporaryFile(delete=False)
-    tmp_path = tmp_file.name
-    tmp_file.close()
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp_path = tmp_file.name
+
     return tmp_path
 
 

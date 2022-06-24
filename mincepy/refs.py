@@ -16,7 +16,7 @@ class ObjRef(types.SavableObject):
     IMMUTABLE = True
 
     _obj = None
-    _sid = None  # type: Optional[records.SnapshotId]
+    _sid: Optional[records.SnapshotId] = None
     _loader = None
 
     def __init__(self, obj=None):
@@ -50,8 +50,7 @@ class ObjRef(types.SavableObject):
                 raise RuntimeError('Cannot dereference a None reference')
             # Cache the object
             self._obj = self._loader.load(self._sid)
-            assert self._obj is not None, 'Loader did not load object using SID {}'.format(
-                self._sid)
+            assert self._obj is not None, f'Loader did not load object using SID {self._sid}'
             self._sid = None
             self._loader = None
         elif update:

@@ -61,7 +61,7 @@ def print_records(records: typing.Sequence[mincepy.records.DataRecord], historia
 
     rows = []
     for row in range(len(records)):
-        rows.append([columns[column][row] for column in columns.keys()])
+        rows.append([col[row] for col in columns.values()])
 
     print(
         tabulate(rows,

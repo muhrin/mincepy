@@ -71,7 +71,7 @@ def test_meta_find(historian: mincepy.Historian):
     assert results == {car1id: {'reg': 'car1'}}
 
     # No metadata on car2
-    assert list(archive.meta_find(obj_id=car2.obj_id)) == []
+    assert not list(archive.meta_find(obj_id=car2.obj_id))
 
 
 def test_meta_update_many(historian: mincepy.Historian):
@@ -153,10 +153,10 @@ def test_find_using_iterator(mongodb_archive: mincepy.Archive):
 
     mongodb_archive.save_many([record1, record2])
 
-    results = tuple(mongodb_archive.find(obj_id=[123].__iter__()))
+    results = tuple(mongodb_archive.find(obj_id=iter([123])))
     assert len(results) == 1
 
-    results = tuple(mongodb_archive.find(type_id=[1].__iter__()))
+    results = tuple(mongodb_archive.find(type_id=iter([1])))
     assert len(results) == 1
 
 

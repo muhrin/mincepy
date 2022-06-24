@@ -5,7 +5,7 @@ from typing import Type, Optional, Sequence
 
 import pytray.pretty
 
-import mincepy  # pylint: disable=unused-import, cyclic-import
+from . import depositors
 from . import exceptions
 from . import expr
 from . import fields
@@ -82,7 +82,7 @@ class TypeHelper(fields.WithFields):
         """Save the instance state of an object, should return a saved instance"""
         return saving.save_instance_state(obj, type(self))
 
-    def load_instance_state(self, obj, saved_state, loader: 'mincepy.Loader'):  # pylint: disable=unused-argument
+    def load_instance_state(self, obj, saved_state, loader: depositors.Loader):  # pylint: disable=unused-argument
         """Take the given blank object and load the instance state into it"""
         saving.load_instance_state(obj, saved_state, type(self))
 
@@ -93,12 +93,13 @@ class TypeHelper(fields.WithFields):
 
         version = self.LATEST_MIGRATION.VERSION
         if version is None:
-            raise RuntimeError("Object '{}' has a migration ({}) which has no version "
-                               'number'.format(self.TYPE, self.LATEST_MIGRATION))
+            raise RuntimeError(
+                f"Object '{self.TYPE}' has a migration ({self.LATEST_MIGRATION}) which has no version number"
+            )
 
         return version
 
-    def ensure_up_to_date(self, saved_state, version: Optional[int], loader: 'mincepy.Loader'):
+    def ensure_up_to_date(self, saved_state, version: Optional[int], loader: depositors.Loader):
         """Apply any migrations that are necessary to this saved state.  If no migrations are
         necessary then None is returned"""
         latest_version = None if self.LATEST_MIGRATION is None else self.LATEST_MIGRATION.VERSION
@@ -107,9 +108,8 @@ class TypeHelper(fields.WithFields):
 
         if latest_version is None or (version is not None and latest_version < version):
             raise exceptions.VersionError(
-                "This codebase's version of '{}' is older ({}) than the saved version ({}).  Check "
-                'for updates.'.format(pytray.pretty.type_string(self.TYPE), latest_version,
-                                      version))
+                f"This codebase's version of '{pytray.pretty.type_string(self.TYPE)}' is older "
+                f'({latest_version}) than the saved version ({version}).  Check for updates.')
 
         to_apply = self._get_migrations(version)
         if not to_apply:
@@ -172,7 +172,7 @@ class WrapperHelper(TypeHelper):
         yield from self.TYPE.yield_hashables(obj, hasher)
 
     def eq(self, one, other) -> bool:
-        return self.TYPE.__eq__(one, other)
+        return self.TYPE.__eq__(one, other)  # pylint: disable=unnecessary-dunder-call
 
     def save_instance_state(self, obj: types.Savable, saver):
         return self.TYPE.save_instance_state(obj, saver)

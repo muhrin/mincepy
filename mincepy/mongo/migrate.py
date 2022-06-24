@@ -104,8 +104,8 @@ def ensure_up_to_date(database: pymongo.database.Database, latest: Type[Migratio
     current_version = current.get(VERSION, None)
     if current_version and current_version > latest.VERSION:
         raise MigrationError(
-            'The current database version ({}) is higher than the code version ({}) you may need '
-            'to update your version of the code'.format(current_version, latest.VERSION))
+            f'The current database version ({current_version}) is higher than the code version ({latest.VERSION}) you '
+            f'may need to update your version of the code')
 
     migrator = MigrationManager(latest)
     return migrator.migrate(database)

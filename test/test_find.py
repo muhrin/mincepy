@@ -167,7 +167,7 @@ def test_distinct(historian):
                                                     obj_id=id4)) == {0, 1}
 
     colours = set(historian.records.distinct('state.colour'))
-    assert colours == {'red', 'yellow', 'brown', 'yellow'}
+    assert colours == {'red', 'yellow', 'brown'}
 
 
 def test_find_from_class(historian):

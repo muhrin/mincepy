@@ -3,8 +3,9 @@ import functools
 
 import pymongo
 
-import mincepy
+from mincepy import operations
 from mincepy import q
+
 from . import db
 
 # To prevent 'op' being flagged
@@ -12,14 +13,14 @@ from . import db
 
 
 @functools.singledispatch
-def to_mongo_op(op: mincepy.operations.Operation):
+def to_mongo_op(op: operations.Operation):
     """Convert a mincepy operation to a mongodb one.  Returns a tuple of the data operation and
     history operation that need to be bulk written"""
     raise NotImplementedError
 
 
-@to_mongo_op.register(mincepy.operations.Insert)
-def _(op: mincepy.operations.Insert):
+@to_mongo_op.register(operations.Insert)
+def _(op: operations.Insert):
     """Insert"""
     record = op.record
     document = db.to_document(record)
@@ -45,8 +46,8 @@ def _(op: mincepy.operations.Insert):
     return [data_op], [history_op]
 
 
-@to_mongo_op.register(mincepy.operations.Update)
-def _(op: mincepy.operations.Update):
+@to_mongo_op.register(operations.Update)
+def _(op: operations.Update):
     """Update"""
     sid = op.snapshot_id
     update = db.to_document(op.update)
@@ -63,8 +64,8 @@ def _(op: mincepy.operations.Update):
     return [data_op], [history_op]
 
 
-@to_mongo_op.register(mincepy.operations.Delete)
-def _(op: mincepy.operations.Delete):
+@to_mongo_op.register(operations.Delete)
+def _(op: operations.Delete):
     """Delete"""
     sid = op.snapshot_id
 
@@ -75,8 +76,8 @@ def _(op: mincepy.operations.Delete):
     return [data_op], [history_op]
 
 
-@to_mongo_op.register(mincepy.operations.Merge)
-def _(op: mincepy.operations.Merge):
+@to_mongo_op.register(operations.Merge)
+def _(op: operations.Merge):
     """Merge"""
     record = op.record
     document = db.to_document(record)

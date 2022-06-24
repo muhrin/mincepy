@@ -82,7 +82,7 @@ def migrate(ctx, yes, uri):
             click.echo('No migrations necessary')
             return
 
-        click.echo('Found {} records to migrate'.format(len(records)))
+        click.echo(f'Found {len(records)} records to migrate')
         if yes or click.confirm('Migrate all?'):
             set_print_logging(logging.INFO)
             hist.migrations.migrate_records(records)

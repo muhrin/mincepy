@@ -45,17 +45,15 @@ class FieldProperties:
         self.extras = extras or {}
         self.db_class = None
 
-    def __repr__(self):
-        return 'FieldProperties(attr={}, store_as={}, ref={}, dynamic={}, field_type={}, ' \
-               'default={}, extras={})'.format(
-            repr(self.attr_name),
-            repr(self.store_as),
-            self.ref,
-            self.dynamic,
-            repr(self.field_type),
-            repr(self.default),
-            repr(self.extras)
-        )
+    def __repr__(self) -> str:
+        return f'FieldProperties(' \
+               f'attr={repr(self.attr_name)}, ' \
+               f'store_as={repr(self.store_as)}, ' \
+               f'ref={self.ref}, ' \
+               f'dynamic={self.dynamic}, ' \
+               f'field_type={repr(self.field_type)}, ' \
+               f'default={repr(self.default)}, ' \
+               f'extras={repr(self.extras)})'
 
     def class_created(self, the_class: type, attr: str):
         """Called by the metaclass when the owning class is created, should only be done once"""
@@ -152,8 +150,7 @@ class Field(expr.WithQueryContext, expr.Queryable, property):
         try:
             return obj.__dict__[self._properties.attr_name]
         except KeyError:
-            raise AttributeError("unreadable attribute '{}'".format(
-                self._properties.attr_name)) from None
+            raise AttributeError(f"unreadable attribute '{self._properties.attr_name}'") from None
 
     def _setter(self, obj, value):
         """Default setter"""

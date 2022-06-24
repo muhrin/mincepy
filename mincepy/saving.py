@@ -4,16 +4,17 @@
 from typing import Type, Union
 
 from . import fields
-from . import refs
 
 
 def save_instance_state(obj, db_type: Type[fields.WithFields] = None):
     """Save the instance state of an object.
 
-    Given an object this function takes a DbType specifying the attributes to be saved and will used
+    Given an object this function takes a DbType specifying the attributes to be saved and will use
     these to return a saved sate.  Note, that for regular Savable objects, the db_type is the object
     itself in which case this argument can be omitted.
     """
+    from . import refs  # pylint: disable=cyclic-import
+
     if db_type is None:
         assert issubclass(type(obj), fields.WithFields), \
             "A DbType wasn't passed and obj isn't a DbType instance other"
@@ -38,6 +39,8 @@ def load_instance_state(obj,
                         state: Union[list, dict],
                         db_type: Type[fields.WithFields] = None,
                         ignore_missing=True):
+    from . import refs  # pylint: disable=cyclic-import
+
     if db_type is None:
         assert issubclass(type(obj), fields.WithFields), \
             "A DbType wasn't passed and obj isn't a DbType instance other"
@@ -52,13 +55,11 @@ def load_instance_state(obj,
                 if ignore_missing:
                     value = None
                 else:
-                    raise ValueError("Saved state missing '{}'".format(
-                        properties.store_as)) from None
+                    raise ValueError(f"Saved state missing '{properties.store_as}'") from None
 
             if properties.ref and value is not None:
                 assert isinstance(value, refs.ObjRef), \
-                    'Expected to see a reference in the saved state for key ' \
-                    "'{}' but got '{}'".format(properties.store_as, value)
+                    f"Expected to see a reference in the saved state for key '{properties.store_as}' but got '{value}'"
                 value = value()  # Dereference it
 
             to_set[properties.attr_name] = value

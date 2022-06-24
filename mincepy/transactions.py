@@ -25,7 +25,7 @@ class LiveObjects:
         self._objects = weakref.WeakValueDictionary()  # type: MutableMapping[Any, object]
 
     def __str__(self):
-        return '{} live'.format(len(self._objects))
+        return f'{len(self._objects)} live'
 
     def __contains__(self, item: object):
         """Determine if an object instance is in this live objects container"""
@@ -143,10 +143,10 @@ class Transaction:
         self._metas = {}  # type: Dict[Any, dict]
 
     def __str__(self):
-        return '{}, {} live ref(s), {} snapshots, {} staged'.format(self._live_objects,
-                                                                    len(self._in_progress_cache),
-                                                                    len(self._snapshots),
-                                                                    len(self._staged))
+        return f'{self._live_objects}, ' \
+               f'{len(self._in_progress_cache)} live ref(s), ' \
+               f'{len(self._snapshots)} snapshots, ' \
+               f'{len(self._staged)} staged'
 
     @property
     def live_objects(self) -> LiveObjects:
@@ -187,9 +187,8 @@ class Transaction:
             raise
         else:
             if self._live_objects.get_snapshot_id(obj) != snapshot_id:
-                raise RuntimeError(
-                    "Problem saving object with snapshot id '{}', "
-                    'the snapshot id saved does not match that given'.format(snapshot_id))
+                raise RuntimeError(f"Problem saving object with snapshot id '{snapshot_id}', "
+                                   'the snapshot id saved does not match that given')
         finally:
             del self._in_progress_cache[snapshot_id]
 

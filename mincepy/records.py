@@ -211,10 +211,7 @@ class DataRecord(tuple, fields.WithFields):
     def __str__(self):
         my_dict = self.__dict__
         key_column_width = max(map(len, my_dict.keys()))
-        lines = [
-            '{:<{width}} {}'.format(key, value, width=key_column_width)
-            for key, value in my_dict.items()
-        ]
+        lines = [f'{key:<{key_column_width}} {value}' for key, value in my_dict.items()]
         return '\n'.join(lines)
 
     def _asdict(self):

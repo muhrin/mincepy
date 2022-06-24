@@ -22,8 +22,8 @@ from .types import *
 from .version import *
 from . import builtins
 from . import common_helpers
-from . import history  # pylint: disable=cyclic-import
-from . import mongo
+from . import history
+from . import mongo  # pylint: disable=cyclic-import
 from . import operations
 from . import process
 from . import testing

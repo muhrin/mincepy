@@ -48,7 +48,7 @@ def test_distinct(historian):
     red_porsche = testing.Car('porsche', 'red')
     historian.save(honda, porsche, red_honda, fiat, red_porsche)
 
-    assert set(historian.objects.distinct('state.colour')) == {'green', 'black', 'red', 'green'}
+    assert set(historian.objects.distinct('state.colour')) == {'green', 'black', 'red'}
     # Now using the field
-    assert set(historian.objects.distinct(testing.Car.colour)) == {'green', 'black', 'red', 'green'}
+    assert set(historian.objects.distinct(testing.Car.colour)) == {'green', 'black', 'red'}
     assert len(list(historian.objects.distinct(mincepy.DataRecord.obj_id))) == 5

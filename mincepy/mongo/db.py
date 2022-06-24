@@ -110,8 +110,8 @@ def remap_back(entry_dict: dict) -> dict:
     remapped = {}
     inverse_map = KEY_MAP.inverse
     for key, value in entry_dict.items():
-        if key in inverse_map:
-            remapped[inverse_map[key]] = value
+        if key in inverse_map:  # pylint: disable=unsupported-membership-test
+            remapped[inverse_map[key]] = value  # pylint: disable=unsubscriptable-object
     return remapped
 
 

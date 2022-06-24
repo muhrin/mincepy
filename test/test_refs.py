@@ -105,7 +105,7 @@ def test_ref_load_save_load(historian: mincepy.Historian):
     ref_list = mincepy.List((mincepy.ObjRef(testing.Car()),))
     assert isinstance(ref_list[0](), testing.Car)
 
-    list_id = ref_list.save()
+    list_id = ref_list.save()  # pylint: disable=no-member
     del ref_list
 
     loaded = historian.load(list_id)

@@ -71,7 +71,7 @@ def default_archive_uri() -> Optional[str]:
 def get_historian(create=True) -> Optional[historians.Historian]:
     """Get the currently set global historian.  If one doesn't exist and create is True then this
     call will attempt to create a new default historian using connect()"""
-    global CURRENT_HISTORIAN  # pylint: disable=global-statement
+    global CURRENT_HISTORIAN  # pylint: disable=global-statement, global-variable-not-assigned
     if CURRENT_HISTORIAN is None and create:
         # Try creating a new one, use globally otherwise a new one will be created each time which
         # is unlikely to be what users want

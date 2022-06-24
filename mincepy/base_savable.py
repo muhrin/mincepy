@@ -129,7 +129,8 @@ class ConvenienceMixin:
     def save(self, meta: dict = None):
         """Save the object"""
         if self._historian is None:
-            from . import history
+            # We don't have a historian yet (we haven't been saved), so use the current global one
+            from . import history  # pylint: disable=cyclic-import
             historian = history.get_historian()
         else:
             historian = self._historian

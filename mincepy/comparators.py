@@ -11,16 +11,16 @@ __all__ = ('SimpleHelper', 'BytesEquator')
 
 class SimpleHelper(helpers.TypeHelper):
 
-    def yield_hashables(self, obj, hasher):  # pylint: disable=no-self-use
+    def yield_hashables(self, obj, hasher):
         yield from obj.yield_hashables(hasher)
 
-    def eq(self, one, other) -> bool:  # pylint: disable=no-self-use, invalid-name
+    def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
         return one == other
 
-    def save_instance_state(self, obj, saver):  # pylint: disable=no-self-use
+    def save_instance_state(self, obj, saver):
         return obj.save_instance_state(saver)
 
-    def load_instance_state(self, obj, saved_state, loader):  # pylint: disable=no-self-use
+    def load_instance_state(self, obj, saved_state, loader):
         return obj.load(saved_state, loader)
 
 

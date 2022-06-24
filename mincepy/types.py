@@ -30,7 +30,7 @@ def is_primitive(obj):
 class Savable(fields.WithFields, expr.FilterLike):
     """Interface for an object that can save and load its instance state"""
     TYPE_ID = None
-    LATEST_MIGRATION = None  # type: migrations.ObjectMigration
+    LATEST_MIGRATION: 'migrations.ObjectMigration' = None
 
     def __init__(self, *args, **kwargs):
         assert self.TYPE_ID is not None, 'Must set the TYPE_ID for an object to be savable'
@@ -129,8 +129,7 @@ class Equator:
         for equator in reversed(self._equators):
             if isinstance(obj, equator.TYPE):
                 return equator
-        raise TypeError("Don't know how to compare '{}' types, no type equator set".format(
-            type(obj)))
+        raise TypeError(f"Don't know how to compare '{type(obj)}' types, no type equator set")
 
     def yield_hashables(self, obj):
         try:
@@ -140,8 +139,9 @@ class Equator:
             try:
                 yield from obj.yield_hashables(self)
             except AttributeError:
-                raise TypeError("No helper registered and no yield_hashables method on '{}'".format(
-                    type(obj))) from None
+                raise TypeError(
+                    f"No helper registered and no yield_hashables method on '{type(obj)}'"
+                ) from None
         else:
             yield from equator.yield_hashables(obj, self)
 
@@ -160,7 +160,7 @@ class Equator:
         else:
             return equator.eq(obj1, obj2)
 
-    def float_to_str(self, value, sig=14):  # pylint: disable=no-self-use
+    def float_to_str(self, value, sig=14):
         """
         Convert float to text string for computing hash.
         Preserve up to N significant number given by sig.

@@ -171,6 +171,7 @@ class ReferenceManager:
     def _ensure_current(self, collection_name: str, ids=None):
         """This call ensures that the reference collection is up to date"""
         # Find all the objects that we don't have in the references collection
+        # pylint: disable=unnecessary-lambda-assignment
         if collection_name == 'history':
             collection = self._history_collection
             id_func = lambda schema_entry: str(schema_entry[1])

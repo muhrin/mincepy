@@ -106,8 +106,8 @@ class NamedTupleBuilder(Generic[T]):
     def __setattr__(self, attr, value):
         """Set a key as an attribute."""
         if attr not in super().__getattribute__('_tuple_type')._fields:
-            raise AttributeError("AttributeError: '{}' is not a valid attribute of the object "
-                                 "'{}'".format(attr, self.__class__.__name__))
+            raise AttributeError(f"AttributeError: '{attr}' is not a valid attribute of the object "
+                                 f"'{self.__class__.__name__}'")
 
         self._values[attr] = value
 

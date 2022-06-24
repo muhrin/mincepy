@@ -46,6 +46,8 @@ class Profile(fields.WithFields):
 
 
 def test_field_basics():
+    # pylint: disable=unnecessary-dunder-call
+
     # Can't use full stop in field name
     with pytest.raises(ValueError):
         fields.FieldProperties(store_as='my.field')

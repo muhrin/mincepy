@@ -95,7 +95,7 @@ def test_process_track(historian: mincepy.Historian):
     class TestProc(mincepy.Process):
 
         @mincepy.track
-        def execute(self):  # pylint: disable=no-self-use
+        def execute(self):
             return mincepy.builtins.RefList([testing.Car()])
 
     proc = TestProc('test process')

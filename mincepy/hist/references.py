@@ -31,11 +31,11 @@ class References(Generic[IdT]):
     SnapshotId = records.SnapshotId[IdT]
 
     @overload
-    def references(self, identifier: IdT) -> Set[IdT]:  # pylint: disable=no-self-use
+    def references(self, identifier: IdT) -> Set[IdT]:
         ...
 
     @overload
-    def references(self, identifier: 'SnapshotId') -> 'Set[SnapshotId]':  # pylint: disable=no-self-use
+    def references(self, identifier: 'SnapshotId') -> 'Set[SnapshotId]':
         ...
 
     def references(self, identifier):
@@ -50,11 +50,11 @@ class References(Generic[IdT]):
         return set(edge[1] for edge in graph.edges)
 
     @overload
-    def referenced_by(self, identifier: IdT) -> 'Set[IdT]':  # pylint: disable=no-self-use
+    def referenced_by(self, identifier: IdT) -> 'Set[IdT]':
         ...
 
     @overload
-    def referenced_by(self, identifier: 'SnapshotId') -> 'Set[SnapshotId]':  # pylint: disable=no-self-use
+    def referenced_by(self, identifier: 'SnapshotId') -> 'Set[SnapshotId]':
         ...
 
     def referenced_by(self, identifier):
