@@ -251,7 +251,7 @@ class MongoArchive(mincepy.BaseArchive[bson.ObjectId]):
         except pymongo.errors.DuplicateKeyError as exc:
             raise mincepy.DuplicateKeyError(str(exc))
         else:
-            if res.modified_count == 0:
+            if res.matched_count == 0:
                 raise mincepy.NotFound(f"No record with object id '{obj_id}' found")
 
     def meta_find(
