@@ -48,8 +48,10 @@ def temporary_archive(archive_uri: str) -> Iterator[mincepy.Archive]:
     archive = mincepy.mongo.connect(archive_uri)
     db = archive.database
     client = db.client
-    yield archive
-    client.drop_database(db)
+    try:
+        yield archive
+    finally:
+        client.drop_database(db)
 
 
 @contextlib.contextmanager
