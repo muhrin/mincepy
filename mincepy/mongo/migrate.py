@@ -9,8 +9,8 @@ import pymongo.database
 
 from . import settings
 
-VERSION = 'version'
-MIGRATIONS = 'migrations'
+VERSION = "version"
+MIGRATIONS = "migrations"
 
 
 class MigrationError(RuntimeError):
@@ -36,7 +36,7 @@ class Migration(metaclass=abc.ABCMeta):
             self.NAME = self.__class__.__name__
 
         if self.VERSION is None:
-            raise RuntimeError('Migration version not set')
+            raise RuntimeError("Migration version not set")
 
     @abc.abstractmethod
     def upgrade(self, database: pymongo.database.Database):
@@ -50,7 +50,6 @@ class Migration(metaclass=abc.ABCMeta):
 
 
 class MigrationManager:
-
     def __init__(self, latest: Type[Migration]):
         self.latest = latest
 
@@ -69,7 +68,8 @@ class MigrationManager:
             current = settings.get_settings(database)
             if current[MIGRATIONS][-1] != migrations[0].NAME:
                 raise RuntimeError(
-                    "After applying migrations, latest migration doesn't seem to be applied")
+                    "After applying migrations, latest migration doesn't seem to be applied"
+                )
 
         return len(migrations)
 
@@ -82,8 +82,9 @@ class MigrationManager:
 
         return migrations
 
-    def _get_required_migrations(self,
-                                 database: pymongo.database.Database) -> List[Type[Migration]]:
+    def _get_required_migrations(
+        self, database: pymongo.database.Database
+    ) -> List[Type[Migration]]:
         current = settings.get_settings(database) or {}
         migrations = self.get_migration_sequence()
         # Find out where we're at
@@ -104,8 +105,9 @@ def ensure_up_to_date(database: pymongo.database.Database, latest: Type[Migratio
     current_version = current.get(VERSION, None)
     if current_version and current_version > latest.VERSION:
         raise MigrationError(
-            f'The current database version ({current_version}) is higher than the code version ({latest.VERSION}) you '
-            f'may need to update your version of the code')
+            f"The current database version ({current_version}) is higher than the code version ({latest.VERSION}) you "
+            f"may need to update your version of the code"
+        )
 
     migrator = MigrationManager(latest)
     return migrator.migrate(database)
@@ -118,7 +120,7 @@ def get_version(database) -> Optional[int]:
 
 @contextlib.contextmanager
 def temporary_collection(database: pymongo.database.Database, coll_name=None):
-    coll_name = coll_name or ''.join(random.choices(string.ascii_letters, k=10))
+    coll_name = coll_name or "".join(random.choices(string.ascii_letters, k=10))
     coll = database[coll_name]
     yield coll
     database.drop_collection(coll_name)

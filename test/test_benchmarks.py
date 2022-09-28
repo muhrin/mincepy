@@ -41,21 +41,21 @@ def test_benchmark_insertions_transaction(historian: mincepy.Historian, benchmar
     benchmark(insert_cars, historian, in_transaction=True)
 
 
-@pytest.mark.parametrize('num', [10**i for i in range(5)])
+@pytest.mark.parametrize("num", [10**i for i in range(5)])
 def test_find_cars(historian: mincepy.Historian, benchmark, num):
     """Test finding a car as a function of the number of entries in the database"""
     # Put in the one we want to find
-    historian.save(Car('honda', 'green'))
+    historian.save(Car("honda", "green"))
 
     # Put in the correct number of random other entries
     for _ in range(num):
         historian.save(Car(utils.random_str(10), utils.random_str(5)))
 
-    result = benchmark(find, historian, state=dict(make='honda', colour='green'))
+    result = benchmark(find, historian, state=dict(make="honda", colour="green"))
     assert len(result) == 1
 
 
-@pytest.mark.parametrize('num', [10**i for i in range(5)])
+@pytest.mark.parametrize("num", [10**i for i in range(5)])
 def test_find_many_cars(historian: mincepy.Historian, benchmark, num):
     """Test finding a car as a function of the number of entries in the database"""
     # Put in the correct number of random other entries
@@ -66,7 +66,7 @@ def test_find_many_cars(historian: mincepy.Historian, benchmark, num):
     assert len(result) == num
 
 
-@pytest.mark.parametrize('num', [5**i for i in range(1, 4)])
+@pytest.mark.parametrize("num", [5**i for i in range(1, 4)])
 def test_load_cars(historian: mincepy.Historian, benchmark, num):
     """Test finding a car as a function of the number of entries in the database"""
     # Put in the correct number of random other entries

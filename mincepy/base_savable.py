@@ -7,9 +7,15 @@ from . import depositors
 from . import refs
 from . import types
 
-__all__ = 'BaseSavableObject', 'ConvenienceMixin', 'SimpleSavable', 'AsRef', 'ConvenientSavable'
+__all__ = (
+    "BaseSavableObject",
+    "ConvenienceMixin",
+    "SimpleSavable",
+    "AsRef",
+    "ConvenientSavable",
+)
 
-AttrSpec = collections.namedtuple('AttrSpec', 'name as_ref')
+AttrSpec = collections.namedtuple("AttrSpec", "name as_ref")
 
 
 def AsRef(name: str) -> AttrSpec:  # pylint: disable=invalid-name
@@ -22,15 +28,18 @@ class BaseSavableObject(types.SavableObject):
     attributes which will be saved/loaded/hashed and compared in __eq__.  This should be an
     exhaustive list of all the attributes that define this class.  If more complex functionality
     is needed then the standard SavableComparable interface methods should be overwritten."""
+
     ATTRS = tuple()
-    IGNORE_MISSING = True  # When loading ignore attributes that are missing in the record
+    IGNORE_MISSING = (
+        True  # When loading ignore attributes that are missing in the record
+    )
 
     def __new__(cls, *_args, **_kwargs):
         new_instance = super(BaseSavableObject, cls).__new__(cls)
         attrs = {}
         for entry in cls.mro():
             try:
-                class_attrs = getattr(entry, 'ATTRS')
+                class_attrs = getattr(entry, "ATTRS")
             except AttributeError:
                 pass
             else:
@@ -43,7 +52,7 @@ class BaseSavableObject(types.SavableObject):
                     if attr_spec.name not in attrs:
                         attrs[attr_spec.name] = attr_spec
 
-        setattr(new_instance, '__attrs', attrs.values())
+        setattr(new_instance, "__attrs", attrs.values())
         return new_instance
 
     def __eq__(self, other):
@@ -51,11 +60,15 @@ class BaseSavableObject(types.SavableObject):
             return False
 
         return all(
-            getattr(self, attr.name) == getattr(other, attr.name) for attr in self.__get_attrs())
+            getattr(self, attr.name) == getattr(other, attr.name)
+            for attr in self.__get_attrs()
+        )
 
     def yield_hashables(self, hasher):
         yield from super().yield_hashables(hasher)
-        yield from hasher.yield_hashables([getattr(self, attr.name) for attr in self.__get_attrs()])
+        yield from hasher.yield_hashables(
+            [getattr(self, attr.name) for attr in self.__get_attrs()]
+        )
 
     def save_instance_state(self, saver) -> dict:
         saved_state = super().save_instance_state(saver)
@@ -87,7 +100,7 @@ class BaseSavableObject(types.SavableObject):
                 setattr(self, attr.name, obj)
 
     def __get_attrs(self) -> typing.Sequence[AttrSpec]:
-        return getattr(self, '__attrs')
+        return getattr(self, "__attrs")
 
 
 class ConvenienceMixin:
@@ -108,14 +121,16 @@ class ConvenienceMixin:
     def set_meta(self, meta: Optional[dict]):
         """Set the metadata dictionary for this object"""
         if self._historian is None:
-            raise RuntimeError('Object must be saved before the metadata can be set')
+            raise RuntimeError("Object must be saved before the metadata can be set")
 
         self._historian.meta.set(self, meta)
 
     def update_meta(self, meta: dict):
         """Update the metadata dictionary for this object"""
         if self._historian is None:
-            raise RuntimeError('Object must be saved before the metadata can be updated')
+            raise RuntimeError(
+                "Object must be saved before the metadata can be updated"
+            )
 
         self._historian.meta.update(self, meta)
 
@@ -131,6 +146,7 @@ class ConvenienceMixin:
         if self._historian is None:
             # We don't have a historian yet (we haven't been saved), so use the current global one
             from . import history  # pylint: disable=cyclic-import
+
             historian = history.get_historian()
         else:
             historian = self._historian
@@ -145,7 +161,7 @@ class ConvenienceMixin:
         self._on_save(saver)
         return super().save_instance_state(saver)
 
-    def load_instance_state(self, saved_state, loader: 'depositors.Loader'):
+    def load_instance_state(self, saved_state, loader: "depositors.Loader"):
         """Take the given object and load the instance state into it"""
         super().load_instance_state(saved_state, loader)
         self._on_load(loader)

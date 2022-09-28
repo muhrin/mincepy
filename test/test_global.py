@@ -8,15 +8,15 @@ def test_archive_uri_deprecated(monkeypatch):
     """Test the old, deprecated, version"""
     monkeypatch.delenv(mincepy.ENV_ARCHIVE_URI, raising=False)
     assert mincepy.archive_uri() == mincepy.DEFAULT_ARCHIVE_URI
-    monkeypatch.setenv(mincepy.ENV_ARCHIVE_URI, 'mongodb://example.com')
-    assert mincepy.archive_uri() == 'mongodb://example.com'
+    monkeypatch.setenv(mincepy.ENV_ARCHIVE_URI, "mongodb://example.com")
+    assert mincepy.archive_uri() == "mongodb://example.com"
 
 
 def test_default_archive_uri(monkeypatch):
     monkeypatch.delenv(mincepy.ENV_ARCHIVE_URI, raising=False)
     assert mincepy.default_archive_uri() == mincepy.DEFAULT_ARCHIVE_URI
-    monkeypatch.setenv(mincepy.ENV_ARCHIVE_URI, 'mongodb://example.com')
-    assert mincepy.default_archive_uri() == 'mongodb://example.com'
+    monkeypatch.setenv(mincepy.ENV_ARCHIVE_URI, "mongodb://example.com")
+    assert mincepy.default_archive_uri() == "mongodb://example.com"
 
 
 def test_save_load():

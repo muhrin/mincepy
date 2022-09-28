@@ -15,11 +15,11 @@ import mincepy
 
 logger = logging.getLogger(__name__)
 
-ENV_ARCHIVE_URI = 'MINCEPY_TEST_URI'
-ENV_ARCHIVE_BASE_URI = 'MINCEPY_TEST_BASE_URI'
-DEFAULT_ARCHIVE_URI = 'mongodb://localhost/mincepy-tests'
+ENV_ARCHIVE_URI = "MINCEPY_TEST_URI"
+ENV_ARCHIVE_BASE_URI = "MINCEPY_TEST_BASE_URI"
+DEFAULT_ARCHIVE_URI = "mongodb://localhost/mincepy-tests"
 # DEFAULT_ARCHIVE_URI = 'mongomock://localhost/mincepy-tests'
-DEFAULT_ARCHIVE_BASE_URI = 'mongodb://127.0.0.1'
+DEFAULT_ARCHIVE_BASE_URI = "mongodb://127.0.0.1"
 
 # pylint: disable=redefined-outer-name, invalid-name
 
@@ -30,15 +30,15 @@ def get_base_uri() -> str:
     return os.environ.get(ENV_ARCHIVE_BASE_URI, DEFAULT_ARCHIVE_BASE_URI)
 
 
-def create_archive_uri(base_uri='', db_name=''):
+def create_archive_uri(base_uri="", db_name=""):
     """Get an archive URI based on the current archive base URI plus the passed database name.
 
     If the database name is missing a random one will be used"""
     if not db_name:
         letters = string.ascii_lowercase
-        db_name = 'mincepy-' + ''.join(random.choice(letters) for _ in range(5))
+        db_name = "mincepy-" + "".join(random.choice(letters) for _ in range(5))
     base_uri = base_uri or get_base_uri()
-    return base_uri + '/' + db_name
+    return base_uri + "/" + db_name
 
 
 @contextlib.contextmanager
@@ -55,7 +55,7 @@ def temporary_archive(archive_uri: str) -> Iterator[mincepy.Archive]:
 
 
 @contextlib.contextmanager
-def temporary_historian(archive_uri: str = '') -> Iterator[mincepy.Archive]:
+def temporary_historian(archive_uri: str = "") -> Iterator[mincepy.Archive]:
     """Create a temporary historian.  The associated database will be dropped on exiting the context."""
     with temporary_archive(archive_uri) as archive:
         yield mincepy.Historian(archive)
@@ -92,24 +92,24 @@ except ImportError:
 
 
 class Car(mincepy.ConvenientSavable):
-    TYPE_ID = bson.ObjectId('5e075d6244572f823ed93274')
+    TYPE_ID = bson.ObjectId("5e075d6244572f823ed93274")
     colour = mincepy.field()
     make = mincepy.field()
 
-    def __init__(self, make='ferrari', colour='red'):
+    def __init__(self, make="ferrari", colour="red"):
         super().__init__()
         self.make = make
         self.colour = colour
 
     def __str__(self) -> str:
-        return f'{self.colour} {self.make}'
+        return f"{self.colour} {self.make}"
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({repr(self.make)}, {repr(self.colour)})'
+        return f"{self.__class__.__name__}({repr(self.make)}, {repr(self.colour)})"
 
 
 class Garage(mincepy.ConvenientSavable):
-    TYPE_ID = bson.ObjectId('5e07b40a44572f823ed9327b')
+    TYPE_ID = bson.ObjectId("5e07b40a44572f823ed9327b")
     car = mincepy.field()
 
     def __init__(self, car=None):
@@ -121,11 +121,11 @@ class Garage(mincepy.ConvenientSavable):
         return state
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({repr(self.car)})'
+        return f"{self.__class__.__name__}({repr(self.car)})"
 
 
 class Person(mincepy.ConvenientSavable):
-    TYPE_ID = uuid.UUID('d60ca740-9fa6-4002-83f6-e4c91403e41b')
+    TYPE_ID = uuid.UUID("d60ca740-9fa6-4002-83f6-e4c91403e41b")
     name = mincepy.field()
     age = mincepy.field()
     car = mincepy.field(ref=True)
@@ -137,11 +137,11 @@ class Person(mincepy.ConvenientSavable):
         self.car = car
 
     def __repr__(self):
-        return f'{self.__class__.__name__}({repr(self.name)}, {repr(self.age)},  {repr(self.car)})'
+        return f"{self.__class__.__name__}({repr(self.name)}, {repr(self.age)},  {repr(self.car)})"
 
 
 class Cycle(mincepy.ConvenientSavable):
-    TYPE_ID = uuid.UUID('600fb6ae-684c-4f8e-bed3-47ae06739d29')
+    TYPE_ID = uuid.UUID("600fb6ae-684c-4f8e-bed3-47ae06739d29")
     _ref = mincepy.field()
 
     def __init__(self, ref=None):
@@ -166,8 +166,8 @@ class Cycle(mincepy.ConvenientSavable):
 def populate(historian=None):
     historian = historian or mincepy.get_historian()
 
-    colours = ('red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet')
-    makes = ('honda', 'ferrari', 'zonda', 'fiat')
+    colours = ("red", "orange", "yellow", "green", "blue", "indigo", "violet")
+    makes = ("honda", "ferrari", "zonda", "fiat")
 
     cars = []
 
@@ -191,7 +191,7 @@ def populate(historian=None):
         car.save()
 
     people = mincepy.RefList()
-    for name in ('martin', 'sonia', 'gavin', 'upul', 'martin', 'sebastiaan', 'irene'):
+    for name in ("martin", "sonia", "gavin", "upul", "martin", "sebastiaan", "irene"):
         person = Person(name, random.randint(20, 40))
         historian.save(person)
         people.append(person)

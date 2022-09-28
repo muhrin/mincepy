@@ -11,7 +11,7 @@ from mincepy.testing import Car
 
 
 def test_transaction_snapshots(historian: mincepy.Historian):
-    ferrari = Car('ferrari')
+    ferrari = Car("ferrari")
     historian.save(ferrari)
     ferrari_sid = historian.get_snapshot_id(ferrari)
 
@@ -43,7 +43,7 @@ def test_transaction_snapshots(historian: mincepy.Historian):
 def test_transaction_records(historian: mincepy.Historian):
     """Make sure that records within a transaction are not recreated at each save"""
     with historian.transaction():
-        ferrari = Car('ferrari')
+        ferrari = Car("ferrari")
 
         # Save and get the record for the ferrari
         ferrari_id = historian.save(ferrari)
@@ -58,17 +58,17 @@ def test_transaction_records(historian: mincepy.Historian):
 
 
 def test_find(historian: mincepy.Historian):
-    honda_id = historian.save(Car('honda'))
-    zonda_id = historian.save(Car('zonda'))
-    porsche_id = historian.save(Car('porsche'))
+    honda_id = historian.save(Car("honda"))
+    zonda_id = historian.save(Car("zonda"))
+    porsche_id = historian.save(Car("porsche"))
 
     cars = list(historian.find(Car))
     assert len(cars) == 3
 
     makes = [car.make for car in cars]
-    assert 'honda' in makes
-    assert 'zonda' in makes
-    assert 'porsche' in makes
+    assert "honda" in makes
+    assert "zonda" in makes
+    assert "porsche" in makes
 
     obj_ids = [car.obj_id for car in cars]
     assert honda_id in obj_ids
@@ -80,21 +80,21 @@ def test_sync(historian: mincepy.Historian, archive_uri):
     historian2 = mincepy.connect(archive_uri)
     historian2.register_types(mincepy.testing.HISTORIAN_TYPES)
 
-    car = Car('ferrari', 'red')
+    car = Car("ferrari", "red")
     historian.save_one(car)
 
     # Simulate saving the car from another connection
     same_car = historian2.load(car.obj_id)
-    same_car.make = 'honda'
-    same_car.colour = 'black'
+    same_car.make = "honda"
+    same_car.colour = "black"
     same_car.save()
     honda_record = historian2.get_current_record(same_car)
     del same_car
 
     # Now update and check the state
     historian.sync(car)
-    assert car.make == 'honda'
-    assert car.colour == 'black'
+    assert car.make == "honda"
+    assert car.colour == "black"
 
     # Also, check the cached record
     car_record = historian.get_current_record(car)
@@ -126,12 +126,12 @@ def test_to_obj_id(historian: mincepy.Historian):
     assert historian.to_obj_id(car_id) is car_id
     assert historian.to_obj_id(car) == car_id
     assert historian.to_obj_id(str(car_id)) == car_id
-    assert historian.to_obj_id('carrot') is None
+    assert historian.to_obj_id("carrot") is None
     assert historian.to_obj_id(historian.get_snapshot_id(car)) == car_id
 
 
 def test_copy(historian: mincepy.Historian):
-    car = Car('zonda')
+    car = Car("zonda")
 
     historian.save(car)
     car_copy = mincepy.copy(car)
@@ -147,7 +147,7 @@ def test_copy(historian: mincepy.Historian):
 
 
 def test_copy_unsaved(historian: mincepy.Historian):
-    car = Car('porsche', 'silver')
+    car = Car("porsche", "silver")
     car_copy = mincepy.copy(car)
 
     assert car_copy is not car
@@ -159,18 +159,18 @@ def test_copy_unsaved(historian: mincepy.Historian):
 
 
 def test_save(historian: mincepy.Historian):
-    car = Car('porsche', 'yellow')
+    car = Car("porsche", "yellow")
     with pytest.raises(ValueError):
-        historian.save((car, {'speed': 'fast'}, 124))
+        historian.save((car, {"speed": "fast"}, 124))
 
 
 def test_is_trackable(historian: mincepy.Historian):
     assert historian.is_trackable(mincepy.testing.Car) is True
     assert historian.is_trackable(5) is False
     assert historian.is_trackable(5.6) is False
-    assert historian.is_trackable('hello') is False
+    assert historian.is_trackable("hello") is False
     assert historian.is_trackable(False) is False
-    assert historian.is_trackable(b'byte me') is False
+    assert historian.is_trackable(b"byte me") is False
 
 
 def test_delete_referenced(historian: mincepy.Historian):
@@ -184,7 +184,7 @@ def test_delete_referenced(historian: mincepy.Historian):
     except mincepy.ReferenceError as exc:
         assert exc.references == {car.obj_id}
     else:
-        assert False, 'Reference error should have been raised'
+        assert False, "Reference error should have been raised"
 
     historian.delete(garage)
     # Now safe to delete car
@@ -200,19 +200,28 @@ def test_delete_referenced(historian: mincepy.Historian):
 
 def test_find_arg_types(historian: mincepy.Historian):
     """Test the argument types accepted by the historian find() method"""
-    red_ferrari = testing.Car(colour='red', make='ferrari')
-    green_ferrari = testing.Car(colour='green', make='ferrari')
-    red_honda = testing.Car(colour='red', make='honda')
-    martin = testing.Person(name='martin', age=35, car=red_honda)
+    red_ferrari = testing.Car(colour="red", make="ferrari")
+    green_ferrari = testing.Car(colour="green", make="ferrari")
+    red_honda = testing.Car(colour="red", make="honda")
+    martin = testing.Person(name="martin", age=35, car=red_honda)
 
-    red_ferrari_id, green_ferrari_id, red_honda_id = \
-        historian.save(red_ferrari, green_ferrari, red_honda)
+    red_ferrari_id, green_ferrari_id, red_honda_id = historian.save(
+        red_ferrari, green_ferrari, red_honda
+    )
     martin_id = martin.save()
 
     # Test different possibilities for object ids being passed
     list(historian.find(obj_id=red_ferrari_id))
-    list(historian.find(obj_id=[red_ferrari_id, green_ferrari_id, martin_id, red_honda_id]))
-    list(historian.find(obj_id=(red_ferrari_id, green_ferrari_id, martin_id, red_honda_id)))
+    list(
+        historian.find(
+            obj_id=[red_ferrari_id, green_ferrari_id, martin_id, red_honda_id]
+        )
+    )
+    list(
+        historian.find(
+            obj_id=(red_ferrari_id, green_ferrari_id, martin_id, red_honda_id)
+        )
+    )
     list(historian.find(obj_id=str(red_ferrari_id)))
 
     # Test object types
@@ -228,40 +237,40 @@ def test_concurrent_modification(historian: mincepy.Historian, archive_uri: str)
     historian2 = mincepy.connect(archive_uri, use_globally=False)
     historian2.register_type(Car)
 
-    ferrari = testing.Car(colour='red', make='ferrari')
+    ferrari = testing.Car(colour="red", make="ferrari")
     ferrari_id = historian.save(ferrari)
     ferrari2 = historian2.load(ferrari_id)
 
     assert ferrari_id == ferrari2.obj_id
-    assert ferrari is not ferrari2, \
-        "The archive don't know about each other so the objects instances should not be the same"
+    assert (
+        ferrari is not ferrari2
+    ), "The archive don't know about each other so the objects instances should not be the same"
 
     # Repaint
-    ferrari.colour = 'yellow'
+    ferrari.colour = "yellow"
     historian.save(ferrari)
 
     # Now change ferrari2 and see what happens
-    ferrari2.colour = 'green'
+    ferrari2.colour = "green"
     with pytest.raises(mincepy.ModificationError):
         historian2.save(ferrari2)
 
     # Now, let's sync up
     assert historian2.sync(ferrari2), "ferrari2 hasn't been updated"
-    assert ferrari2.colour == 'yellow'
+    assert ferrari2.colour == "yellow"
 
 
 def test_replace_simple(historian: mincepy.Historian):
-
     def paint_shop(car, colour):
         """An imaginary function that modifies an object but returns a copy rather than an in
         place modification"""
         return Car(car.make, colour)
 
-    honda = Car('honda', 'yellow')
+    honda = Car("honda", "yellow")
     honda_id = historian.save(honda)
 
     # Now paint the honda
-    new_honda = paint_shop(honda, 'green')
+    new_honda = paint_shop(honda, "green")
     assert historian.get_obj_id(honda) == honda_id
 
     # Now we know that this is a 'continuation' of the history of the original honda, so replace
@@ -273,8 +282,8 @@ def test_replace_simple(historian: mincepy.Historian):
     del honda, new_honda
 
     loaded = historian.load(honda_id)
-    assert loaded.make == 'honda'
-    assert loaded.colour == 'green'
+    assert loaded.make == "honda"
+    assert loaded.colour == "green"
 
     with pytest.raises(RuntimeError):
         # Check that we can't replace in a transaction
@@ -283,7 +292,7 @@ def test_replace_simple(historian: mincepy.Historian):
 
 
 def test_snapshots_collection(historian: mincepy.Historian):
-    ferrari = testing.Car(colour='red', make='ferrari')
+    ferrari = testing.Car(colour="red", make="ferrari")
     ferrari_id = ferrari.save()
 
     records = list(historian.snapshots.records.find())
@@ -293,7 +302,7 @@ def test_snapshots_collection(historian: mincepy.Historian):
     assert len(snapshots) == 1
     assert snapshots[0] == ferrari
 
-    ferrari.colour = 'brown'
+    ferrari.colour = "brown"
     ferrari.save()
 
     records = list(historian.snapshots.records.find())
@@ -301,14 +310,18 @@ def test_snapshots_collection(historian: mincepy.Historian):
 
     snapshots = list(historian.snapshots.find())
     assert len(snapshots) == 2
-    assert set(car.colour for car in snapshots) == {'red', 'brown'}
+    assert set(car.colour for car in snapshots) == {"red", "brown"}
 
-    assert historian.snapshots.records.find(Car.colour == 'brown',
-                                            obj_id=ferrari_id).one().version == 1
+    assert (
+        historian.snapshots.records.find(Car.colour == "brown", obj_id=ferrari_id)
+        .one()
+        .version
+        == 1
+    )
 
 
 def test_objects_collection(historian: mincepy.Historian):
-    ferrari = testing.Car(colour='red', make='ferrari')
+    ferrari = testing.Car(colour="red", make="ferrari")
     ferrari_id = ferrari.save()
 
     records = list(historian.objects.records.find())
@@ -318,7 +331,7 @@ def test_objects_collection(historian: mincepy.Historian):
     assert len(objects) == 1
     assert objects[0] is ferrari
 
-    ferrari.colour = 'brown'
+    ferrari.colour = "brown"
     ferrari.save()
 
     records = list(historian.objects.records.find())
@@ -326,10 +339,14 @@ def test_objects_collection(historian: mincepy.Historian):
 
     objects = list(historian.objects.find())
     assert len(objects) == 1
-    assert set(car.colour for car in objects) == {'brown'}
+    assert set(car.colour for car in objects) == {"brown"}
 
-    assert historian.objects.records.find(Car.colour == 'brown',
-                                          obj_id=ferrari_id).one().version == 1
+    assert (
+        historian.objects.records.find(Car.colour == "brown", obj_id=ferrari_id)
+        .one()
+        .version
+        == 1
+    )
 
 
 def test_get_obj_type(historian: mincepy.Historian):
@@ -353,11 +370,12 @@ def test_get_obj_id(historian: mincepy.Historian):
 
 def test_merge(historian: mincepy.Historian):
     with testing.temporary_historian(
-            testing.create_archive_uri(db_name='test_historian')) as remote:
+        testing.create_archive_uri(db_name="test_historian")
+    ) as remote:
         local = historian
         # remote = clean_test_historian
 
-        remote_skoda = testing.Car(make='skoda', colour='green')
+        remote_skoda = testing.Car(make="skoda", colour="green")
         skoda_id = remote.save(remote_skoda)
         assert remote_skoda._historian is remote
 
@@ -366,42 +384,43 @@ def test_merge(historian: mincepy.Historian):
         assert local.find(obj_id=skoda_id).count() == 1
 
         # Now, let's update and see if we can merge
-        remote_skoda.colour = 'yellow'
+        remote_skoda.colour = "yellow"
         remote.save(remote_skoda)
 
         result = local.merge(remote.objects.find(obj_id=skoda_id))
         assert remote.get_snapshot_id(remote_skoda) in result.merged
         assert local.snapshots.find(obj_id=skoda_id).count() == 2
-        assert local.find(obj_id=skoda_id).one().colour == 'yellow'
+        assert local.find(obj_id=skoda_id).one().colour == "yellow"
 
         # Now, change both to the same thing
         local_skoda = local.load(skoda_id)
         assert local_skoda._historian is local
         assert local_skoda is not remote_skoda
 
-        local_skoda.colour = 'blue'
+        local_skoda.colour = "blue"
         local_skoda.save()
 
-        remote_skoda.colour = 'blue'
+        remote_skoda.colour = "blue"
         remote_skoda.save()
         result = local.merge(remote.objects.find(obj_id=skoda_id))
         assert not result.merged  # None should have been transferred
 
         # Now check that conflicts are correctly handled
-        remote_skoda.colour = 'brown'
+        remote_skoda.colour = "brown"
         remote_skoda.save()
-        local_skoda.colour = 'grey'
+        local_skoda.colour = "grey"
         local_skoda.save()
         with pytest.raises(mincepy.MergeError):
             local.merge(remote.objects.find(obj_id=skoda_id))
 
 
 def test_large_merge(
-        historian: mincepy.Historian,
-        large_dataset,  # pylint: disable=unused-argument
+    historian: mincepy.Historian,
+    large_dataset,  # pylint: disable=unused-argument
 ):
     with testing.temporary_historian(
-            testing.create_archive_uri(db_name='test_historian')) as remote:
+        testing.create_archive_uri(db_name="test_historian")
+    ) as remote:
         local = historian
 
         all_objects = local.find()
@@ -415,11 +434,12 @@ def test_large_merge(
 
 def test_merge_file(historian: mincepy.Historian):
     """Test that merging files works correctly"""
-    file = historian.create_file('test.dat')
-    file.write_text('bla bla')
+    file = historian.create_file("test.dat")
+    file.write_text("bla bla")
     file.save()
     with testing.temporary_historian(
-            testing.create_archive_uri(db_name='test_historian')) as remote:
+        testing.create_archive_uri(db_name="test_historian")
+    ) as remote:
         local = historian
         # Merge the file into the remote
         result = remote.merge(local.find(obj_id=file.obj_id))
@@ -432,7 +452,9 @@ def test_merge_file(historian: mincepy.Historian):
         # Now check that files contained within objects are correctly merged
         file_list = mincepy.List((file,))
         file_list.save()  # pylint: disable=no-member
-        result = remote.merge(local.find(obj_id=file_list.obj_id))  # pylint: disable=no-member
+        result = remote.merge(
+            local.find(obj_id=file_list.obj_id)
+        )  # pylint: disable=no-member
         assert len(result.merged) == 1
         assert historian.get_snapshot_id(file_list) in result.merged
 
@@ -446,7 +468,7 @@ def test_primitive_subtypes(historian: mincepy.Historian):
     the database."""
 
     class DictSubclass(dict, mincepy.BaseSavableObject):
-        TYPE_ID = uuid.UUID('67a939ee-4be6-4006-ac77-fd1dbf3b0642')
+        TYPE_ID = uuid.UUID("67a939ee-4be6-4006-ac77-fd1dbf3b0642")
 
     custom_dict = DictSubclass()
     assert not historian.is_primitive(custom_dict)
@@ -459,7 +481,7 @@ def test_purge(historian: mincepy.Historian):
     car_id, _ = historian.save(car, garage)
 
     # Now update the car
-    car.colour = 'blue'
+    car.colour = "blue"
     car.save()
 
     records_count = historian.records.find().count()
@@ -472,7 +494,7 @@ def test_purge(historian: mincepy.Historian):
     assert records_count == historian.records.find().count()
 
     # Now mutate the car, save and purge again
-    car.colour = 'white'
+    car.colour = "white"
     car.save()
 
     # This time, version 1 is unreferenced by anything and so can be safely deleted

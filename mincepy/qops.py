@@ -4,8 +4,20 @@ builtins we append underscores to the function names.  This also makes it safer 
 module as a wildcard import.
 """
 
-__all__ = ('and_', 'or_', 'eq_', 'exists_', 'elem_match_', 'gt_', 'gte_', 'in_', 'lt_', 'lte_',
-           'ne_', 'nin_')
+__all__ = (
+    "and_",
+    "or_",
+    "eq_",
+    "exists_",
+    "elem_match_",
+    "gt_",
+    "gte_",
+    "in_",
+    "lt_",
+    "lte_",
+    "ne_",
+    "nin_",
+)
 
 # region Logical operators
 
@@ -15,7 +27,7 @@ def and_(*conditions) -> dict:
     if len(conditions) == 1:
         return conditions[0]
 
-    return {'$and': list(conditions)}
+    return {"$and": list(conditions)}
 
 
 def or_(*conditions) -> dict:
@@ -23,7 +35,7 @@ def or_(*conditions) -> dict:
     if len(conditions) == 1:
         return conditions[0]
 
-    return {'$or': list(conditions)}
+    return {"$or": list(conditions)}
 
 
 # endregion
@@ -34,7 +46,7 @@ def or_(*conditions) -> dict:
 def exists_(key, value: bool = True) -> dict:
     """Return condition for the existence of a key.  If True, matches if key exists, if False
     matches if it does not."""
-    return {key: {'$exists': value}}
+    return {key: {"$exists": value}}
 
 
 # endregion
@@ -45,7 +57,7 @@ def exists_(key, value: bool = True) -> dict:
 def elem_match_(**conditions) -> dict:
     """Match an element that is an array and has at least one member that matches all the specified
     conditions"""
-    return {'$elemMatch': conditions}
+    return {"$elemMatch": conditions}
 
 
 # endregion
@@ -55,17 +67,17 @@ def elem_match_(**conditions) -> dict:
 
 def eq_(value) -> dict:
     """Helper that produces mongo query dict for two items being equal"""
-    return {'$eq': value}
+    return {"$eq": value}
 
 
 def gt_(quantity) -> dict:
     """Match values greater than quantity"""
-    return {'$gt': quantity}
+    return {"$gt": quantity}
 
 
 def gte_(quantity) -> dict:
     """Match values greater than or equal to quantity"""
-    return {'$gte': quantity}
+    return {"$gte": quantity}
 
 
 def in_(*possibilities) -> dict:
@@ -73,22 +85,22 @@ def in_(*possibilities) -> dict:
     if len(possibilities) == 1:
         return possibilities[0]
 
-    return {'$in': list(possibilities)}
+    return {"$in": list(possibilities)}
 
 
 def lt_(quantity) -> dict:
     """Match values less than quantity"""
-    return {'$lt': quantity}
+    return {"$lt": quantity}
 
 
 def lte_(quantity) -> dict:
     """Match values less than or equal to quantity"""
-    return {'$lte': quantity}
+    return {"$lte": quantity}
 
 
 def ne_(value) -> dict:
     """Match values not equal to to value"""
-    return {'$ne': value}
+    return {"$ne": value}
 
 
 def nin_(*possibilities) -> dict:
@@ -96,7 +108,7 @@ def nin_(*possibilities) -> dict:
     if len(possibilities) == 1:
         return ne_(possibilities[0])
 
-    return {'$nin': list(possibilities)}
+    return {"$nin": list(possibilities)}
 
 
 # endregion

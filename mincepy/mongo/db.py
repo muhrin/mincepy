@@ -12,35 +12,37 @@ import bson
 import mincepy.records
 from mincepy import q
 
-SETTINGS_COLLECTION = 'settings'
-GLOBAL_SETTINGS = 'global'
+SETTINGS_COLLECTION = "settings"
+GLOBAL_SETTINGS = "global"
 
 # region Data collection
-OBJ_ID = 'obj_id'
-VERSION = 'ver'
+OBJ_ID = "obj_id"
+VERSION = "ver"
 TYPE_ID = mincepy.records.TYPE_ID
-CREATION_TIME = 'ctime'
-STATE = 'state'
-STATE_TYPES = 'state_types'
-SNAPSHOT_HASH = 'hash'
-SNAPSHOT_TIME = 'stime'
+CREATION_TIME = "ctime"
+STATE = "state"
+STATE_TYPES = "state_types"
+SNAPSHOT_HASH = "hash"
+SNAPSHOT_TIME = "stime"
 EXTRAS = mincepy.records.EXTRAS
-REFERENCES = 'refs'
-META = 'meta'  # The metadata field
+REFERENCES = "refs"
+META = "meta"  # The metadata field
 
 # Here we map the data record property names onto ones in our entry format.
 # If a record property doesn't appear here it means the name says the same
-KEY_MAP = bidict({
-    mincepy.records.OBJ_ID: OBJ_ID,
-    mincepy.records.TYPE_ID: TYPE_ID,
-    mincepy.records.CREATION_TIME: CREATION_TIME,
-    mincepy.records.VERSION: VERSION,
-    mincepy.records.STATE: STATE,
-    mincepy.records.STATE_TYPES: STATE_TYPES,
-    mincepy.records.SNAPSHOT_HASH: SNAPSHOT_HASH,
-    mincepy.records.SNAPSHOT_TIME: SNAPSHOT_TIME,
-    mincepy.records.EXTRAS: EXTRAS,
-})
+KEY_MAP = bidict(
+    {
+        mincepy.records.OBJ_ID: OBJ_ID,
+        mincepy.records.TYPE_ID: TYPE_ID,
+        mincepy.records.CREATION_TIME: CREATION_TIME,
+        mincepy.records.VERSION: VERSION,
+        mincepy.records.STATE: STATE,
+        mincepy.records.STATE_TYPES: STATE_TYPES,
+        mincepy.records.SNAPSHOT_HASH: SNAPSHOT_HASH,
+        mincepy.records.SNAPSHOT_TIME: SNAPSHOT_TIME,
+        mincepy.records.EXTRAS: EXTRAS,
+    }
+)
 
 # endregion
 
@@ -55,7 +57,12 @@ def to_record(entry) -> mincepy.DataRecord:
     # Invert our mapping of keys back to the data record property names and update over any
     # defaults
     record_dict.update(
-        {recordkey: entry[dbkey] for recordkey, dbkey in KEY_MAP.items() if dbkey in entry})
+        {
+            recordkey: entry[dbkey]
+            for recordkey, dbkey in KEY_MAP.items()
+            if dbkey in entry
+        }
+    )
 
     return mincepy.DataRecord(**record_dict)
 
@@ -117,10 +124,10 @@ def remap_back(entry_dict: dict) -> dict:
 
 def remap_key(key: str) -> str:
     """Given a key remap it to the names that we use, even if it as a path e.g. state.colour"""
-    split_key = key.split('.')
+    split_key = key.split(".")
     base = KEY_MAP[split_key[0]]  # pylint: disable=unsubscriptable-object
     split_key[0] = base
-    return '.'.join(split_key)
+    return ".".join(split_key)
 
 
 def to_id_dict(sid: mincepy.SnapshotId) -> dict:
@@ -132,11 +139,11 @@ def sid_from_dict(record: dict):
 
 
 def sid_from_str(sid_str: str):
-    parts = sid_str.split('#')
+    parts = sid_str.split("#")
     return mincepy.SnapshotId(bson.ObjectId(parts[0]), int(parts[1]))
 
 
-def safe_bulk_delete(collection: pymongo.collection.Collection, ids, id_key='_id'):
+def safe_bulk_delete(collection: pymongo.collection.Collection, ids, id_key="_id"):
     """Sometimes when you want to delete a bunch of documents using an identifier the 'delete document' itself exceeds
     the 16MB Mongo limit.  This function will catch such cases and break up the command into suitably batches"""
     ids = list(set(ids))  # No needs to repeat ourselves

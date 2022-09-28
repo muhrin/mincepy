@@ -8,7 +8,7 @@ from .common import CarV1, CarV2, StoreByValue, StoreByRef
 
 
 def test_find_migratable(historian: mincepy.Historian):
-    car = CarV1('white', 'lada')
+    car = CarV1("white", "lada")
     car_id = car.save()
     by_val = StoreByValue(car)
     by_val_id = by_val.save()
@@ -47,8 +47,8 @@ def test_migrate_with_saved(historian: mincepy.Historian):
             PREVIOUS = StoreByRef.ToRefMigration
 
             @classmethod
-            def upgrade(cls, saved_state, loader: 'mincepy.Loader'):
-                saved_state['description'] = None
+            def upgrade(cls, saved_state, loader: "mincepy.Loader"):
+                saved_state["description"] = None
                 return saved_state
 
         LATEST_MIGRATION = Migration
@@ -71,5 +71,5 @@ def test_migrate_with_saved(historian: mincepy.Historian):
     obj = historian.load(obj_id)
 
     assert isinstance(obj, V3)
-    assert hasattr(obj, 'description')
+    assert hasattr(obj, "description")
     assert obj.description is None

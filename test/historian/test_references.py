@@ -20,7 +20,7 @@ def test_referenced_by_wrong_type(historian: mincepy.Historian):
 def test_references_simple(historian: mincepy.Historian):
     address_book = mincepy.RefList()
     for i in range(3):
-        address_book.append(Person(name='test', age=i))
+        address_book.append(Person(name="test", age=i))
     address_book.save()
 
     refs = historian.references.references(address_book.obj_id)
@@ -103,22 +103,26 @@ def test_add_references_in_transaction(historian: mincepy.Historian):
 def test_snapshot_references(historian: mincepy.Historian):
     address_book = mincepy.RefList()
     for i in range(3):
-        address_book.append(Person(name='test', age=i))
+        address_book.append(Person(name="test", age=i))
     address_book.save()
     sid = historian.get_snapshot_id(address_book)
 
     refs = historian.references.references(sid)
     assert len(refs) == len(address_book)
-    assert not set(historian.get_snapshot_id(person) for person in address_book) - set(refs)
+    assert not set(historian.get_snapshot_id(person) for person in address_book) - set(
+        refs
+    )
 
 
 def test_snapshot_referenced_by(historian: mincepy.Historian):
     address_book = mincepy.RefList()
     for i in range(3):
-        address_book.append(Person(name='test', age=i))
+        address_book.append(Person(name="test", age=i))
     address_book.save()
     sid = historian.get_snapshot_id(address_book)
 
-    refs = historian.references.referenced_by(historian.get_snapshot_id(address_book[0]))
+    refs = historian.references.referenced_by(
+        historian.get_snapshot_id(address_book[0])
+    )
     assert len(refs) == 1
     assert sid in refs

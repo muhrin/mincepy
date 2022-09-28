@@ -6,11 +6,10 @@ import uuid
 
 from . import helpers
 
-__all__ = ('SimpleHelper', 'BytesEquator')
+__all__ = ("SimpleHelper", "BytesEquator")
 
 
 class SimpleHelper(helpers.TypeHelper):
-
     def yield_hashables(self, obj, hasher):
         yield from obj.yield_hashables(hasher)
 
@@ -35,7 +34,7 @@ class StrEquator(SimpleHelper):
     TYPE = str
 
     def yield_hashables(self, obj: str, hasher):
-        yield obj.encode('utf-8')
+        yield obj.encode("utf-8")
 
 
 class SequenceEquator(SimpleHelper):
@@ -58,7 +57,6 @@ class MappingEquator(SimpleHelper):
     TYPE = collections.abc.Mapping
 
     def yield_hashables(self, obj, hasher):
-
         def hashed_key_mapping(mapping):
             for key, value in mapping.items():
                 yield tuple(hasher.yield_hashables(key)), value
@@ -98,21 +96,21 @@ class IntegerEquator(SimpleHelper):
     TYPE = numbers.Integral
 
     def yield_hashables(self, obj: numbers.Integral, hasher):
-        yield from hasher.yield_hashables(f'{obj}')
+        yield from hasher.yield_hashables(f"{obj}")
 
 
 class BoolEquator(SimpleHelper):
     TYPE = bool
 
     def yield_hashables(self, obj, hasher):
-        yield b'\x01' if obj else b'\x00'
+        yield b"\x01" if obj else b"\x00"
 
 
 class NoneEquator(SimpleHelper):
     TYPE = type(None)
 
     def yield_hashables(self, obj, hasher):
-        yield from hasher.yield_hashables('None')
+        yield from hasher.yield_hashables("None")
 
 
 class TupleEquator(SimpleHelper):

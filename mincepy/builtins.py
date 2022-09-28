@@ -15,14 +15,26 @@ from .utils import sync
 from . import types
 from . import type_ids
 
-__all__ = ('List', 'LiveList', 'LiveRefList', 'RefList', 'Str', 'Dict', 'RefDict', 'LiveDict',
-           'LiveRefDict', 'BaseFile', 'File')
+__all__ = (
+    "List",
+    "LiveList",
+    "LiveRefList",
+    "RefList",
+    "Str",
+    "Dict",
+    "RefDict",
+    "LiveDict",
+    "LiveRefDict",
+    "BaseFile",
+    "File",
+)
 
 
 class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
     """Mixin for helping user types to be compatible with the historian.
     These typically have a .data member that stores the actual data (list, dict, str, etc)"""
-    ATTRS = ('data',)
+
+    ATTRS = ("data",)
     data = None  # placeholder
     # This is an optional type for the data member.  See save_instance_state type for information
     # on when it might be useful
@@ -32,18 +44,24 @@ class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
         # This is a convenient way of storing primitive data types directly as the state
         # rather than having to be a 'data' member of a dictionary.  This makes it much
         # easier to search these types
-        if self.DATA_TYPE is not None and \
-                issubclass(self.DATA_TYPE, saver.get_historian().primitives):
-            self._on_save(saver)  # Call this here are we aren't going to call up the hierarchy
+        if self.DATA_TYPE is not None and issubclass(
+            self.DATA_TYPE, saver.get_historian().primitives
+        ):
+            self._on_save(
+                saver
+            )  # Call this here are we aren't going to call up the hierarchy
             return self.data
 
         return super().save_instance_state(saver)
 
     def load_instance_state(self, saved_state, loader):
         # See save_instance_state
-        if self.DATA_TYPE is not None and \
-                issubclass(self.DATA_TYPE, loader.get_historian().primitives):
-            self._on_load(loader)  # Call this here are we aren't going to call up the hierarchy
+        if self.DATA_TYPE is not None and issubclass(
+            self.DATA_TYPE, loader.get_historian().primitives
+        ):
+            self._on_load(
+                loader
+            )  # Call this here are we aren't going to call up the hierarchy
             self.data = saved_state
         else:
             super().load_instance_state(saved_state, loader)
@@ -51,7 +69,8 @@ class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
 
 class ObjProxy(_UserType):
     """A simple proxy for any object/data type which can also be a primitive"""
-    TYPE_ID = uuid.UUID('d43c2db5-1e8c-428f-988f-8b198accde47')
+
+    TYPE_ID = uuid.UUID("d43c2db5-1e8c-428f-988f-8b198accde47")
 
     def __init__(self, data=None):
         super().__init__()
@@ -65,7 +84,7 @@ class ObjProxy(_UserType):
 
 
 class Str(collections.UserString, _UserType):
-    TYPE_ID = uuid.UUID('350f3634-4a6f-4d35-b229-71238ce9727d')
+    TYPE_ID = uuid.UUID("350f3634-4a6f-4d35-b229-71238ce9727d")
     DATA_TYPE = str
 
     def __init__(self, seq):
@@ -101,7 +120,7 @@ class Reffer:
 
 
 class List(collections.UserList, _UserType):
-    TYPE_ID = uuid.UUID('2b033f70-168f-4412-99ea-d1f131e3a25a')
+    TYPE_ID = uuid.UUID("2b033f70-168f-4412-99ea-d1f131e3a25a")
     DATA_TYPE = list
 
     def __init__(self, initlist=None):
@@ -111,7 +130,8 @@ class List(collections.UserList, _UserType):
 
 class RefList(collections.abc.MutableSequence, Reffer, _UserType):
     """A list that stores all entries as references in the database except primitives"""
-    TYPE_ID = uuid.UUID('091efff5-136d-4ac2-bd59-28f50f151263')
+
+    TYPE_ID = uuid.UUID("091efff5-136d-4ac2-bd59-28f50f151263")
     DATA_TYPE = list
 
     def __init__(self, init_list=None):
@@ -143,7 +163,8 @@ class RefList(collections.abc.MutableSequence, Reffer, _UserType):
 
 class LiveList(collections.abc.MutableSequence, _UserType):
     """A list that is always in sync with the database"""
-    TYPE_ID = uuid.UUID('c83e6206-cd29-4fda-bf76-11fce1681cd9')
+
+    TYPE_ID = uuid.UUID("c83e6206-cd29-4fda-bf76-11fce1681cd9")
 
     def __init__(self, init_list=None):
         super().__init__()
@@ -189,7 +210,8 @@ class LiveList(collections.abc.MutableSequence, _UserType):
 
 class LiveRefList(Reffer, LiveList):
     """A live list that uses references to store objects"""
-    TYPE_ID = uuid.UUID('98454806-c587-4fcc-a514-65fdefb0180d')
+
+    TYPE_ID = uuid.UUID("98454806-c587-4fcc-a514-65fdefb0180d")
 
     @sync()
     def __getitem__(self, item):
@@ -214,7 +236,7 @@ class LiveRefList(Reffer, LiveList):
 
 
 class Dict(collections.UserDict, _UserType):
-    TYPE_ID = uuid.UUID('a7584078-95b6-4e00-bb8a-b077852ca510')
+    TYPE_ID = uuid.UUID("a7584078-95b6-4e00-bb8a-b077852ca510")
     DATA_TYPE = dict
 
     def __init__(self, *args, **kwarg):
@@ -224,13 +246,16 @@ class Dict(collections.UserDict, _UserType):
 
 class RefDict(collections.abc.MutableMapping, Reffer, _UserType):
     """A dictionary that stores all values as references in the database."""
-    TYPE_ID = uuid.UUID('c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0')
+
+    TYPE_ID = uuid.UUID("c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0")
     DATA_TYPE = dict
 
     def __init__(self, *args, **kwargs):
         super().__init__()
         initial = dict(*args, **kwargs)
-        self.data = self.DATA_TYPE({key: self._ref(value) for key, value in initial.items()})
+        self.data = self.DATA_TYPE(
+            {key: self._ref(value) for key, value in initial.items()}
+        )
 
     def __str__(self):
         return str(self.data)
@@ -255,13 +280,15 @@ class RefDict(collections.abc.MutableMapping, Reffer, _UserType):
 
 
 class LiveDict(collections.abc.MutableMapping, _UserType):
-    TYPE_ID = uuid.UUID('740cc832-721c-4f85-9628-706257eb55b9')
+    TYPE_ID = uuid.UUID("740cc832-721c-4f85-9628-706257eb55b9")
     DATA_TYPE = RefDict
 
     def __init__(self, *args, **kwargs):
         super().__init__()
         initial = dict(*args, **kwargs)
-        self.data = RefDict({key: self._create_proxy(value) for key, value in initial.items()})
+        self.data = RefDict(
+            {key: self._create_proxy(value) for key, value in initial.items()}
+        )
 
     @sync()
     def __getitem__(self, item):
@@ -303,13 +330,16 @@ class LiveDict(collections.abc.MutableMapping, _UserType):
 
 class LiveRefDict(Reffer, LiveDict):
     """A live dictionary that uses references to refer to contained objects"""
-    TYPE_ID = uuid.UUID('16e7e814-8268-46e0-8d8e-6f34132366b9')
+
+    TYPE_ID = uuid.UUID("16e7e814-8268-46e0-8d8e-6f34132366b9")
 
     def __init__(self, *args, **kwargs):
         super().__init__()
 
         initial = dict(*args, **kwargs)
-        self.data = RefDict({key: self._create_proxy(value) for key, value in initial.items()})
+        self.data = RefDict(
+            {key: self._create_proxy(value) for key, value in initial.items()}
+        )
 
     @sync()
     def __getitem__(self, item):
@@ -341,11 +371,15 @@ class LiveRefDict(Reffer, LiveDict):
 
 class SnapshotIdHelper(helpers.TypeHelper):
     """Add ability to store references"""
+
     TYPE = records.SnapshotId
     TYPE_ID = type_ids.SNAPSHOT_ID_TYPE_ID
 
     def eq(self, one, other):  # pylint: disable=invalid-name
-        if not (isinstance(one, records.SnapshotId) and isinstance(other, records.SnapshotId)):
+        if not (
+            isinstance(one, records.SnapshotId)
+            and isinstance(other, records.SnapshotId)
+        ):
             return False
 
         return one.obj_id == other.obj_id and one.version == other.version
@@ -366,5 +400,16 @@ class SnapshotIdHelper(helpers.TypeHelper):
             obj.__init__(**saved_state)  # pylint: disable=unnecessary-dunder-call
 
 
-HISTORIAN_TYPES = (Str, List, RefList, LiveList, LiveRefList, Dict, RefDict, LiveDict, LiveRefDict,
-                   ObjProxy, File)
+HISTORIAN_TYPES = (
+    Str,
+    List,
+    RefList,
+    LiveList,
+    LiveRefList,
+    Dict,
+    RefDict,
+    LiveDict,
+    LiveRefDict,
+    ObjProxy,
+    File,
+)

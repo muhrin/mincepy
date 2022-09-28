@@ -3,7 +3,7 @@ from typing import List, Iterable, Tuple, Set
 
 from . import records as recordsm
 
-__all__ = 'MergeResult', 'DeleteResult'
+__all__ = "MergeResult", "DeleteResult"
 
 
 class MergeResult:
@@ -11,8 +11,9 @@ class MergeResult:
     `all` contains all of the IDs that were considered in the merge which means not only those that were passed but also
     all those that they reference.
     `merged` contains the ids of all the records that were actually merged (the rest were already present)
-     """
-    __slots__ = 'all', 'merged'
+    """
+
+    __slots__ = "all", "merged"
 
     def __init__(self, all_snapshots=None, merged_snapshots=None):
         self.all = []  # type: List[recordsm.SnapshotId]
@@ -22,7 +23,7 @@ class MergeResult:
         if merged_snapshots:
             self.merged.extend(merged_snapshots)
 
-    def update(self, result: 'MergeResult'):
+    def update(self, result: "MergeResult"):
         self.all.extend(result.all)
         self.merged.extend(result.merged)
 
@@ -30,7 +31,7 @@ class MergeResult:
 class DeleteResult:
     """Information about results from a delete operation."""
 
-    __slots__ = '_deleted', '_not_found', '_files_transferred'
+    __slots__ = "_deleted", "_not_found", "_files_transferred"
 
     def __init__(self, deleted: list, not_found: Iterable = None):
         self._deleted = tuple(deleted)

@@ -1,7 +1,17 @@
 # -*- coding: utf-8 -*-
 import contextlib
 import copy
-from typing import MutableMapping, Any, List, Sequence, Optional, Dict, Set, Union, overload
+from typing import (
+    MutableMapping,
+    Any,
+    List,
+    Sequence,
+    Optional,
+    Dict,
+    Set,
+    Union,
+    overload,
+)
 import weakref
 
 import deprecation
@@ -19,13 +29,16 @@ class LiveObjects:
 
     def __init__(self):
         # Live object -> data records
-        self._records = \
-            utils.WeakObjectIdDict()  # type: MutableMapping[object, archives.DataRecord]
+        self._records = (
+            utils.WeakObjectIdDict()
+        )  # type: MutableMapping[object, archives.DataRecord]
         # Obj id -> (weak) object
-        self._objects = weakref.WeakValueDictionary()  # type: MutableMapping[Any, object]
+        self._objects = (
+            weakref.WeakValueDictionary()
+        )  # type: MutableMapping[Any, object]
 
     def __str__(self):
-        return f'{len(self._objects)} live'
+        return f"{len(self._objects)} live"
 
     def __contains__(self, item: object):
         """Determine if an object instance is in this live objects container"""
@@ -35,7 +48,7 @@ class LiveObjects:
         self._records[obj] = record
         self._objects[record.obj_id] = obj
 
-    def update(self, live_objects: 'LiveObjects'):
+    def update(self, live_objects: "LiveObjects"):
         """Like a dictionary update, take the given live objects container and absorb it into
         ourselves overwriting any existing values and incorporating any new"""
         # pylint: disable=protected-access
@@ -81,7 +94,9 @@ class LiveObjects:
         try:
             return self._objects[identifier]
         except KeyError:
-            raise exceptions.NotFound(f"No live object with id '{identifier}'") from None
+            raise exceptions.NotFound(
+                f"No live object with id '{identifier}'"
+            ) from None
 
     def get_snapshot_id(self, obj) -> records.SnapshotId:
         """Given an object, get the snapshot id"""
@@ -106,24 +121,30 @@ class Transaction:
 
     # pylint: disable=too-many-public-methods
 
-    @deprecation.deprecated(deprecated_in='0.14.4',
-                            removed_in='0.16.0',
-                            current_version=version_mod.__version__,
-                            details='Use get_snapshot_id_for_live_object() instead')
+    @deprecation.deprecated(
+        deprecated_in="0.14.4",
+        removed_in="0.16.0",
+        current_version=version_mod.__version__,
+        details="Use get_snapshot_id_for_live_object() instead",
+    )
     def get_reference_for_live_object(self, obj) -> records.SnapshotId:
         return self.get_snapshot_id_for_live_object(obj)
 
-    @deprecation.deprecated(deprecated_in='0.14.4',
-                            removed_in='0.16.0',
-                            current_version=version_mod.__version__,
-                            details='Use get_live_object_from_snapshot_id() instead')
+    @deprecation.deprecated(
+        deprecated_in="0.14.4",
+        removed_in="0.16.0",
+        current_version=version_mod.__version__,
+        details="Use get_live_object_from_snapshot_id() instead",
+    )
     def get_live_object_from_reference(self, snapshot_id: records.SnapshotId):
         return self.get_live_object(snapshot_id)
 
-    @deprecation.deprecated(deprecated_in='0.14.4',
-                            removed_in='0.16.0',
-                            current_version=version_mod.__version__,
-                            details='Use get_live_object() instead')
+    @deprecation.deprecated(
+        deprecated_in="0.14.4",
+        removed_in="0.16.0",
+        current_version=version_mod.__version__,
+        details="Use get_live_object() instead",
+    )
     def get_live_object_from_snapshot_id(self, snapshot_id: records.SnapshotId):
         return self.get_live_object(snapshot_id)
 
@@ -143,10 +164,12 @@ class Transaction:
         self._metas = {}  # type: Dict[Any, dict]
 
     def __str__(self):
-        return f'{self._live_objects}, ' \
-               f'{len(self._in_progress_cache)} live ref(s), ' \
-               f'{len(self._snapshots)} snapshots, ' \
-               f'{len(self._staged)} staged'
+        return (
+            f"{self._live_objects}, "
+            f"{len(self._in_progress_cache)} live ref(s), "
+            f"{len(self._snapshots)} snapshots, "
+            f"{len(self._staged)} staged"
+        )
 
     @property
     def live_objects(self) -> LiveObjects:
@@ -169,7 +192,9 @@ class Transaction:
     def insert_live_object(self, obj, record: records.DataRecord):
         """Insert a live object along with an up-to-date record into the transaction"""
         if self.is_deleted(record.obj_id):
-            raise ValueError(f"Object with id '{record.obj_id}' has already been deleted!")
+            raise ValueError(
+                f"Object with id '{record.obj_id}' has already been deleted!"
+            )
 
         sid = record.snapshot_id
         if sid in self._in_progress_cache:
@@ -187,8 +212,10 @@ class Transaction:
             raise
         else:
             if self._live_objects.get_snapshot_id(obj) != snapshot_id:
-                raise RuntimeError(f"Problem saving object with snapshot id '{snapshot_id}', "
-                                   'the snapshot id saved does not match that given')
+                raise RuntimeError(
+                    f"Problem saving object with snapshot id '{snapshot_id}', "
+                    "the snapshot id saved does not match that given"
+                )
         finally:
             del self._in_progress_cache[snapshot_id]
 
@@ -266,7 +293,9 @@ class Transaction:
         try:
             return self._snapshots[snapshot_id]
         except KeyError:
-            raise exceptions.NotFound(f"No snapshot with id '{snapshot_id}' found") from None
+            raise exceptions.NotFound(
+                f"No snapshot with id '{snapshot_id}' found"
+            ) from None
 
     def stage(self, op: operations.Operation):  # pylint: disable=invalid-name
         """Stage an operation to be carried out on completion of this transaction"""
@@ -288,7 +317,7 @@ class Transaction:
             # Update our transaction with the nested
             self._update(nested)
 
-    def _update(self, transaction: 'Transaction'):
+    def _update(self, transaction: "Transaction"):
         """Absorb a nested transaction into this one, done at the end of a nested context"""
         # pylint: disable=protected-access
         self._live_objects.update(transaction.live_objects)
@@ -311,13 +340,12 @@ class Transaction:
 
 
 class NestedTransaction(Transaction):
-
     def __init__(self, parent: Transaction):
         super().__init__()
         self._parent = parent
 
     def __str__(self):
-        return f'{super().__str__()} (parent: {self._parent})'
+        return f"{super().__str__()} (parent: {self._parent})"
 
     def get_live_object(self, identifier) -> object:
         try:

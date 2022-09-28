@@ -5,12 +5,12 @@ import uuid
 
 from . import helpers
 
-__all__ = 'PathHelper', 'TupleHelper', 'NamespaceHelper'
+__all__ = "PathHelper", "TupleHelper", "NamespaceHelper"
 
 
 class PathHelper(helpers.BaseHelper):
     TYPE = pathlib.Path
-    TYPE_ID = uuid.UUID('78e5c6b8-f194-41ae-aead-b231953318e1')
+    TYPE_ID = uuid.UUID("78e5c6b8-f194-41ae-aead-b231953318e1")
     IMMUTABLE = True
 
     def yield_hashables(self, obj: pathlib.Path, hasher):
@@ -28,7 +28,7 @@ class PathHelper(helpers.BaseHelper):
 
 class TupleHelper(helpers.BaseHelper):
     TYPE = tuple
-    TYPE_ID = uuid.UUID('fd9d2f50-71d6-4e70-90b7-117f23d9cbaf')
+    TYPE_ID = uuid.UUID("fd9d2f50-71d6-4e70-90b7-117f23d9cbaf")
     IMMUTABLE = True
 
     def save_instance_state(self, obj: tuple, _saver):
@@ -47,7 +47,7 @@ class TupleHelper(helpers.BaseHelper):
 
 class NamespaceHelper(helpers.BaseHelper):
     TYPE = Namespace
-    TYPE_ID = uuid.UUID('c43f8329-0d68-4d12-9a35-af8f5ecc4f90')
+    TYPE_ID = uuid.UUID("c43f8329-0d68-4d12-9a35-af8f5ecc4f90")
 
     def yield_hashables(self, obj, hasher):
         yield from hasher.yield_hashables(vars(obj))

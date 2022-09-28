@@ -16,8 +16,9 @@ def save_instance_state(obj, db_type: Type[fields.WithFields] = None):
     from . import refs  # pylint: disable=cyclic-import
 
     if db_type is None:
-        assert issubclass(type(obj), fields.WithFields), \
-            "A DbType wasn't passed and obj isn't a DbType instance other"
+        assert issubclass(
+            type(obj), fields.WithFields
+        ), "A DbType wasn't passed and obj isn't a DbType instance other"
         db_type = type(obj)
 
     field_properties = fields.get_field_properties(db_type).values()
@@ -35,15 +36,18 @@ def save_instance_state(obj, db_type: Type[fields.WithFields] = None):
     return state
 
 
-def load_instance_state(obj,
-                        state: Union[list, dict],
-                        db_type: Type[fields.WithFields] = None,
-                        ignore_missing=True):
+def load_instance_state(
+    obj,
+    state: Union[list, dict],
+    db_type: Type[fields.WithFields] = None,
+    ignore_missing=True,
+):
     from . import refs  # pylint: disable=cyclic-import
 
     if db_type is None:
-        assert issubclass(type(obj), fields.WithFields), \
-            "A DbType wasn't passed and obj isn't a DbType instance other"
+        assert issubclass(
+            type(obj), fields.WithFields
+        ), "A DbType wasn't passed and obj isn't a DbType instance other"
         db_type = type(obj)
 
     to_set = {}
@@ -55,11 +59,14 @@ def load_instance_state(obj,
                 if ignore_missing:
                     value = None
                 else:
-                    raise ValueError(f"Saved state missing '{properties.store_as}'") from None
+                    raise ValueError(
+                        f"Saved state missing '{properties.store_as}'"
+                    ) from None
 
             if properties.ref and value is not None:
-                assert isinstance(value, refs.ObjRef), \
-                    f"Expected to see a reference in the saved state for key '{properties.store_as}' but got '{value}'"
+                assert isinstance(
+                    value, refs.ObjRef
+                ), f"Expected to see a reference in the saved state for key '{properties.store_as}' but got '{value}'"
                 value = value()  # Dereference it
 
             to_set[properties.attr_name] = value

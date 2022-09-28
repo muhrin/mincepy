@@ -11,9 +11,9 @@ import mincepy.records
 
 
 @click.command()
-@click.option('--obj-type', default=None, help='The type of object to find')
-@click.option('--filter', default=None, help='Filter on the state')
-@click.option('--limit', default=0, help='Limit the number of results')
+@click.option("--obj-type", default=None, help="The type of object to find")
+@click.option("--filter", default=None, help="Filter on the state")
+@click.option("--limit", default=0, help="Limit the number of results")
 def query(obj_type, filter, limit):  # pylint: disable=redefined-builtin
     historian = mincepy.get_historian()
 
@@ -27,13 +27,13 @@ def query(obj_type, filter, limit):  # pylint: disable=redefined-builtin
         gathered.setdefault(result.type_id, []).append(result)
 
     for type_id, records in gathered.items():
-        print(f'type: {type_id}')
+        print(f"type: {type_id}")
         print_records(records, historian)
 
 
-SCALAR_VALUE = '<value>'
-UNSET = ''
-REF = 'ref'
+SCALAR_VALUE = "<value>"
+UNSET = ""
+REF = "ref"
 
 
 def print_records(records: typing.Sequence[mincepy.records.DataRecord], historian):
@@ -42,11 +42,11 @@ def print_records(records: typing.Sequence[mincepy.records.DataRecord], historia
     for record in records:
         try:
             helper = historian.get_helper(record.type_id)
-            type_str = get_type_name(helper.TYPE) + f'#{record.version}'
+            type_str = get_type_name(helper.TYPE) + f"#{record.version}"
         except KeyError:
             type_str = str(record.snapshot_id)
         if record.is_deleted_record():
-            type_str += ' [deleted]'
+            type_str += " [deleted]"
         refs.append(type_str)
     columns[REF] = refs
 
@@ -57,22 +57,28 @@ def print_records(records: typing.Sequence[mincepy.records.DataRecord], historia
 
     for column_name in columns.keys():
         if column_name != REF:
-            columns[column_name] = [get_value(column_name, record.state) for record in records]
+            columns[column_name] = [
+                get_value(column_name, record.state) for record in records
+            ]
 
     rows = []
     for row in range(len(records)):
         rows.append([col[row] for col in columns.values()])
 
     print(
-        tabulate(rows,
-                 headers=[
-                     '.'.join(path) if isinstance(path, tuple) else path for path in columns.keys()
-                 ]))
+        tabulate(
+            rows,
+            headers=[
+                ".".join(path) if isinstance(path, tuple) else path
+                for path in columns.keys()
+            ],
+        )
+    )
 
 
 def get_all_columns(state):
     if isinstance(state, dict):
-        if 'type_id' in state and 'state' in state:
+        if "type_id" in state and "state" in state:
             yield []
         else:
             for key, value in state.items():
@@ -93,8 +99,8 @@ def get_value(title, state):
         idx = title[0]
         value = state[idx]
         # Check for references
-        if isinstance(value, dict) and set(value.keys()) == {'type_id', 'state'}:
-            return str(mincepy.records.SnapshotId(*value['state']))
+        if isinstance(value, dict) and set(value.keys()) == {"type_id", "state"}:
+            return str(mincepy.records.SnapshotId(*value["state"]))
 
         if len(title) > 1:
             return get_value(title[1:], value)
@@ -112,12 +118,12 @@ def get_value(title, state):
 
 def get_type_name(obj_type):
     try:
-        return f'{obj_type.__module__}.{obj_type.__name__}'
+        return f"{obj_type.__module__}.{obj_type.__name__}"
     except AttributeError:
         return str(obj_type)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     client = pymongo.MongoClient()
     db = client.test_database
     mongo_archive = mincepy.mongo.MongoArchive(db)

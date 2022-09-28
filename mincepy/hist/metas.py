@@ -5,7 +5,7 @@ from mincepy import archives
 from mincepy import historians  # pylint: disable=unused-import, cyclic-import
 from mincepy import exceptions
 
-__all__ = ('Meta',)
+__all__ = ("Meta",)
 
 
 class Meta:
@@ -72,7 +72,9 @@ class Meta:
         return self._archive.meta_set(obj_id, meta)
 
     def set_many(self, metas: Mapping[Any, Optional[dict]]):
-        mapped = {self._hist._ensure_obj_id(ident): meta for ident, meta in metas.items()}
+        mapped = {
+            self._hist._ensure_obj_id(ident): meta for ident, meta in metas.items()
+        }
         trans = self._hist.current_transaction()
         if trans:
             for entry in mapped.items():
@@ -103,7 +105,9 @@ class Meta:
             self._archive.meta_update(obj_id, meta)
 
     def update_many(self, metas: Mapping[Any, Optional[dict]]):
-        mapped = {self._hist._ensure_obj_id(ident): meta for ident, meta in metas.items()}
+        mapped = {
+            self._hist._ensure_obj_id(ident): meta for ident, meta in metas.items()
+        }
         trans = self._hist.current_transaction()
         if trans:
             for entry in mapped.items():
@@ -111,16 +115,19 @@ class Meta:
         else:
             self._archive.meta_update_many(mapped)
 
-    def find(self, filter, obj_id=None) -> Iterator[archives.Archive.MetaEntry]:  # pylint: disable=redefined-builtin
+    def find(
+        self, filter, obj_id=None
+    ) -> Iterator[archives.Archive.MetaEntry]:  # pylint: disable=redefined-builtin
         """Find metadata matching the given criteria.  Each returned result is a tuple containing
         the corresponding object id and the metadata dictionary itself"""
         return self._archive.meta_find(filter=filter, obj_id=obj_id)
 
     def distinct(
-            self,
-            key: str,
-            filter: dict = None,  # pylint: disable=redefined-builtin
-            obj_id=None) -> Iterator:
+        self,
+        key: str,
+        filter: dict = None,  # pylint: disable=redefined-builtin
+        obj_id=None,
+    ) -> Iterator:
         """Yield distinct values found for 'key' within metadata documents, optionally matching a
         search filter.
 
@@ -137,10 +144,10 @@ class Meta:
 
     def create_index(self, keys, unique=False, where_exist=False):
         """Create an index on the metadata.  Takes either a single key or list of (key, direction)
-         pairs
+        pairs
 
-         :param keys: the key or keys to create the index on
-         :param unique: if True, create a uniqueness constraint on this index
-         :param where_exist: if True, only apply this index on documents that contain the key(s)
-         """
+        :param keys: the key or keys to create the index on
+        :param unique: if True, create a uniqueness constraint on this index
+        :param where_exist: if True, only apply this index on documents that contain the key(s)
+        """
         self._archive.meta_create_index(keys, unique=unique, where_exist=where_exist)

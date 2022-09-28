@@ -16,11 +16,21 @@ from . import migrations  # pylint: disable=unused-import
 from . import saving
 from . import tracking
 
-__all__ = 'Savable', 'Comparable', 'Object', 'SavableObject', 'PRIMITIVE_TYPES'
+__all__ = "Savable", "Comparable", "Object", "SavableObject", "PRIMITIVE_TYPES"
 
 # The primitives that all archive types must support
-PRIMITIVE_TYPES = (bool, int, float, str, dict, list, type(None), bytes, uuid.UUID,
-                   datetime.datetime)
+PRIMITIVE_TYPES = (
+    bool,
+    int,
+    float,
+    str,
+    dict,
+    list,
+    type(None),
+    bytes,
+    uuid.UUID,
+    datetime.datetime,
+)
 
 
 def is_primitive(obj):
@@ -29,28 +39,35 @@ def is_primitive(obj):
 
 class Savable(fields.WithFields, expr.FilterLike):
     """Interface for an object that can save and load its instance state"""
+
     TYPE_ID = None
-    LATEST_MIGRATION: 'migrations.ObjectMigration' = None
+    LATEST_MIGRATION: "migrations.ObjectMigration" = None
 
     def __init__(self, *args, **kwargs):
-        assert self.TYPE_ID is not None, 'Must set the TYPE_ID for an object to be savable'
+        assert (
+            self.TYPE_ID is not None
+        ), "Must set the TYPE_ID for an object to be savable"
         super().__init__(*args, **kwargs)
 
     @classmethod
     def __expr__(cls):
         """This method gives savables the ability to be used as an expression"""
-        return expr.Comparison('type_id', expr.Eq(cls.TYPE_ID))
+        return expr.Comparison("type_id", expr.Eq(cls.TYPE_ID))
 
     @classmethod
     def __query_expr__(cls) -> dict:
         """This method gives savables the ability to be used in query filter expressions"""
         return cls.__expr__().__query_expr__()
 
-    def save_instance_state(self, saver: depositors.Saver):  # pylint: disable=unused-argument
+    def save_instance_state(
+        self, saver: depositors.Saver
+    ):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
         return saving.save_instance_state(self)
 
-    def load_instance_state(self, saved_state, loader: depositors.Loader):  # pylint: disable=unused-argument
+    def load_instance_state(
+        self, saved_state, loader: depositors.Loader
+    ):  # pylint: disable=unused-argument
         """Take the given object and load the instance state into it"""
         saving.load_instance_state(self, saved_state)
 
@@ -79,8 +96,8 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
     @classmethod
     def init_field(cls, field: fields.Field, attr_name: str):
         super().init_field(field, attr_name)
-        field.set_query_context(expr.Comparison('type_id', expr.Eq(cls.TYPE_ID)))
-        field.path_prefix = 'state'
+        field.set_query_context(expr.Comparison("type_id", expr.Eq(cls.TYPE_ID)))
+        field.path_prefix = "state"
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -99,7 +116,6 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
 
 
 class Equator:
-
     def __init__(self, equators=tuple()):
         self._equators = list(equators)
 
@@ -129,7 +145,9 @@ class Equator:
         for equator in reversed(self._equators):
             if isinstance(obj, equator.TYPE):
                 return equator
-        raise TypeError(f"Don't know how to compare '{type(obj)}' types, no type equator set")
+        raise TypeError(
+            f"Don't know how to compare '{type(obj)}' types, no type equator set"
+        )
 
     def yield_hashables(self, obj):
         try:
@@ -168,7 +186,7 @@ class Equator:
         :param value: the float value to convert
         :param sig: choose how many digits after the comma should be output
         """
-        fmt = f'{{:.{sig}g}}'
+        fmt = f"{{:.{sig}g}}"
         return fmt.format(value)
 
 

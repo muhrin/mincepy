@@ -6,7 +6,7 @@ from typing import Callable
 from . import records
 from . import staging
 
-__all__ = 'track', 'copy', 'deepcopy', 'mark_as_copy'
+__all__ = "track", "copy", "deepcopy", "mark_as_copy"
 
 
 class TrackStack:
@@ -15,7 +15,7 @@ class TrackStack:
     _stack = []
 
     def __init__(self):
-        raise RuntimeError('Cannot be instantiated')
+        raise RuntimeError("Cannot be instantiated")
 
     @classmethod
     def peek(cls):
@@ -32,8 +32,10 @@ class TrackStack:
     def pop(cls, obj):
         """Pop an object off of the stack"""
         if cls._stack[-1] != obj:
-            raise RuntimeError(f'Someone has corrupted the process stack!\n'
-                               f"Expected to find '{obj}' on top but found '{cls._stack[-1]}'")
+            raise RuntimeError(
+                f"Someone has corrupted the process stack!\n"
+                f"Expected to find '{obj}' on top but found '{cls._stack[-1]}'"
+            )
 
         cls._stack.pop()
 
@@ -59,7 +61,9 @@ def track(obj_or_fn):
     be the creator.  Or it can be used as a context in which case the creator should be passed as
     the argument.
     """
-    if isinstance(obj_or_fn, Callable):  # pylint: disable=isinstance-second-argument-not-valid-type
+    if isinstance(
+        obj_or_fn, Callable
+    ):  # pylint: disable=isinstance-second-argument-not-valid-type
         # We're acting as a decorator
         @functools.wraps(obj_or_fn)
         def wrapper(self, *args, **kwargs):

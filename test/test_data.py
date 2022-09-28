@@ -12,14 +12,14 @@ from mincepy.testing import Car, Garage, Cycle
 
 
 def test_basic_save_load(historian: mincepy.Historian):
-    car = Car('nissan', 'white')
+    car = Car("nissan", "white")
 
     car_id = historian.save(car)
     del car
     loaded_car = historian.load(car_id)
 
-    assert loaded_car.make == 'nissan'
-    assert loaded_car.colour == 'white'
+    assert loaded_car.make == "nissan"
+    assert loaded_car.colour == "white"
 
 
 def test_nested_references(historian: mincepy.Historian):
@@ -30,8 +30,8 @@ def test_nested_references(historian: mincepy.Historian):
     garage_id = historian.save(garage)
 
     # Now change the car
-    car.make = 'fiat'
-    car.colour = 'white'
+    car.make = "fiat"
+    car.colour = "white"
 
     historian.save(car)
     # Try loading while the object is still alive
@@ -43,7 +43,7 @@ def test_nested_references(historian: mincepy.Historian):
     del car
     loaded_garage2 = historian.load(garage_id)
     # Should be the last version fo the car
-    assert loaded_garage2.car.make == 'fiat'
+    assert loaded_garage2.car.make == "fiat"
 
     assert len(historian.history(car_id)) == 2
     # The following may seem counter intuitive that we only have one history
@@ -54,13 +54,13 @@ def test_nested_references(historian: mincepy.Historian):
 
 
 def test_create_delete_load(historian: mincepy.Historian):
-    car = Car('honda', 'red')
+    car = Car("honda", "red")
     car_id = historian.save(car)
     del car
 
     loaded_car = historian.load(car_id)
-    assert loaded_car.make == 'honda'
-    assert loaded_car.colour == 'red'
+    assert loaded_car.make == "honda"
+    assert loaded_car.colour == "red"
 
 
 # def test_save_as(historian: mincepy.Historian):
@@ -84,9 +84,8 @@ def test_create_delete_load(historian: mincepy.Historian):
 
 
 def test_storing_internal_object(historian: mincepy.Historian):
-
     class Person(mincepy.SavableObject):
-        TYPE_ID = uuid.UUID('f6f83595-6375-4bc4-89f2-d8f31a1286b0')
+        TYPE_ID = uuid.UUID("f6f83595-6375-4bc4-89f2-d8f31a1286b0")
 
         def __init__(self, car):
             super().__init__()
@@ -99,19 +98,19 @@ def test_storing_internal_object(historian: mincepy.Historian):
             yield from hasher.yield_hashables(self.car)
 
         def save_instance_state(self, _depositor):
-            return {'car': self.car}
+            return {"car": self.car}
 
         def load_instance_state(self, saved_state, _depositor):
-            self.car = saved_state['car']
+            self.car = saved_state["car"]
 
-    ferrari = Car('ferrari')
+    ferrari = Car("ferrari")
     mike = Person(ferrari)
 
     mike_id = historian.save(mike)
     del mike
 
     loaded_mike = historian.load(mike_id)
-    assert loaded_mike.car.make == 'ferrari'
+    assert loaded_mike.car.make == "ferrari"
 
     # Default is to save by value so two cars should not be the same
     assert loaded_mike.car is not ferrari
@@ -155,7 +154,7 @@ def test_cyclic_ref_complex(historian: mincepy.Historian):
 
 
 def test_transaction_rollback(historian: mincepy.Historian):
-    ferrari = Car('ferrari')
+    ferrari = Car("ferrari")
     with historian.transaction() as trans:
         # Within the transaction should be able to save and load
         ferrari_id = historian.save(ferrari)
@@ -172,7 +171,7 @@ def test_transaction_rollback(historian: mincepy.Historian):
 
 
 def test_replace_invalid(historian: mincepy.Historian):
-    honda = Car('honda', 'yellow')
+    honda = Car("honda", "yellow")
     historian.save(honda)
     with pytest.raises(TypeError):
         historian.replace(honda, Garage())
@@ -188,14 +187,16 @@ def test_user_info(historian: mincepy.Historian):
     record = historian.get_current_record(car)
 
     assert record.extras[mincepy.ExtraKeys.USER] == user_info[mincepy.ExtraKeys.USER]
-    assert record.extras[mincepy.ExtraKeys.HOSTNAME] == user_info[mincepy.ExtraKeys.HOSTNAME]
+    assert (
+        record.extras[mincepy.ExtraKeys.HOSTNAME]
+        == user_info[mincepy.ExtraKeys.HOSTNAME]
+    )
 
 
 def test_save_as_ref(historian: mincepy.Historian):
-
     class Person(mincepy.SimpleSavable):
-        TYPE_ID = uuid.UUID('692429b6-a08b-489a-aa09-6eb3174b6405')
-        ATTRS = (mincepy.AsRef('car'),)  # Save the car by reference
+        TYPE_ID = uuid.UUID("692429b6-a08b-489a-aa09-6eb3174b6405")
+        ATTRS = (mincepy.AsRef("car"),)  # Save the car by reference
 
         def __init__(self, car):
             super().__init__()
@@ -214,20 +215,19 @@ def test_save_as_ref(historian: mincepy.Historian):
 
 
 def test_encode_nested(historian: mincepy.Historian):
-
     class CarDelegate(mincepy.SimpleSavable):
-        TYPE_ID = uuid.UUID('c0148a43-c0c0-4d2b-9262-ed1c8c6ab2fc')
-        ATTRS = ('car',)
+        TYPE_ID = uuid.UUID("c0148a43-c0c0-4d2b-9262-ed1c8c6ab2fc")
+        ATTRS = ("car",)
 
         def __init__(self, car):
             super().__init__()
             self.car = car
 
         def save_instance_state(self, saver):
-            return {'car': self.car}
+            return {"car": self.car}
 
         def load_instance_state(self, saved_state, _loader):
-            self.car = saved_state['car']
+            self.car = saved_state["car"]
 
     historian.register_type(CarDelegate)
 

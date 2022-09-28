@@ -9,15 +9,16 @@ from . import base_savable
 from . import tracking
 from . import version
 
-__all__ = ('Process',)
+__all__ = ("Process",)
 
 
-@deprecation.deprecated(deprecated_in='0.14.5',
-                        removed_in='0.16',
-                        current_version=version.__version__,
-                        details='Use mincepy.track() instead')
+@deprecation.deprecated(
+    deprecated_in="0.14.5",
+    removed_in="0.16",
+    current_version=version.__version__,
+    details="Use mincepy.track() instead",
+)
 def track(func):
-
     @functools.wraps(func)
     def wrapper(self, *args, **kwargs):
         with self.running():
@@ -27,9 +28,9 @@ def track(func):
 
 
 class Process(base_savable.SimpleSavable):
-    TYPE_ID = uuid.UUID('bcf03171-a1f1-49c7-b890-b7f9d9f9e5a2')
+    TYPE_ID = uuid.UUID("bcf03171-a1f1-49c7-b890-b7f9d9f9e5a2")
     STACK = []
-    ATTRS = '_name', '_running'
+    ATTRS = "_name", "_running"
 
     def __init__(self, name: str):
         super().__init__()

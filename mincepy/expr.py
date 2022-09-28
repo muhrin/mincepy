@@ -4,9 +4,33 @@ import abc
 import copy
 from typing import Union, List, Iterable
 
-__all__ = ('Expr', 'WithListOperand', 'Empty', 'Operator', 'Eq', 'Gt', 'Gte', 'In', 'Lt', 'Lte',
-           'Ne', 'Nin', 'Comparison', 'Logical', 'And', 'Not', 'Or', 'Nor', 'Exists', 'Queryable',
-           'WithQueryContext', 'query_expr', 'field_name', 'build_expr', 'Query')
+__all__ = (
+    "Expr",
+    "WithListOperand",
+    "Empty",
+    "Operator",
+    "Eq",
+    "Gt",
+    "Gte",
+    "In",
+    "Lt",
+    "Lte",
+    "Ne",
+    "Nin",
+    "Comparison",
+    "Logical",
+    "And",
+    "Not",
+    "Or",
+    "Nor",
+    "Exists",
+    "Queryable",
+    "WithQueryContext",
+    "query_expr",
+    "field_name",
+    "build_expr",
+    "Query",
+)
 
 import bson.regex
 
@@ -27,18 +51,19 @@ FilterSpec = Union[dict, FilterLike]
 class Expr(FilterLike, metaclass=abc.ABCMeta):
     """The base class for query expressions.  Expressions are tuples containing an operator or a
     field as a first part and a value or expression as second"""
+
     __slots__ = ()
 
     def dict(self):
         """Return the query dictionary for this expression"""
         return self.__query_expr__()
 
-    def __and__(self, other: 'Expr') -> 'And':
+    def __and__(self, other: "Expr") -> "And":
         if not isinstance(other, Expr):
             raise TypeError(f"Expected Expr got '{other}'")
         return And([self, other])
 
-    def __or__(self, other: 'Expr') -> 'Or':
+    def __or__(self, other: "Expr") -> "Or":
         if not isinstance(other, Expr):
             raise TypeError(f"Expected Expr got '{other}'")
         return Or([self, other])
@@ -51,10 +76,12 @@ class WithListOperand(FilterLike):
 
     def __init__(self, operand: List[Expr]):
         if not isinstance(operand, list):
-            raise TypeError(f'Expected a list, got {type(operand).__name__}')
+            raise TypeError(f"Expected a list, got {type(operand).__name__}")
         for entry in operand:
             if not isinstance(entry, Expr):
-                raise TypeError(f'Expected a list of Expr, found {type(entry).__name__}')
+                raise TypeError(
+                    f"Expected a list of Expr, found {type(entry).__name__}"
+                )
         self.operand = operand
 
     def __query_expr__(self) -> dict:
@@ -84,7 +111,7 @@ class SimpleOperator(Operator):
     Consists of an operator applied to an operand which is to be matched
     """
 
-    __slots__ = ('value',)
+    __slots__ = ("value",)
     oper = None  # type: str
 
     def __init__(self, value):
@@ -96,58 +123,63 @@ class SimpleOperator(Operator):
 
 class Eq(SimpleOperator):
     __slots__ = ()
-    oper = '$eq'
+    oper = "$eq"
 
 
 class Gt(SimpleOperator):
     __slots__ = ()
-    oper = '$gt'
+    oper = "$gt"
 
 
 class Gte(SimpleOperator):
     __slots__ = ()
-    oper = '$gte'
+    oper = "$gte"
 
 
 class In(SimpleOperator):
     __slots__ = ()
-    oper = '$in'
+    oper = "$in"
 
 
 class Lt(SimpleOperator):
     __slots__ = ()
-    oper = '$lt'
+    oper = "$lt"
 
 
 class Lte(SimpleOperator):
     __slots__ = ()
-    oper = '$lte'
+    oper = "$lte"
 
 
 class Ne(SimpleOperator):
     __slots__ = ()
-    oper = '$ne'
+    oper = "$ne"
 
 
 class Nin(SimpleOperator):
     __slots__ = ()
-    oper = '$nin'
+    oper = "$nin"
 
 
-COMPARISON_OPERATORS = {oper_type.oper: oper_type for oper_type in SimpleOperator.__subclasses__()}
+COMPARISON_OPERATORS = {
+    oper_type.oper: oper_type for oper_type in SimpleOperator.__subclasses__()
+}
 
 
 class Comparison(Expr):
     """A comparison expression consists of a field and an operator expression e.g. name == 'frank'
     where name is the field, the operator is ==, and the value is 'frank'
     """
-    __slots__ = 'field', 'expr'
+
+    __slots__ = "field", "expr"
 
     def __init__(self, field, expr: Operator):
         if field is None:
-            raise ValueError('field cannot be None')
+            raise ValueError("field cannot be None")
         if not isinstance(expr, Operator):
-            raise TypeError(f"Expected an operator expression, got '{type(expr).__name__}'")
+            raise TypeError(
+                f"Expected an operator expression, got '{type(expr).__name__}'"
+            )
 
         self.field = field
         self.expr = expr
@@ -169,7 +201,7 @@ class Logical(Expr):
     """A comparison operation.  Consists of an operator applied to an operand which is matched in a
     particular way"""
 
-    __slots__ = ('operand',)
+    __slots__ = ("operand",)
     oper = None  # type: str
 
     def __init__(self, operand: Expr):
@@ -183,9 +215,9 @@ class Logical(Expr):
 
 class And(WithListOperand, Logical):
     __slots__ = ()
-    oper = '$and'
+    oper = "$and"
 
-    def __and__(self, other: 'Expr') -> 'And':
+    def __and__(self, other: "Expr") -> "And":
         if isinstance(other, And):
             # Economise on Ands and fuse them here
             return And([*self.operand, *other.operand])
@@ -195,14 +227,14 @@ class And(WithListOperand, Logical):
 
 class Not(Logical):
     __slots__ = ()
-    oper = '$not'
+    oper = "$not"
 
 
 class Or(WithListOperand, Logical):
     __slots__ = ()
-    oper = '$or'
+    oper = "$or"
 
-    def __or__(self, other: 'Expr') -> 'Or':
+    def __or__(self, other: "Expr") -> "Or":
         if isinstance(other, Or):
             # Economise on Ors and fuse them here
             return Or([*self.operand, *other.operand])
@@ -212,7 +244,7 @@ class Or(WithListOperand, Logical):
 
 class Nor(WithListOperand, Logical):
     __slots__ = ()
-    oper = '$nor'
+    oper = "$nor"
 
 
 # endregion
@@ -222,11 +254,11 @@ class Nor(WithListOperand, Logical):
 
 class Exists(SimpleOperator):
     __slots__ = ()
-    oper = '$exists'
+    oper = "$exists"
 
     def __init__(self, value: bool):
         if not isinstance(value, bool):
-            raise ValueError('Exists can only be True or False')
+            raise ValueError("Exists can only be True or False")
         super().__init__(value)
 
 
@@ -236,20 +268,20 @@ class Exists(SimpleOperator):
 
 
 class Regex(Operator):
-    __slots__ = 'pattern', 'options'
-    oper = '$regex'
+    __slots__ = "pattern", "options"
+    oper = "$regex"
 
     def __init__(self, pattern: Union[str, bson.regex.Regex], options: str = None):
         if not isinstance(pattern, (str, bson.regex.Regex)):
-            raise ValueError('Must supply regex string or bson Regex object')
+            raise ValueError("Must supply regex string or bson Regex object")
         self.pattern = pattern
         self.options = options
 
     def __query_expr__(self) -> dict:
         """Construct the regex expression"""
-        expr = {'$regex': self.pattern}
+        expr = {"$regex": self.pattern}
         if self.options:
-            expr['$options'] = self.options
+            expr["$options"] = self.options
 
         return expr
 
@@ -293,7 +325,7 @@ class Queryable(metaclass=abc.ABCMeta):
         return Comparison(self.get_path(), Regex(pattern, options))
 
     def starts_with_(self, pattern, options: str = None) -> Expr:
-        return self.regex_(f'^{pattern}', options)
+        return self.regex_(f"^{pattern}", options)
 
     @abc.abstractmethod
     def get_path(self) -> str:
@@ -303,6 +335,7 @@ class Queryable(metaclass=abc.ABCMeta):
 class WithQueryContext:
     """A mixin for Queryable objects that allows a context to be added which is always 'anded' with
     the resulting query condition for any operator"""
+
     _query_context = None
 
     # pylint: disable=no-member
@@ -356,13 +389,15 @@ def query_expr(filter: FilterLike) -> dict:  # pylint: disable=redefined-builtin
     try:
         query_repr = filter.__query_expr__()
     except AttributeError:
-        raise TypeError('expected dict or object with __query_expr__, not ' + str(filter)) from None
+        raise TypeError(
+            "expected dict or object with __query_expr__, not " + str(filter)
+        ) from None
 
     if isinstance(query_repr, dict):
         return query_repr
 
     raise TypeError(
-        f'expected {type(filter).__name__}.__query_expr__() to return dict, not {type(query_repr).__name__}'
+        f"expected {type(filter).__name__}.__query_expr__() to return dict, not {type(query_repr).__name__}"
     )
 
 
@@ -373,17 +408,19 @@ def field_name(field) -> str:
     try:
         name = field.__field_name__()
     except AttributeError:
-        raise TypeError(f'expected str or object with __field__name__, not {field}') from None
+        raise TypeError(
+            f"expected str or object with __field__name__, not {field}"
+        ) from None
 
     if isinstance(name, str):
         return name
 
     raise TypeError(
-        f'expected {type(field).__name__}.__field_name__() to return str, not {type(name).__name__}'
+        f"expected {type(field).__name__}.__field_name__() to return str, not {type(name).__name__}"
     )
 
 
-def build_expr(item) -> Expr:
+def build_expr(item) -> Expr:  # noqa: C901
     """Expression factory"""
     # pylint: disable=too-many-branches, too-many-return-statements
 
@@ -402,10 +439,10 @@ def build_expr(item) -> Expr:
 
     if isinstance(item, tuple):
         if len(item) != 2:
-            raise ValueError(f'Expecting tuple of length two, instead got {item}')
+            raise ValueError(f"Expecting tuple of length two, instead got {item}")
 
         first, second = item
-        if first.startswith('$'):
+        if first.startswith("$"):
             # Comparison operators
             try:
                 oper = COMPARISON_OPERATORS[first]
@@ -415,16 +452,16 @@ def build_expr(item) -> Expr:
                 return oper(second)
 
             # Logical operators
-            if first == '$and':
+            if first == "$and":
                 return And(list(map(build_expr, second)))
-            if first == '$not':
+            if first == "$not":
                 return Not(build_expr(second))
-            if first == '$nor':
+            if first == "$nor":
                 return Nor(list(map(build_expr, second)))
-            if first == '$or':
+            if first == "$or":
                 return Or(list(map(build_expr, second)))
             # Element query
-            if first == '$exists':
+            if first == "$exists":
                 return Exists(second)
 
             raise ValueError(f"Unknown operator '{item}'")
@@ -441,14 +478,17 @@ def build_expr(item) -> Expr:
     try:
         return item.__expr__()
     except AttributeError:
-        raise TypeError('expected dict or object with __expr__, not ' +
-                        type(item).__name__) from None
+        raise TypeError(
+            "expected dict or object with __expr__, not " + type(item).__name__
+        ) from None
 
 
 class Query:
-    __slots__ = '_filter_expressions', 'limit', 'sort', 'skip'
+    __slots__ = "_filter_expressions", "limit", "sort", "skip"
 
-    def __init__(self, *expr: Expr, limit: int = None, sort: dict = None, skip: int = None):
+    def __init__(
+        self, *expr: Expr, limit: int = None, sort: dict = None, skip: int = None
+    ):
         self._filter_expressions = []  # type: List[Expr]
         self.extend(expr)
         self.limit = limit
@@ -458,15 +498,19 @@ class Query:
     def __str__(self) -> str:
         return str(self.__dict__)
 
-    def copy(self) -> 'Query':
-        return Query(*copy.copy(self._filter_expressions),
-                     limit=self.limit,
-                     sort=self.sort,
-                     skip=self.skip)
+    def copy(self) -> "Query":
+        return Query(
+            *copy.copy(self._filter_expressions),
+            limit=self.limit,
+            sort=self.sort,
+            skip=self.skip,
+        )
 
     @property
     def __dict__(self) -> dict:
-        return dict(filter=self.get_filter(), sort=self.sort, limit=self.limit, skip=self.skip)
+        return dict(
+            filter=self.get_filter(), sort=self.sort, limit=self.limit, skip=self.skip
+        )
 
     def append(self, expr: Expr):
         self._filter_expressions.append(build_expr(expr))

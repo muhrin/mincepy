@@ -115,7 +115,9 @@ def test_get_obj_referencing_simple(historian: mincepy.Historian):
     garage = Garage(mincepy.ObjRef(car))
     gid = garage.save()
 
-    car_graph = historian.archive.get_obj_ref_graph(car.obj_id, direction=mincepy.INCOMING)
+    car_graph = historian.archive.get_obj_ref_graph(
+        car.obj_id, direction=mincepy.INCOMING
+    )
     assert len(car_graph.edges) == 1
     assert len(car_graph.nodes) == 2
     assert (gid, car.obj_id) in car_graph.edges
@@ -125,7 +127,9 @@ def test_get_obj_referencing_simple(historian: mincepy.Historian):
     g2id = garage2.save()
 
     # Check that the reference graph is correct
-    car_graph = historian.archive.get_obj_ref_graph(car.obj_id, direction=mincepy.INCOMING)
+    car_graph = historian.archive.get_obj_ref_graph(
+        car.obj_id, direction=mincepy.INCOMING
+    )
     assert len(car_graph.nodes) == 3
     assert len(car_graph.edges) == 2
     assert (gid, car.obj_id) in car_graph.edges
@@ -191,17 +195,23 @@ def test_obj_referencing_max_depth(historian: mincepy.Historian):
     assert (three_id, two_id) in graph.edges
     assert (two_id, one_id) in graph.edges
 
-    graph = historian.archive.get_obj_ref_graph(zero_id, direction=mincepy.INCOMING, max_dist=2)
+    graph = historian.archive.get_obj_ref_graph(
+        zero_id, direction=mincepy.INCOMING, max_dist=2
+    )
     assert len(graph.edges) == 2
     assert len(graph.nodes) == 3
     assert (one_id, zero_id) in graph.edges
     assert (two_id, one_id) in graph.edges
 
-    graph = historian.archive.get_obj_ref_graph(one_id, direction=mincepy.INCOMING, max_dist=1)
+    graph = historian.archive.get_obj_ref_graph(
+        one_id, direction=mincepy.INCOMING, max_dist=1
+    )
     assert len(graph.edges) == 1
     assert len(graph.nodes) == 2
     assert (two_id, one_id) in graph.edges
 
-    graph = historian.archive.get_obj_ref_graph(two_id, direction=mincepy.INCOMING, max_dist=0)
+    graph = historian.archive.get_obj_ref_graph(
+        two_id, direction=mincepy.INCOMING, max_dist=0
+    )
     assert len(graph.edges) == 0
     assert len(graph.nodes) == 1

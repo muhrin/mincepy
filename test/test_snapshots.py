@@ -20,7 +20,7 @@ def test_list_basics(historian: mincepy.Historian):
     list_sid = historian.get_snapshot_id(parking_lot)
 
     # Change one element
-    parking_lot[0].make = 'ferrari'
+    parking_lot[0].make = "ferrari"
     historian.save(parking_lot)
     new_list_sid = historian.get_snapshot_id(parking_lot)
 
@@ -41,8 +41,8 @@ def test_save_snapshot_change_load(historian: mincepy.Historian):
     historian.save(car)
     assert ferrari_sid == historian.get_snapshot_id(car)
 
-    car.make = 'fiat'
-    car.color = 'white'
+    car.make = "fiat"
+    car.color = "white"
 
     historian.save(car)
     fiat_sid = historian.get_snapshot_id(car)
@@ -51,12 +51,12 @@ def test_save_snapshot_change_load(historian: mincepy.Historian):
 
     ferrari = historian.load_snapshot(ferrari_sid)
 
-    assert ferrari.make == 'ferrari'
-    assert ferrari.colour == 'red'
+    assert ferrari.make == "ferrari"
+    assert ferrari.colour == "red"
 
 
 def test_transaction_snapshots(historian: mincepy.Historian):
-    ferrari = Car('ferrari')
+    ferrari = Car("ferrari")
     historian.save(ferrari)
     ferrari_sid = historian.get_snapshot_id(ferrari)
 
@@ -86,15 +86,15 @@ def test_transaction_snapshots(historian: mincepy.Historian):
 
 
 def test_record_times(historian: mincepy.Historian):
-    car = Car('honda', 'red')
+    car = Car("honda", "red")
     historian.save(car)
     time.sleep(0.001)
 
-    car.colour = 'white'
+    car.colour = "white"
     historian.save(car)
     time.sleep(0.01)
 
-    car.colour = 'yellow'
+    car.colour = "yellow"
     historian.save(car)
 
     history = historian.history(car, as_objects=False)
@@ -111,15 +111,15 @@ def test_get_latest(historian: mincepy.Historian):
     car_id = historian.save(car)
 
     # Change it and save getting a snapshot
-    car.make = 'fiat'
-    car.colour = 'white'
+    car.make = "fiat"
+    car.colour = "white"
     historian.save(car)
     fiat_sid = historian.get_snapshot_id(car)
     assert car_id != fiat_sid
 
     # Change it again...
-    car.make = 'honda'
-    car.colour = 'wine red'
+    car.make = "honda"
+    car.colour = "wine red"
     historian.save(car)
     honda_sid = historian.get_snapshot_id(car)
     assert honda_sid != fiat_sid
@@ -132,7 +132,7 @@ def test_get_latest(historian: mincepy.Historian):
 
 
 def test_history(historian: mincepy.Historian):
-    rainbow = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet']
+    rainbow = ["red", "orange", "yellow", "green", "blue", "indigo", "violet"]
 
     car = Car()
     car_id = None
@@ -153,22 +153,22 @@ def test_history(historian: mincepy.Historian):
 
     # Try changing history
     old_version = car_history[2].obj
-    old_version.colour = 'black'
+    old_version.colour = "black"
     with pytest.raises(mincepy.ModificationError):
         historian.save(old_version)
 
 
 def test_loading_snapshot(historian: mincepy.Historian):
-    honda = Car('honda', 'white')
+    honda = Car("honda", "white")
     historian.save(honda)
     white_honda_sid = historian.get_snapshot_id(honda)
-    honda.colour = 'red'
+    honda.colour = "red"
     historian.save(honda)
     del honda
 
     with historian.transaction():
         white_honda = historian.load_snapshot(white_honda_sid)
-        assert white_honda.colour == 'white'
+        assert white_honda.colour == "white"
         # Make sure that if we load it again we get a different object instance
         assert white_honda is not historian.load_snapshot(white_honda_sid)
 
@@ -185,9 +185,9 @@ def test_loading_snapshot_cycle(historian: mincepy.Historian):
 
 
 def test_snapshot_id_eq():
-    sid1 = mincepy.SnapshotId('sid', 1)
-    sid1_again = mincepy.SnapshotId('sid', 1)
-    sid2 = mincepy.SnapshotId('sid', 2)
+    sid1 = mincepy.SnapshotId("sid", 1)
+    sid1_again = mincepy.SnapshotId("sid", 1)
+    sid2 = mincepy.SnapshotId("sid", 2)
 
     assert sid1 == sid1_again
     assert sid1 != sid2
@@ -200,7 +200,7 @@ def test_purge(historian: mincepy.Historian):
 
     car = Car()
     car_id = car.save()
-    car.colour = 'yellow'
+    car.colour = "yellow"
     car.save()
 
     # Insert something else just to check that it doesn't get accidentally purged
@@ -215,5 +215,5 @@ def test_purge(historian: mincepy.Historian):
     assert res.deleted_purged == {
         mincepy.SnapshotId(car_id, 0),
         mincepy.SnapshotId(car_id, 1),
-        mincepy.SnapshotId(car_id, 2)  # The deleted record
+        mincepy.SnapshotId(car_id, 2),  # The deleted record
     }

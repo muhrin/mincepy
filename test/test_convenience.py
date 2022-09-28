@@ -26,7 +26,7 @@ def test_save(historian: mincepy.Historian):
 def test_invalid_connect():
     """Check we get the right error when attempting to connect to invalid archive"""
     with pytest.raises(mincepy.ConnectionError):
-        mincepy.connect('mongodb://unknown-server/db', timeout=5)
+        mincepy.connect("mongodb://unknown-server/db", timeout=5)
 
     with pytest.raises(ValueError):
-        mincepy.connect('unknown-protocol://nowhere', timeout=5)
+        mincepy.connect("unknown-protocol://nowhere", timeout=5)

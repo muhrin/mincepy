@@ -9,52 +9,38 @@ from . import db
 def pipeline_latest_version(data_collection: str) -> list:
     """Returns a pipeline that will take the incoming data record documents and for each one find
     the latest version."""
-    oid_var = f'${db.OBJ_ID}'
-    ver_var = f'${db.VERSION}'
+    oid_var = f"${db.OBJ_ID}"
+    ver_var = f"${db.VERSION}"
 
     pipeline = []
-    pipeline.extend([
-        # Group by object id the maximum version
-        {
-            '$group': {
-                '_id': oid_var,
-                'max_ver': {
-                    '$max': ver_var
+    pipeline.extend(
+        [
+            # Group by object id the maximum version
+            {"$group": {"_id": oid_var, "max_ver": {"$max": ver_var}}},
+            # Then do a lookup against the same collection to get the records
+            {
+                "$lookup": {
+                    "from": data_collection,
+                    "let": {"obj_id": "$_id", "max_ver": "$max_ver"},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": and_(
+                                    # Match object id and version
+                                    eq_(oid_var, "$$obj_id"),
+                                    eq_(ver_var, "$$max_ver"),
+                                ),
+                            }
+                        }
+                    ],
+                    "as": "latest",
                 }
-            }
-        },
-        # Then do a lookup against the same collection to get the records
-        {
-            '$lookup': {
-                'from': data_collection,
-                'let': {
-                    'obj_id': '$_id',
-                    'max_ver': '$max_ver'
-                },
-                'pipeline': [{
-                    '$match': {
-                        '$expr':
-                            and_(
-                                # Match object id and version
-                                eq_(oid_var, '$$obj_id'),
-                                eq_(ver_var, '$$max_ver')),
-                    }
-                }],
-                'as': 'latest'
-            }
-        },
-        # Now unwind and promote the 'latest' field
-        {
-            '$unwind': {
-                'path': '$latest'
-            }
-        },
-        {
-            '$replaceRoot': {
-                'newRoot': '$latest'
-            }
-        },
-    ])
+            },
+            # Now unwind and promote the 'latest' field
+            {"$unwind": {"path": "$latest"}},
+            {"$replaceRoot": {"newRoot": "$latest"}},
+        ]
+    )
 
     return pipeline
 
@@ -80,7 +66,7 @@ class QueryBuilder:
         if len(self._terms) == 1:
             return self._terms[0]
 
-        return {'$and': self._terms.copy()}
+        return {"$and": self._terms.copy()}
 
 
 def flatten_filter(entry_name: str, query) -> list:
@@ -97,26 +83,26 @@ def flatten_filter(entry_name: str, query) -> list:
 def expand_filter(entry_name: str, query: Mapping) -> dict:
     if not query:
         return {}
-    return {f'{entry_name}.{key}': value for key, value in query.items()}
+    return {f"{entry_name}.{key}": value for key, value in query.items()}
 
 
 @functools.singledispatch
-def _transform_query_keys(entry, prefix: str = ''):  # pylint: disable=unused-argument
+def _transform_query_keys(entry, prefix: str = ""):  # pylint: disable=unused-argument
     """Transform a query entry into the correct syntax given a global prefix and the entry itself"""
     return entry
 
 
 @_transform_query_keys.register(list)
-def _(entry: list, prefix: str = ''):
+def _(entry: list, prefix: str = ""):
     return [_transform_query_keys(value, prefix) for value in entry]
 
 
 @_transform_query_keys.register(dict)
-def _(entry: dict, prefix: str = ''):
+def _(entry: dict, prefix: str = ""):
     transformed = {}
     for key, value in entry.items():
-        if key.startswith('$'):
-            if key in ('$and', '$not', '$nor', '$or'):
+        if key.startswith("$"):
+            if key in ("$and", "$not", "$nor", "$or"):
                 transformed[key] = _transform_query_keys(value, prefix)
             else:
                 update = {prefix: {key: value}} if prefix else {key: value}
@@ -124,6 +110,6 @@ def _(entry: dict, prefix: str = ''):
         else:
             to_join = [prefix, key] if prefix else [key]
             # Don't pass the prefix on, we've consumed it here
-            transformed['.'.join(to_join)] = _transform_query_keys(value)
+            transformed[".".join(to_join)] = _transform_query_keys(value)
 
     return transformed

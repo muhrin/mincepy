@@ -23,12 +23,12 @@ def test_obj_ref_simple(historian: mincepy.Historian):
 def test_obj_ref_snapshot(historian: mincepy.Historian):
     """Check that a historic snapshot still works with references"""
     ns = Namespace()
-    car = testing.Car('honda', 'white')
+    car = testing.Car("honda", "white")
     ns.car = mincepy.ObjRef(car)
     historian.save(ns)
     honda_ns_sid = historian.get_snapshot_id(ns)
 
-    car.make = 'fiat'
+    car.make = "fiat"
     historian.save(ns)
     fiat_ns_sid = historian.get_snapshot_id(ns)
     del ns
@@ -36,10 +36,10 @@ def test_obj_ref_snapshot(historian: mincepy.Historian):
     assert fiat_ns_sid.version == honda_ns_sid.version + 1
 
     loaded = historian.load(honda_ns_sid)
-    assert loaded.car().make == 'honda'
+    assert loaded.car().make == "honda"
 
     loaded2 = historian.load(fiat_ns_sid)
-    assert loaded2.car().make == 'fiat'
+    assert loaded2.car().make == "fiat"
     assert loaded2.car() is not car
 
     # Load the 'live' namespace
@@ -48,7 +48,7 @@ def test_obj_ref_snapshot(historian: mincepy.Historian):
 
 
 def test_obj_sid_complex(historian: mincepy.Historian):
-    honda = testing.Car('honda')
+    honda = testing.Car("honda")
     nested1 = Namespace()
     nested2 = Namespace()
     parent = Namespace()
@@ -69,20 +69,20 @@ def test_obj_sid_complex(historian: mincepy.Historian):
     assert loaded.ns2() is nested2
     assert loaded.ns1().car() is loaded.ns2().car()
 
-    fiat = testing.Car('fiat')
+    fiat = testing.Car("fiat")
     loaded.ns2().car = mincepy.ObjRef(fiat)
     historian.save(loaded)
     parent_sid = historian.get_snapshot_id(loaded)
     del loaded
 
     loaded2 = historian.load_snapshot(mincepy.records.SnapshotId(parent_id, 0))
-    assert loaded2.ns1().car().make == 'honda'
-    assert loaded2.ns2().car().make == 'honda'
+    assert loaded2.ns1().car().make == "honda"
+    assert loaded2.ns2().car().make == "honda"
     del loaded2
 
     loaded3 = historian.load_snapshot(parent_sid)
-    assert loaded3.ns1().car().make == 'honda'
-    assert loaded3.ns2().car().make == 'fiat'
+    assert loaded3.ns1().car().make == "honda"
+    assert loaded3.ns2().car().make == "fiat"
 
 
 def test_null_ref(historian: mincepy.Historian):
@@ -124,7 +124,7 @@ def test_load_changed_ref(historian: mincepy.Historian, archive_uri):
     reference was loaded"""
     historian2 = mincepy.connect(archive_uri)
 
-    car = testing.Car(make='skoda')
+    car = testing.Car(make="skoda")
     car_id = historian.save(car)
     car_ref = mincepy.ref(car)
     ref_id = historian.save(car_ref)
@@ -136,12 +136,12 @@ def test_load_changed_ref(historian: mincepy.Historian, archive_uri):
 
     # Now, mutate the car that is being referenced
     loaded_car = historian2.load(car_id)
-    loaded_car.make = 'honda'
+    loaded_car.make = "honda"
     historian2.save(loaded_car)
 
     # Finally, dereference and check that it is as expected
-    assert loaded().make == 'honda'
+    assert loaded().make == "honda"
 
     # Now, check the snapshot still points to the original
     loaded_snapshot = historian.load_snapshot(ref_sid)
-    assert loaded_snapshot().make == 'skoda'
+    assert loaded_snapshot().make == "skoda"

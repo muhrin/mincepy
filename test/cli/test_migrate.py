@@ -7,7 +7,7 @@ from ..common import CarV1, CarV2, StoreByValue, StoreByRef
 
 
 def test_simple_migrate(historian: mincepy.Historian, archive_uri):
-    car = CarV1('white', 'lada')
+    car = CarV1("white", "lada")
     car.save()
     by_val = StoreByValue(car)
     by_val_id = by_val.save()
@@ -21,8 +21,11 @@ def test_simple_migrate(historian: mincepy.Historian, archive_uri):
 
     # Now migrate
     runner = CliRunner()
-    result = runner.invoke(mincepy.cli.main.migrate, ['--yes', archive_uri],
-                           obj={'helpers': [CarV2, StoreByValue]})
+    result = runner.invoke(
+        mincepy.cli.main.migrate,
+        ["--yes", archive_uri],
+        obj={"helpers": [CarV2, StoreByValue]},
+    )
     assert result.exit_code == 0
 
     migratable = tuple(historian.migrations.find_migratable_records())
@@ -39,8 +42,11 @@ def test_simple_migrate(historian: mincepy.Historian, archive_uri):
 
     # Now migrate
     runner = CliRunner()
-    result = runner.invoke(mincepy.cli.main.migrate, ['--yes', archive_uri],
-                           obj={'helpers': [CarV2, StoreByRef]})
+    result = runner.invoke(
+        mincepy.cli.main.migrate,
+        ["--yes", archive_uri],
+        obj={"helpers": [CarV2, StoreByRef]},
+    )
     assert result.exit_code == 0
 
     migratable = tuple(historian.migrations.find_migratable_records())

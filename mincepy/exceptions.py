@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
-__all__ = ('NotFound', 'ModificationError', 'ObjectDeleted', 'DuplicateKeyError', 'MigrationError',
-           'VersionError', 'IntegrityError', 'ReferenceError', 'ConnectionError', 'MergeError')
+__all__ = (
+    "NotFound",
+    "ModificationError",
+    "ObjectDeleted",
+    "DuplicateKeyError",
+    "MigrationError",
+    "VersionError",
+    "IntegrityError",
+    "ReferenceError",
+    "ConnectionError",
+    "MergeError",
+)
 
 
 class ConnectionError(Exception):  # pylint: disable=redefined-builtin

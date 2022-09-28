@@ -7,11 +7,12 @@ from . import records
 from . import types
 from . import type_ids
 
-__all__ = ('ObjRef', 'ref')
+__all__ = ("ObjRef", "ref")
 
 
 class ObjRef(types.SavableObject):
     """A reference to an object instance"""
+
     TYPE_ID = type_ids.OBJ_REF_TYPE_ID
     IMMUTABLE = True
 
@@ -21,8 +22,9 @@ class ObjRef(types.SavableObject):
 
     def __init__(self, obj=None):
         super().__init__()
-        assert not (obj is not None and types.is_primitive(obj)), \
-            "Can't create a reference to a primitive type"
+        assert not (
+            obj is not None and types.is_primitive(obj)
+        ), "Can't create a reference to a primitive type"
         self._obj = obj
 
     def __bool__(self) -> bool:
@@ -36,10 +38,10 @@ class ObjRef(types.SavableObject):
         else:
             desc.append(str(self._sid))
         desc.append("')")
-        return ''.join(desc)
+        return "".join(desc)
 
     def __repr__(self) -> str:
-        return f'ObjRef({self._obj if self._obj is not None else self._sid})'
+        return f"ObjRef({self._obj if self._obj is not None else self._sid})"
 
     def __call__(self, update=False):
         """Get the object being referenced.  If update is called then the latest version
@@ -47,10 +49,12 @@ class ObjRef(types.SavableObject):
         if self._obj is None:
             # This means we were loaded and need to load the object
             if self._sid is None:
-                raise RuntimeError('Cannot dereference a None reference')
+                raise RuntimeError("Cannot dereference a None reference")
             # Cache the object
             self._obj = self._loader.load(self._sid)
-            assert self._obj is not None, f'Loader did not load object using SID {self._sid}'
+            assert (
+                self._obj is not None
+            ), f"Loader did not load object using SID {self._sid}"
             self._sid = None
             self._loader = None
         elif update:

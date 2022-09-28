@@ -8,7 +8,7 @@ from . import type_ids
 from . import base_savable
 from . import fields
 
-__all__ = 'File', 'BaseFile'
+__all__ = "File", "BaseFile"
 
 
 class File(base_savable.SimpleSavable):
@@ -25,29 +25,31 @@ class File(base_savable.SimpleSavable):
         self._file_id = None
         self._buffer_file = _create_buffer_file()
 
-    @fields.field('_filename')
+    @fields.field("_filename")
     def filename(self) -> Optional[str]:
         return self._filename
 
-    @fields.field('_encoding')
+    @fields.field("_encoding")
     def encoding(self) -> Optional[str]:
         return self._encoding
 
-    @fields.field('_file_id')
+    @fields.field("_file_id")
     def file_id(self):
         return self._file_id
 
-    def open(self, mode='r', **kwargs) -> Union[BinaryIO, TextIO]:
+    def open(self, mode="r", **kwargs) -> Union[BinaryIO, TextIO]:
         """Open returning a file like object that supports close() and read()"""
         self._ensure_buffer()
-        if 'b' not in mode:
-            kwargs.setdefault('encoding', self.encoding)
-        return open(self._buffer_file, mode, **kwargs)  # pylint: disable=unspecified-encoding
+        if "b" not in mode:
+            kwargs.setdefault("encoding", self.encoding)
+        return open(
+            self._buffer_file, mode, **kwargs
+        )  # pylint: disable=unspecified-encoding
 
     def from_disk(self, path):
         """Copy the contents of a disk file to this file"""
-        with open(str(path), 'r', encoding=self.encoding) as disk_file:
-            with self.open('w') as this:
+        with open(str(path), "r", encoding=self.encoding) as disk_file:
+            with self.open("w") as this:
                 shutil.copyfileobj(disk_file, this)
 
     def to_disk(self, path: [str, pathlib.Path]):
@@ -60,25 +62,25 @@ class File(base_savable.SimpleSavable):
         if file_path.is_dir():
             file_path /= self.filename
 
-        with open(str(file_path), 'w', encoding=self._encoding) as disk_file:
-            with self.open('r') as this:
+        with open(str(file_path), "w", encoding=self._encoding) as disk_file:
+            with self.open("r") as this:
                 shutil.copyfileobj(this, disk_file)
 
     def write_text(self, text: str, encoding=None):
         encoding = encoding or self._encoding
-        with self.open('w', encoding=encoding) as fileobj:
+        with self.open("w", encoding=encoding) as fileobj:
             fileobj.write(text)
 
     def read_text(self, encoding=None) -> str:
         """Read the contents of the file as text.
         This function is named as to mirror pathlib.Path"""
         encoding = encoding or self._encoding
-        with self.open('r', encoding=encoding) as fileobj:
+        with self.open("r", encoding=encoding) as fileobj:
             return fileobj.read()
 
     def save_instance_state(self, saver):
-        filename = self.filename or ''
-        with open(self._buffer_file, 'rb') as fstream:
+        filename = self.filename or ""
+        with open(self._buffer_file, "rb") as fstream:
             self._file_id = self._file_store.upload_from_stream(filename, fstream)
 
         return super().save_instance_state(saver)
@@ -98,21 +100,23 @@ class File(base_savable.SimpleSavable):
 
     def _update_buffer(self):
         self._buffer_file = _create_buffer_file()
-        with open(self._buffer_file, 'wb') as fstream:
+        with open(self._buffer_file, "wb") as fstream:
             self._file_store.download_to_stream(self._file_id, fstream)
 
     def __str__(self):
         contents = [str(self._filename)]
         if self._encoding is not None:
-            contents.append(f'({self._encoding})')
-        return ' '.join(contents)
+            contents.append(f"({self._encoding})")
+        return " ".join(contents)
 
     def __eq__(self, other) -> bool:
         """Compare the contents of two files
 
         If both files do not exist they are considered equal.
         """
-        if not isinstance(other, File) or self.filename != other.filename:  # pylint: disable=comparison-with-callable
+        if (
+            not isinstance(other, File) or self.filename != other.filename
+        ):  # pylint: disable=comparison-with-callable
             return False
 
         try:
@@ -124,7 +128,7 @@ class File(base_savable.SimpleSavable):
                             other_line = other_file.readline(self.READ_SIZE)
                             if my_line != other_line:
                                 return False
-                            if my_line == '' and other_line == '':
+                            if my_line == "" and other_line == "":
                                 return True
                 except FileNotFoundError:
                     return False
@@ -139,10 +143,10 @@ class File(base_savable.SimpleSavable):
     def yield_hashables(self, hasher):
         """Hash the contents of the file"""
         try:
-            with self.open('rb') as opened:
+            with self.open("rb") as opened:
                 while True:
                     line = opened.read(self.READ_SIZE)
-                    if line == b'':
+                    if line == b"":
                         return
                     yield line
         except FileNotFoundError:

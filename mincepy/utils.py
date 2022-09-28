@@ -17,7 +17,9 @@ class WeakObjectIdDict(collections.abc.MutableMapping):
     """
 
     def __init__(self, seq=None, **kwargs):
-        self._refs = {}  # type: collections.abc.MutableMapping[int, weakref.ReferenceType]
+        self._refs = (
+            {}
+        )  # type: collections.abc.MutableMapping[int, weakref.ReferenceType]
         self._values = {}  # type: collections.abc.MutableMapping[int, Any]
         if seq:
             if isinstance(seq, collections.abc.Mapping):
@@ -63,14 +65,14 @@ class WeakObjectIdDict(collections.abc.MutableMapping):
         del self._refs[obj_id]
 
 
-T = TypeVar('T')  # Declare type variable pylint: disable=invalid-name
+T = TypeVar("T")  # Declare type variable pylint: disable=invalid-name
 
 
 class DefaultFromCall:
     """Can be used as a default that is generated from a callable when needed"""
 
     def __init__(self, default_fn):
-        assert callable(default_fn), 'Must supply callable'
+        assert callable(default_fn), "Must supply callable"
         self._callable = default_fn
 
     def __call__(self, *args, **kwargs):
@@ -85,17 +87,19 @@ class NamedTupleBuilder(Generic[T]):
         defaults = defaults or {}
         diff = set(defaults.keys()) - set(tuple_type._fields)
         if diff:
-            raise RuntimeError(f"Can't supply defaults that are not in the namedtuple: '{diff}'")
+            raise RuntimeError(
+                f"Can't supply defaults that are not in the namedtuple: '{diff}'"
+            )
 
-        super().__setattr__('_tuple_type', tuple_type)
-        super().__setattr__('_values', defaults)
+        super().__setattr__("_tuple_type", tuple_type)
+        super().__setattr__("_values", defaults)
 
     def __getattr__(self, item):
         """Read a key as an attribute.
 
         :raises AttributeError: if the attribute does not correspond to an existing key.
         """
-        if item == '_tuple_type':
+        if item == "_tuple_type":
             return self._tuple_type
         try:
             return self._values[item]
@@ -105,15 +109,17 @@ class NamedTupleBuilder(Generic[T]):
 
     def __setattr__(self, attr, value):
         """Set a key as an attribute."""
-        if attr not in super().__getattribute__('_tuple_type')._fields:
-            raise AttributeError(f"AttributeError: '{attr}' is not a valid attribute of the object "
-                                 f"'{self.__class__.__name__}'")
+        if attr not in super().__getattribute__("_tuple_type")._fields:
+            raise AttributeError(
+                f"AttributeError: '{attr}' is not a valid attribute of the object "
+                f"'{self.__class__.__name__}'"
+            )
 
         self._values[attr] = value
 
     def __repr__(self):
         """Representation of the object."""
-        return f'{self.__class__.__name__}({dict.__repr__(self._values)})'
+        return f"{self.__class__.__name__}({dict.__repr__(self._values)})"
 
     def __dir__(self):
         return self._tuple_type._fields
@@ -143,10 +149,10 @@ def to_slice(specifier) -> slice:
     if isinstance(specifier, int):
         sign = -1 if specifier < 0 else 1
         return slice(specifier, specifier + sign, sign)
-    if isinstance(specifier, str) and specifier == ':' or specifier == '*':
+    if isinstance(specifier, str) and specifier == ":" or specifier == "*":
         return slice(None)
 
-    raise ValueError(f'Unknown slice specifier: {specifier}')
+    raise ValueError(f"Unknown slice specifier: {specifier}")
 
 
 def sync(save=False):
@@ -154,11 +160,12 @@ def sync(save=False):
     to date what what's in the database."""
 
     def inner(obj_method):
-
         @functools.wraps(obj_method)
         def wrapper(self, *args, **kwargs):
             # pylint: disable=protected-access
-            ctx = nullcontext if self._historian is None else self._historian.transaction
+            ctx = (
+                nullcontext if self._historian is None else self._historian.transaction
+            )
             with ctx():
                 try:
                     self.__sync += 1
@@ -181,10 +188,11 @@ def sync(save=False):
 
 class Progress:
     """Gives information about progress of a discreet number of entries"""
-    __slots__ = 'done', '_total'
+
+    __slots__ = "done", "_total"
 
     def __str__(self) -> str:
-        return f'{self.done}/{self._total} done'
+        return f"{self.done}/{self._total} done"
 
     def __init__(self, total: int):
         self.done = 0

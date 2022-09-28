@@ -28,16 +28,16 @@ from . import db
 from . import references
 from . import queries
 
-__all__ = ('MongoArchive', 'connect')
+__all__ = ("MongoArchive", "connect")
 
-DEFAULT_REFERENCES_COLLECTION = 'references'
+DEFAULT_REFERENCES_COLLECTION = "references"
 
 scalar_query_spec = archives.scalar_query_spec
 
 
 class ObjectIdHelper(helpers.TypeHelper):
     TYPE = bson.ObjectId
-    TYPE_ID = uuid.UUID('bdde0765-36d2-4f06-bb8b-536a429f32ab')
+    TYPE_ID = uuid.UUID("bdde0765-36d2-4f06-bb8b-536a429f32ab")
 
     def yield_hashables(self, obj, hasher):  # pylint: disable=unused-argument
         yield obj.binary
@@ -60,8 +60,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     ID_TYPE = bson.ObjectId
     SnapshotId = records.SnapshotId[bson.ObjectId]
 
-    DATA_COLLECTION = 'data'
-    HISTORY_COLLECTION = 'history'
+    DATA_COLLECTION = "data"
+    HISTORY_COLLECTION = "history"
 
     @classmethod
     def get_types(cls) -> Sequence:
@@ -76,8 +76,11 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         self._data_collection = database[self.DATA_COLLECTION]
         self._history_collection = database[self.HISTORY_COLLECTION]
         self._file_bucket = gridfs.GridFSBucket(database)
-        self._refman = references.ReferenceManager(database[DEFAULT_REFERENCES_COLLECTION],
-                                                   self._data_collection, self._history_collection)
+        self._refman = references.ReferenceManager(
+            database[DEFAULT_REFERENCES_COLLECTION],
+            self._data_collection,
+            self._history_collection,
+        )
 
         self._snapshots = MongoRecordCollection(self, self._history_collection)
         self._objects = MongoRecordCollection(self, self._data_collection)
@@ -93,11 +96,11 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         return self._data_collection
 
     @property
-    def snapshots(self) -> 'MongoRecordCollection':
+    def snapshots(self) -> "MongoRecordCollection":
         return self._snapshots
 
     @property
-    def objects(self) -> 'MongoRecordCollection':
+    def objects(self) -> "MongoRecordCollection":
         """Access the objects collection"""
         return self._objects
 
@@ -112,9 +115,10 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def _create_indices(self):
         # Create all the necessary indexes
         self._data_collection.create_index(db.OBJ_ID)
-        self._history_collection.create_index([(db.OBJ_ID, pymongo.ASCENDING),
-                                               (db.VERSION, pymongo.ASCENDING)],
-                                              unique=True)
+        self._history_collection.create_index(
+            [(db.OBJ_ID, pymongo.ASCENDING), (db.VERSION, pymongo.ASCENDING)],
+            unique=True,
+        )
         # Performance related
         self._data_collection.create_index(db.TYPE_ID, unique=False)
         self._data_collection.create_index(db.VERSION, unique=False)
@@ -151,14 +155,16 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             # Then the history operations
             self._history_collection.bulk_write(history_ops, ordered=True)
         except pymongo.errors.BulkWriteError as exc:
-            write_errors = exc.details['writeErrors']
-            if write_errors and write_errors[0]['code'] == 11000:
+            write_errors = exc.details["writeErrors"]
+            if write_errors and write_errors[0]["code"] == 11000:
                 raise exceptions.DuplicateKeyError(str(exc)) from exc
 
             raise  # Otherwise, just raise what we got
 
-        self._refman.invalidate(obj_ids=[op.obj_id for op in ops],
-                                snapshot_ids=[op.snapshot_id for op in ops])
+        self._refman.invalidate(
+            obj_ids=[op.obj_id for op in ops],
+            snapshot_ids=[op.snapshot_id for op in ops],
+        )
 
         self._fire_event(archives.ArchiveListener.on_bulk_write_complete, ops)
 
@@ -167,21 +173,20 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             raise TypeError(snapshot_id)
 
         results = tuple(
-            self._history_collection.find({
-                db.OBJ_ID: snapshot_id.obj_id,
-                db.VERSION: snapshot_id.version
-            }))
+            self._history_collection.find(
+                {db.OBJ_ID: snapshot_id.obj_id, db.VERSION: snapshot_id.version}
+            )
+        )
         if not results:
             raise exceptions.NotFound(f"Snapshot id '{snapshot_id}' not found")
         return db.to_record(results[0])
 
     def get_snapshot_ids(self, obj_id: bson.ObjectId):
-        results = self._history_collection.find({db.OBJ_ID: obj_id},
-                                                projection={
-                                                    db.OBJ_ID: 1,
-                                                    db.VERSION: 1
-                                                },
-                                                sort=[(db.VERSION, pymongo.ASCENDING)])
+        results = self._history_collection.find(
+            {db.OBJ_ID: obj_id},
+            projection={db.OBJ_ID: 1, db.VERSION: 1},
+            sort=[(db.VERSION, pymongo.ASCENDING)],
+        )
         if not results:
             return []
 
@@ -192,32 +197,33 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def meta_get(self, obj_id: bson.ObjectId):
         # Single obj id
         if not isinstance(obj_id, bson.ObjectId):
-            raise TypeError(f'Must pass an ObjectId, got {obj_id}')
-        found = self._data_collection.find_one({'_id': obj_id}, {db.META: 1})
+            raise TypeError(f"Must pass an ObjectId, got {obj_id}")
+        found = self._data_collection.find_one({"_id": obj_id}, {db.META: 1})
         if found is None:
             return found
-        found.pop('_id')
+        found.pop("_id")
         return found.get(db.META, None)
 
-    def meta_get_many(self, obj_ids: Iterable[bson.ObjectId]) -> Dict[bson.ObjectId, dict]:
+    def meta_get_many(
+        self, obj_ids: Iterable[bson.ObjectId]
+    ) -> Dict[bson.ObjectId, dict]:
         # Find multiple
         for obj_id in obj_ids:
             if not isinstance(obj_id, bson.ObjectId):
-                raise TypeError(f'Must pass an ObjectId, got {obj_id}')
+                raise TypeError(f"Must pass an ObjectId, got {obj_id}")
 
-        cur = self._data_collection.find({'_id': q.in_(*obj_ids)}, {db.META: 1})
+        cur = self._data_collection.find({"_id": q.in_(*obj_ids)}, {db.META: 1})
         results = {oid: None for oid in obj_ids}
         for found in cur:
-            results[found.pop('_id')] = found[db.META]
+            results[found.pop("_id")] = found[db.META]
 
         return results
 
     def meta_set(self, obj_id, meta):
         try:
-            found = self._data_collection.update_one({'_id': obj_id}, {'$set': {
-                db.META: meta
-            }},
-                                                     upsert=False)
+            found = self._data_collection.update_one(
+                {"_id": obj_id}, {"$set": {db.META: meta}}, upsert=False
+            )
         except pymongo.errors.DuplicateKeyError as exc:
             raise exceptions.DuplicateKeyError(str(exc))
         else:
@@ -227,10 +233,9 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def meta_set_many(self, metas: Mapping[bson.ObjectId, Optional[dict]]):
         ops = []
         for obj_id, meta in metas.items():
-            operation = pymongo.operations.UpdateOne({'_id': obj_id}, {'$set': {
-                db.META: meta
-            }},
-                                                     upsert=False)
+            operation = pymongo.operations.UpdateOne(
+                {"_id": obj_id}, {"$set": {db.META: meta}}, upsert=False
+            )
             ops.append(operation)
 
         try:
@@ -239,18 +244,20 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             # This is a rather complicated way to get the error - mongo doesn't seem to document
             # error codes, absolute madness.
             if exc.code == 65:
-                write_errors = exc.details.get('writeErrors', {})
+                write_errors = exc.details.get("writeErrors", {})
                 if write_errors:
                     # There should only be one as it is an ordered write
                     error = write_errors[0]
-                    if error.get('code') == 11000:
-                        raise exceptions.DuplicateKeyError(error.get('errmsg'))
+                    if error.get("code") == 11000:
+                        raise exceptions.DuplicateKeyError(error.get("errmsg"))
             raise
 
     def meta_update(self, obj_id, meta: Mapping):
         try:
             to_set = queries.expand_filter(db.META, meta)
-            res = self._data_collection.update_one({'_id': obj_id}, {'$set': to_set}, upsert=False)
+            res = self._data_collection.update_one(
+                {"_id": obj_id}, {"$set": to_set}, upsert=False
+            )
         except pymongo.errors.DuplicateKeyError as exc:
             raise exceptions.DuplicateKeyError(str(exc))
         else:
@@ -260,28 +267,28 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def meta_find(
         self,
         filter: dict = None,  # pylint: disable=redefined-builtin
-        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None
+        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
     ) -> Iterator[Tuple[bson.ObjectId, Dict]]:
         match = queries.expand_filter(db.META, filter)
         if obj_id is not None:
-            match['_id'] = scalar_query_spec(obj_id)
+            match["_id"] = scalar_query_spec(obj_id)
 
         for entry in self._data_collection.find(match, {db.META: 1}):
             if db.META in entry:
-                oid = entry.pop('_id')
+                oid = entry.pop("_id")
                 yield self.MetaEntry(oid, entry[db.META])
 
     def meta_distinct(
         self,
         key: str,
         filter: dict = None,  # pylint: disable=redefined-builtin
-        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Mapping] = None
-    ) -> 'Iterator':
+        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Mapping] = None,
+    ) -> "Iterator":
         match = queries.expand_filter(db.META, filter)
         if obj_id is not None:
-            match['_id'] = scalar_query_spec(obj_id)
+            match["_id"] = scalar_query_spec(obj_id)
 
-        yield from self._data_collection.distinct(f'{db.META}.{key}', match)
+        yield from self._data_collection.distinct(f"{db.META}.{key}", match)
 
     def meta_create_index(self, keys, unique=True, where_exist=False):
         if isinstance(keys, str):
@@ -289,57 +296,65 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         else:
             if not isinstance(keys, list):
                 raise TypeError(
-                    f'Keys must be a string or a list of tuples, got {keys.__class__.__name__}')
+                    f"Keys must be a string or a list of tuples, got {keys.__class__.__name__}"
+                )
             if len(keys) == 0:
                 return
             for entry in keys:
                 if not isinstance(entry, tuple):
-                    raise TypeError(f'Keys must be list of tuples, got {entry.__class__.__name__}')
+                    raise TypeError(
+                        f"Keys must be list of tuples, got {entry.__class__.__name__}"
+                    )
 
         # Transform the keys
-        keys = [(f'{db.META}.{name}', direction) for name, direction in keys]
+        keys = [(f"{db.META}.{name}", direction) for name, direction in keys]
 
         kwargs = {}
         if where_exist:
             key_names = tuple(entry[0] for entry in keys)
-            kwargs['partialFilterExpression'] = q.and_(*tuple(
-                q.exists_(name) for name in key_names))
+            kwargs["partialFilterExpression"] = q.and_(
+                *tuple(q.exists_(name) for name in key_names)
+            )
 
         self._data_collection.create_index(keys, unique=unique, **kwargs)
 
     # endregion
 
     # pylint: disable=too-many-arguments
-    def find(self,
-             obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
-             type_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
-             _created_by=None,
-             _copied_from=None,
-             version=None,
-             state=None,
-             state_types=None,
-             snapshot_hash=None,
-             meta: dict = None,
-             extras: dict = None,
-             limit=0,
-             sort=None,
-             skip=0):
-        pipeline = self._get_pipeline(obj_id=obj_id,
-                                      type_id=type_id,
-                                      _created_by=_created_by,
-                                      _copied_from=_copied_from,
-                                      version=version,
-                                      state=state,
-                                      state_types=state_types,
-                                      snapshot_hash=snapshot_hash,
-                                      meta=meta,
-                                      extras=extras)
+    def find(
+        self,
+        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
+        type_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
+        _created_by=None,
+        _copied_from=None,
+        version=None,
+        state=None,
+        state_types=None,
+        snapshot_hash=None,
+        meta: dict = None,
+        extras: dict = None,
+        limit=0,
+        sort=None,
+        skip=0,
+    ):
+        pipeline = self._get_pipeline(
+            obj_id=obj_id,
+            type_id=type_id,
+            _created_by=_created_by,
+            _copied_from=_copied_from,
+            version=version,
+            state=state,
+            state_types=state_types,
+            snapshot_hash=snapshot_hash,
+            meta=meta,
+            extras=extras,
+        )
 
         if skip:
-            pipeline.append({'$skip': skip})
+            pipeline.append({"$skip": skip})
 
         if limit:
-            pipeline.append({'$limit': limit})
+            pipeline.append({"$limit": limit})
 
         if sort:
             if not isinstance(sort, dict):
@@ -347,7 +362,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             else:
                 sort_dict = sort
             sort_dict = db.remap(sort_dict)
-            pipeline.append({'$sort': sort_dict})
+            pipeline.append({"$sort": sort_dict})
 
         if version == -1:
             coll = self._data_collection
@@ -365,7 +380,9 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         for result in results:
             yield db.to_record(result)
 
-    def distinct(self, key: str, filter: dict = None) -> Iterator:  # pylint: disable=redefined-builtin
+    def distinct(
+        self, key: str, filter: dict = None
+    ) -> Iterator:  # pylint: disable=redefined-builtin
         filter = db.remap(filter or {})
 
         if filter.get(db.VERSION, None) == -1:
@@ -376,25 +393,29 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
         yield from coll.distinct(db.remap_key(key), filter=_flatten_filter_dict(filter))
 
-    def count(self,
-              obj_id: Optional[bson.ObjectId] = None,
-              type_id=None,
-              _created_by=None,
-              _copied_from=None,
-              version=-1,
-              state=None,
-              snapshot_hash=None,
-              meta=None,
-              limit=0):
+    def count(
+        self,
+        obj_id: Optional[bson.ObjectId] = None,
+        type_id=None,
+        _created_by=None,
+        _copied_from=None,
+        version=-1,
+        state=None,
+        snapshot_hash=None,
+        meta=None,
+        limit=0,
+    ):
 
-        pipeline = self._get_pipeline(obj_id=obj_id,
-                                      type_id=type_id,
-                                      _created_by=_created_by,
-                                      _copied_from=_copied_from,
-                                      version=version,
-                                      state=state,
-                                      snapshot_hash=snapshot_hash,
-                                      meta=meta)
+        pipeline = self._get_pipeline(
+            obj_id=obj_id,
+            type_id=type_id,
+            _created_by=_created_by,
+            _copied_from=_copied_from,
+            version=version,
+            state=state,
+            snapshot_hash=snapshot_hash,
+            meta=meta,
+        )
 
         if version == -1:
             coll = self._data_collection
@@ -402,40 +423,45 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             coll = self._history_collection
 
         if limit:
-            pipeline.append({'$limit': limit})
+            pipeline.append({"$limit": limit})
 
-        pipeline.append({'$count': 'total'})
+        pipeline.append({"$count": "total"})
         result = next(coll.aggregate(pipeline))
 
-        return result['total']
+        return result["total"]
 
-    def get_snapshot_ref_graph(self,
-                               *snapshot_ids: SnapshotId,
-                               direction=archives.OUTGOING,
-                               max_dist: int = None) -> Iterator[networkx.DiGraph]:
-        return self._refman.get_snapshot_ref_graph(snapshot_ids,
-                                                   direction=direction,
-                                                   max_dist=max_dist)
+    def get_snapshot_ref_graph(
+        self,
+        *snapshot_ids: SnapshotId,
+        direction=archives.OUTGOING,
+        max_dist: int = None,
+    ) -> Iterator[networkx.DiGraph]:
+        return self._refman.get_snapshot_ref_graph(
+            snapshot_ids, direction=direction, max_dist=max_dist
+        )
 
-    def get_obj_ref_graph(self,
-                          *obj_ids: bson.ObjectId,
-                          direction=archives.OUTGOING,
-                          max_dist: int = None) -> Iterator[networkx.DiGraph]:
-        return self._refman.get_obj_ref_graphs(obj_ids, direction=direction, max_dist=max_dist)
+    def get_obj_ref_graph(
+        self, *obj_ids: bson.ObjectId, direction=archives.OUTGOING, max_dist: int = None
+    ) -> Iterator[networkx.DiGraph]:
+        return self._refman.get_obj_ref_graphs(
+            obj_ids, direction=direction, max_dist=max_dist
+        )
 
     @staticmethod
-    def _get_pipeline(obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
-                      type_id=None,
-                      _created_by=None,
-                      _copied_from=None,
-                      version=None,
-                      state=None,
-                      state_types=None,
-                      snapshot_hash=None,
-                      meta: dict = None,
-                      extras: dict = None):
+    def _get_pipeline(
+        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId]] = None,
+        type_id=None,
+        _created_by=None,
+        _copied_from=None,
+        version=None,
+        state=None,
+        state_types=None,
+        snapshot_hash=None,
+        meta: dict = None,
+        extras: dict = None,
+    ):
         """Get a pipeline that would perform the given search.  Can be used directly in an aggregate
-         call"""
+        call"""
         pipeline = []
 
         query = queries.QueryBuilder()
@@ -466,7 +492,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
         mfilter = query.build()
         if mfilter:
-            pipeline.append({'$match': mfilter})
+            pipeline.append({"$match": mfilter})
 
         return pipeline
 
@@ -507,7 +533,6 @@ def _flatten_filter_dict(filter: dict) -> dict:  # pylint: disable=redefined-bui
 
 
 class MongoRecordCollection(archives.RecordCollection):
-
     def __init__(self, archive: MongoArchive, collection: pymongo.database.Collection):
         self._archive = archive
         self._collection = collection
@@ -518,14 +543,15 @@ class MongoRecordCollection(archives.RecordCollection):
         return self._archive
 
     def find(
-            self,
-            filter: dict,  # pylint: disable=redefined-builtin
-            *,
-            projection=None,
-            meta: dict = None,
-            limit=0,
-            sort=None,
-            skip=0) -> Iterator[dict]:
+        self,
+        filter: dict,  # pylint: disable=redefined-builtin
+        *,
+        projection=None,
+        meta: dict = None,
+        limit=0,
+        sort=None,
+        skip=0,
+    ) -> Iterator[dict]:
 
         # Create the pipeline
         pipeline = []
@@ -535,7 +561,7 @@ class MongoRecordCollection(archives.RecordCollection):
                 # Add the metadata criterion
                 filter = q.and_(filter, *queries.flatten_filter(db.META, meta))
 
-            pipeline.append({'$match': filter})
+            pipeline.append({"$match": filter})
 
         if sort:
             if not isinstance(sort, dict):
@@ -543,39 +569,37 @@ class MongoRecordCollection(archives.RecordCollection):
             else:
                 sort_dict = sort
             sort_dict = db.remap(sort_dict)
-            pipeline.append({'$sort': sort_dict})
+            pipeline.append({"$sort": sort_dict})
 
         if skip:
-            pipeline.append({'$skip': skip})
+            pipeline.append({"$skip": skip})
 
         if limit:
-            pipeline.append({'$limit': limit})
+            pipeline.append({"$limit": limit})
 
         if projection:
-            pipeline.append({'$project': db.remap(projection)})
+            pipeline.append({"$project": db.remap(projection)})
 
         for entry in self._collection.aggregate(pipeline, allowDiskUse=True):
             yield db.remap_back(entry)
 
     def distinct(
-            self,
-            key: str,
-            filter: dict = None,  # pylint: disable=redefined-builtin
+        self,
+        key: str,
+        filter: dict = None,  # pylint: disable=redefined-builtin
     ) -> Iterator[dict]:
         key = db.remap_key(key)
         yield from self._collection.distinct(key, filter)
 
     def get(self, entry_id: bson.ObjectId) -> dict:
-        doc = self._collection.find_one({'_id': entry_id})  # type: dict
+        doc = self._collection.find_one({"_id": entry_id})  # type: dict
         if doc is None:
             raise exceptions.NotFound(entry_id)
         return db.remap_back(doc)
 
     def count(
-            self,
-            filter: dict,  # pylint: disable=redefined-builtin
-            *,
-            meta: dict = None) -> int:
+        self, filter: dict, *, meta: dict = None  # pylint: disable=redefined-builtin
+    ) -> int:
         """Get the number of entries that match the search criteria"""
         # Create the pipeline
         pipeline = []
@@ -585,15 +609,15 @@ class MongoRecordCollection(archives.RecordCollection):
                 # Add the metadata criterion
                 filter = q.and_(filter, *queries.flatten_filter(db.META, meta))
 
-            pipeline.append({'$match': filter})
+            pipeline.append({"$match": filter})
 
-        pipeline.append({'$count': 'total'})
+        pipeline.append({"$count": "total"})
         try:
             result = next(self._collection.aggregate(pipeline))
         except StopIteration:
             return 0
         else:
-            return result['total']
+            return result["total"]
 
 
 MOCKED = weakref.WeakValueDictionary()
@@ -609,14 +633,14 @@ def connect(uri: str, timeout=30000) -> MongoArchive:
     """
     parsed = parse.urlparse(uri)
 
-    if parsed.scheme == 'mongodb':
+    if parsed.scheme == "mongodb":
         return pymongo_connect(uri, timeout=timeout)
-    if parsed.scheme == 'mongomock':
+    if parsed.scheme == "mongomock":
         return mongomock_connect(uri, timeout=timeout)
-    if parsed.scheme == 'litemongo':
+    if parsed.scheme == "litemongo":
         return litemongo_connect(uri)
 
-    raise ValueError(f'Unknown scheme: {uri}')
+    raise ValueError(f"Unknown scheme: {uri}")
 
 
 def pymongo_connect(uri, database: str = None, timeout=30000):
@@ -627,11 +651,13 @@ def pymongo_connect(uri, database: str = None, timeout=30000):
     except pymongo.errors.InvalidURI as exc:
         raise ValueError(str(exc)) from exc
 
-    if not parsed.get('database', None):
-        raise ValueError(f'Failed to supply database on MongoDB uri: {uri}')
+    if not parsed.get("database", None):
+        raise ValueError(f"Failed to supply database on MongoDB uri: {uri}")
 
     try:
-        client = pymongo.MongoClient(uri, connect=True, serverSelectionTimeoutMS=timeout)
+        client = pymongo.MongoClient(
+            uri, connect=True, serverSelectionTimeoutMS=timeout
+        )
         database = client.get_default_database()
         return MongoArchive(database)
     except pymongo.errors.ServerSelectionTimeoutError as exc:
@@ -651,8 +677,9 @@ def mongomock_connect(uri, timeout=30000) -> MongoArchive:
     parsed = parse.urlparse(uri)
 
     mongomock.gridfs.enable_gridfs_integration()
-    client = mongomock.MongoClient(f'mongodb://localhost/{parsed.fragment}',
-                                   serverSelectionTimeoutMS=timeout)
+    client = mongomock.MongoClient(
+        f"mongodb://localhost/{parsed.fragment}", serverSelectionTimeoutMS=timeout
+    )
     database = client.get_default_database()
     return MongoArchive(database)
 
@@ -660,6 +687,7 @@ def mongomock_connect(uri, timeout=30000) -> MongoArchive:
 def litemongo_connect(uri) -> MongoArchive:
     import litemongo
     import litemongo._vendor.mongomock.gridfs
+
     litemongo._vendor.mongomock.gridfs.enable_gridfs_integration()  # pylint: disable=protected-access
 
     client = litemongo.connect(uri)

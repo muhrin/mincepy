@@ -7,14 +7,14 @@ def and_(*conditions) -> dict:
     if len(conditions) == 1:
         return conditions[0]
 
-    return {'$and': list(conditions)}
+    return {"$and": list(conditions)}
 
 
 def eq_(one, other) -> dict:
     """Helper that produces mongo aggregation dict for two items being equal"""
-    return {'$eq': [one, other]}
+    return {"$eq": [one, other]}
 
 
 def in_(*possibilities) -> dict:
     """Tests if a value is one of the possibilities"""
-    return {'$in': possibilities}
+    return {"$in": possibilities}

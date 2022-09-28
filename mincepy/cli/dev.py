@@ -13,10 +13,11 @@ def dev():
 
 
 @dev.command()
-@click.argument('uri', type=str)
+@click.argument("uri", type=str)
 def populate(uri):
     """Populate the database with testing data"""
     import mincepy.testing  # pylint: disable=import-outside-toplevel
+
     main.set_print_logging(logging.INFO)
     try:
         hist = mincepy.create_historian(uri)

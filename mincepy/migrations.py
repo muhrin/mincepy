@@ -5,7 +5,7 @@ import pytray.pretty
 
 from . import depositors  # pylint: disable=unused-import
 
-__all__ = 'ObjectMigration', 'ObjectMigrationMeta'
+__all__ = "ObjectMigration", "ObjectMigrationMeta"
 
 
 class ObjectMigrationMeta(type):
@@ -19,13 +19,14 @@ class ObjectMigrationMeta(type):
             return
 
         if cls.VERSION is None:
-            raise RuntimeError('Migration version not set')
+            raise RuntimeError("Migration version not set")
 
         if cls.PREVIOUS is not None and cls.VERSION <= cls.PREVIOUS.VERSION:
             raise RuntimeError(
-                f'A migration must have a version number higher than the previous migration.  '
-                f'{pytray.pretty.type_string(cls.PREVIOUS)}.VERSION is {cls.PREVIOUS.VERSION} while '
-                f'{pytray.pretty.type_string(cls)}.VERSION is {cls.VERSION}')
+                f"A migration must have a version number higher than the previous migration.  "
+                f"{pytray.pretty.type_string(cls.PREVIOUS)}.VERSION is {cls.PREVIOUS.VERSION} while "
+                f"{pytray.pretty.type_string(cls)}.VERSION is {cls.VERSION}"
+            )
 
         if cls.NAME is None:
             cls.NAME = cls.__class__.__name__

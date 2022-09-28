@@ -14,7 +14,7 @@ from . import fields
 from . import records
 from . import types
 
-T = TypeVar('T')  # The type stored by the collection pylint: disable=invalid-name
+T = TypeVar("T")  # The type stored by the collection pylint: disable=invalid-name
 
 
 class ResultSet(Generic[T]):
@@ -27,14 +27,22 @@ class ResultSet(Generic[T]):
     various mincepy methods.
     """
 
-    __slots__ = ('_historian', '_archive_collection', '_query', '_kwargs', '_entry_factory')
+    __slots__ = (
+        "_historian",
+        "_archive_collection",
+        "_query",
+        "_kwargs",
+        "_entry_factory",
+    )
 
-    def __init__(self,
-                 historian,
-                 archive_collection: archives.Collection,
-                 query: expr.Query,
-                 kwargs: dict = None,
-                 entry_factory: Callable[[Any], T] = None):
+    def __init__(
+        self,
+        historian,
+        archive_collection: archives.Collection,
+        query: expr.Query,
+        kwargs: dict = None,
+        entry_factory: Callable[[Any], T] = None,
+    ):
         self._historian = historian
         self._archive_collection = archive_collection
         self._query = query
@@ -42,7 +50,9 @@ class ResultSet(Generic[T]):
         self._entry_factory = entry_factory or (lambda x: x)
 
     def __iter__(self) -> Iterable[T]:
-        for entry in self._archive_collection.find(**self._query.__dict__, **self._kwargs):
+        for entry in self._archive_collection.find(
+            **self._query.__dict__, **self._kwargs
+        ):
             yield self._entry_factory(entry)
 
     def __len__(self) -> int:
@@ -66,7 +76,9 @@ class ResultSet(Generic[T]):
     def distinct(self, key: Union[str, fields.Field]) -> Iterator:
         if isinstance(key, fields.Field):
             key = key.get_path()
-        yield from self._archive_collection.distinct(key, filter=self._query.get_filter())
+        yield from self._archive_collection.distinct(
+            key, filter=self._query.get_filter()
+        )
 
     def any(self) -> Optional[T]:
         """
@@ -96,7 +108,9 @@ class ResultSet(Generic[T]):
             return None
 
         if len(results) > 1:
-            raise exceptions.NotOneError('one() used with more than one result available')
+            raise exceptions.NotOneError(
+                "one() used with more than one result available"
+            )
 
         return self._entry_factory(results[0])
 
@@ -107,9 +121,9 @@ class ResultSet(Generic[T]):
     def _project(self, *field: str) -> Iterator:
         """Get raw fields from the record dictionary"""
         projection = {name: 1 for name in field}
-        for entry in self._archive_collection.find(**self._query.__dict__,
-                                                   projection=projection,
-                                                   **self._kwargs):
+        for entry in self._archive_collection.find(
+            **self._query.__dict__, projection=projection, **self._kwargs
+        ):
             yield entry
 
 
@@ -117,69 +131,82 @@ class EntriesCollection(Generic[T]):
     """A collection of archive entries.  This is the base class, but it can be specialised to provide specific
     functionality for a given collection"""
 
-    def __init__(self, historian, archive_collection: archives.Collection,
-                 entry_factory: Callable[[dict], T]):
+    def __init__(
+        self,
+        historian,
+        archive_collection: archives.Collection,
+        entry_factory: Callable[[dict], T],
+    ):
         self._historian = historian
         self._archive_collection = archive_collection
         self._entry_factory = entry_factory
         self._result_set_factory = ResultSet
 
     def find(
-            self,  # pylint: disable=redefined-builtin
-            *filter: expr.FilterSpec,
-            obj_type=None,
-            obj_id=None,
-            version: int = -1,
-            state=None,
-            meta: dict = None,
-            extras: dict = None,
-            sort=None,
-            limit=None,
-            skip=0) -> ResultSet[T]:
+        self,  # pylint: disable=redefined-builtin
+        *filter: expr.FilterSpec,
+        obj_type=None,
+        obj_id=None,
+        version: int = -1,
+        state=None,
+        meta: dict = None,
+        extras: dict = None,
+        sort=None,
+        limit=None,
+        skip=0,
+    ) -> ResultSet[T]:
         """Query the collection returning a result set"""
-        query = self._prepare_query(*filter,
-                                    obj_type=obj_type,
-                                    obj_id=obj_id,
-                                    version=version,
-                                    state=state,
-                                    extras=extras)
+        query = self._prepare_query(
+            *filter,
+            obj_type=obj_type,
+            obj_id=obj_id,
+            version=version,
+            state=state,
+            extras=extras,
+        )
         query.sort = sort
         query.limit = limit
         query.skip = skip
-        return self._result_set_factory(self._historian,
-                                        self._archive_collection,
-                                        query,
-                                        kwargs=dict(meta=meta),
-                                        entry_factory=self._entry_factory)
+        return self._result_set_factory(
+            self._historian,
+            self._archive_collection,
+            query,
+            kwargs=dict(meta=meta),
+            entry_factory=self._entry_factory,
+        )
 
     def distinct(  # pylint: disable=redefined-builtin
-            self,
-            key: str,
-            *filter: expr.FilterSpec,
-            obj_type=None,
-            obj_id=None,
-            version: int = -1,
-            state=None,
-            extras: dict = None) -> Iterator:
-        """Get the distinct values for the given key, optionally restricting to a subset of results
-        """
-        yield from self.find(*filter,
-                             obj_type=obj_type,
-                             obj_id=obj_id,
-                             version=version,
-                             state=state,
-                             extras=extras).distinct(key)
+        self,
+        key: str,
+        *filter: expr.FilterSpec,
+        obj_type=None,
+        obj_id=None,
+        version: int = -1,
+        state=None,
+        extras: dict = None,
+    ) -> Iterator:
+        """Get the distinct values for the given key, optionally restricting to a subset of results"""
+        yield from self.find(
+            *filter,
+            obj_type=obj_type,
+            obj_id=obj_id,
+            version=version,
+            state=state,
+            extras=extras,
+        ).distinct(key)
 
     def get(self, entry_id) -> T:
         return self._entry_factory(self._archive_collection.get(entry_id))
 
-    def _prepare_query(self,
-                       *expression,
-                       obj_type=None,
-                       obj_id=None,
-                       version: int = -1,
-                       state=None,
-                       extras: dict = None) -> expr.Query:
+    def _prepare_query(
+        self,
+        *expression,
+        obj_type=None,
+        obj_id=None,
+        version: int = -1,
+        state=None,
+        extras: dict = None,
+    ) -> expr.Query:
         """Prepare a query filter expression from the passed filter criteria"""
         for entry in expression:
             # Automatically register any types passed in during find (unless that type id is already is use)
@@ -199,7 +226,7 @@ class EntriesCollection(Generic[T]):
 
         if state is not None:
             if isinstance(state, dict):
-                result = flatten_filter('state', state)
+                result = flatten_filter("state", state)
                 query.extend(result)
             else:
                 query.append(records.DataRecord.state == state)
@@ -208,7 +235,7 @@ class EntriesCollection(Generic[T]):
             if not isinstance(extras, dict):
                 raise TypeError(f"extras must be a dict, got '{extras}'")
 
-            result = flatten_filter('extras', extras)
+            result = flatten_filter("extras", extras)
             query.extend(result)
 
         return query
@@ -218,9 +245,13 @@ class EntriesCollection(Generic[T]):
             oper = obj_id
         else:
             if isinstance(obj_id, list):
-                oper = expr.In(list(map(self._historian._prepare_obj_id, obj_id)))  # pylint: disable=protected-access
+                oper = expr.In(
+                    list(map(self._historian._prepare_obj_id, obj_id))
+                )  # pylint: disable=protected-access
             else:
-                oper = expr.Eq(self._historian._prepare_obj_id(obj_id))  # pylint: disable=protected-access
+                oper = expr.Eq(
+                    self._historian._prepare_obj_id(obj_id)
+                )  # pylint: disable=protected-access
 
         return expr.Comparison(records.DataRecord.obj_id, oper)
 
@@ -229,9 +260,13 @@ class EntriesCollection(Generic[T]):
             oper = obj_type
         else:
             if isinstance(obj_type, list):
-                oper = expr.In(list(map(self._historian._prepare_type_id, obj_type)))  # pylint: disable=protected-access
+                oper = expr.In(
+                    list(map(self._historian._prepare_type_id, obj_type))
+                )  # pylint: disable=protected-access
             else:
-                oper = expr.Eq(self._historian._prepare_type_id(obj_type))  # pylint: disable=protected-access
+                oper = expr.Eq(
+                    self._historian._prepare_type_id(obj_type)
+                )  # pylint: disable=protected-access
 
         return expr.Comparison(records.DataRecord.type_id, oper)
 
@@ -253,7 +288,9 @@ class ObjectCollection(EntriesCollection[object]):
         )
         self._record_factory = record_factory
         self._obj_loader = obj_loader
-        self._records = EntriesCollection(self._historian, archive_collection, record_factory)
+        self._records = EntriesCollection(
+            self._historian, archive_collection, record_factory
+        )
 
     def get(self, entry_id) -> object:
         return self._create_object(self._archive_collection.get(entry_id))
@@ -280,22 +317,22 @@ def flatten_filter(entry_name: str, query) -> list:
 
 
 @functools.singledispatch
-def _transform_query_keys(entry, prefix: str = ''):  # pylint: disable=unused-argument
+def _transform_query_keys(entry, prefix: str = ""):  # pylint: disable=unused-argument
     """Transform a query entry into the correct syntax given a global prefix and the entry itself"""
     return entry
 
 
 @_transform_query_keys.register(list)
-def _(entry: list, prefix: str = ''):
+def _(entry: list, prefix: str = ""):
     return [_transform_query_keys(value, prefix) for value in entry]
 
 
 @_transform_query_keys.register(dict)
-def _(entry: dict, prefix: str = ''):
+def _(entry: dict, prefix: str = ""):
     transformed = {}
     for key, value in entry.items():
-        if key.startswith('$'):
-            if key in ('$and', '$not', '$nor', '$or'):
+        if key.startswith("$"):
+            if key in ("$and", "$not", "$nor", "$or"):
                 transformed[key] = _transform_query_keys(value, prefix)
             else:
                 update = {prefix: {key: value}} if prefix else {key: value}
@@ -303,6 +340,6 @@ def _(entry: dict, prefix: str = ''):
         else:
             to_join = [prefix, key] if prefix else [key]
             # Don't pass the prefix on, we've consumed it here
-            transformed['.'.join(to_join)] = _transform_query_keys(value)
+            transformed[".".join(to_join)] = _transform_query_keys(value)
 
     return transformed

@@ -4,4 +4,4 @@ from .metas import Meta
 from .references import References
 from .snapshots import SnapshotsCollection
 
-__all__ = 'Meta', 'References', 'SnapshotsCollection', 'LiveObjectsCollection'
+__all__ = "Meta", "References", "SnapshotsCollection", "LiveObjectsCollection"

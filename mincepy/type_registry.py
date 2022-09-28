@@ -13,7 +13,9 @@ class TypeRegistry:
     to store and track objects in the archive"""
 
     def __init__(self):
-        self._helpers = {}  # type: MutableMapping[SavableObjectType, helpers.TypeHelper]
+        self._helpers = (
+            {}
+        )  # type: MutableMapping[SavableObjectType, helpers.TypeHelper]
         self._type_ids = {}  # type: MutableMapping[Any, SavableObjectType]
 
     def __contains__(self, item: SavableObjectType) -> bool:
@@ -25,8 +27,10 @@ class TypeRegistry:
         return self._helpers
 
     def register_type(
-            self, obj_class_or_helper: Union[helpers.TypeHelper, SavableObjectType], replace=False) \
-            -> helpers.WrapperHelper:
+        self,
+        obj_class_or_helper: Union[helpers.TypeHelper, SavableObjectType],
+        replace=False,
+    ) -> helpers.WrapperHelper:
         """Register a type new type
 
         :param obj_class_or_helper: the type helper of savable object to register
@@ -82,7 +86,9 @@ class TypeRegistry:
         except KeyError:
             raise TypeError(f"Type id '{type_id}' not known") from None
 
-    def get_helper_from_obj_type(self, obj_type: SavableObjectType) -> helpers.TypeHelper:
+    def get_helper_from_obj_type(
+        self, obj_type: SavableObjectType
+    ) -> helpers.TypeHelper:
         try:
             # Try the direct lookup
             return self._helpers[obj_type]
@@ -114,11 +120,15 @@ class TypeRegistry:
 
         return type_info
 
-    def _register(self, obj_class_or_helper: Union[helpers.TypeHelper, SavableObjectType],
-                  replace: bool) -> helpers.WrapperHelper:
+    def _register(
+        self,
+        obj_class_or_helper: Union[helpers.TypeHelper, SavableObjectType],
+        replace: bool,
+    ) -> helpers.WrapperHelper:
         """Register a type and return the associated helper"""
-        if isinstance(obj_class_or_helper, type) and \
-                issubclass(obj_class_or_helper, helpers.TypeHelper):
+        if isinstance(obj_class_or_helper, type) and issubclass(
+            obj_class_or_helper, helpers.TypeHelper
+        ):
             # Try automatically constructing the helper
             # relies on 0-argument constructor being present
             obj_class_or_helper = obj_class_or_helper()
@@ -128,7 +138,8 @@ class TypeRegistry:
         else:
             if not issubclass(obj_class_or_helper, types.Object):
                 raise TypeError(
-                    f"Type '{obj_class_or_helper}' is nether a TypeHelper nor a SavableObject")
+                    f"Type '{obj_class_or_helper}' is nether a TypeHelper nor a SavableObject"
+                )
             helper = helpers.WrapperHelper(obj_class_or_helper)
 
         self._insert_helper(helper, replace=replace)
@@ -136,16 +147,23 @@ class TypeRegistry:
 
     def _insert_helper(self, helper: helpers.TypeHelper, replace=False):
         """Insert a helper into the registry for all the types that it supports"""
-        obj_types = helper.TYPE if isinstance(helper.TYPE, tuple) else (helper.TYPE,)  # pylint: disable=isinstance-second-argument-not-valid-type
+        obj_types = (
+            helper.TYPE if isinstance(helper.TYPE, tuple) else (helper.TYPE,)
+        )  # pylint: disable=isinstance-second-argument-not-valid-type
 
         for obj_type in obj_types:
             type_id = helper.TYPE_ID
 
-            if not replace and type_id in self._type_ids and self._type_ids[type_id] is not obj_type:
+            if (
+                not replace
+                and type_id in self._type_ids
+                and self._type_ids[type_id] is not obj_type
+            ):
                 raise ValueError(
                     f"Helper for type id '{helper.TYPE_ID}' already exists for type '{self._type_ids[type_id]}' but "
                     f"it is attempting to be replace by '{obj_type.__name__}'.  "
-                    f'Call with replace=True if this is intentional.')
+                    f"Call with replace=True if this is intentional."
+                )
 
             self._helpers[obj_type] = helper
             self._type_ids[helper.TYPE_ID] = obj_type
