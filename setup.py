@@ -30,6 +30,7 @@ setup(
         'deprecation',
         'dnspython',  # Needed to be able to connect using domain name rather than IP
         'pymongo<4.0',
+        'litemongo',
         'mongomock',
         'bidict',
         'networkx',  # For reference graphs

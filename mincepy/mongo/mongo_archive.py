@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from typing import Optional, Sequence, Union, Iterable, Mapping, Iterator, Dict, Tuple
 import weakref
+from urllib import parse
 import uuid
 
 import bson
@@ -606,45 +607,63 @@ def connect(uri: str, timeout=30000) -> MongoArchive:
     :param timeout: a connection time (in milliseconds)
     :return: the connected mongo archive
     """
+    parsed = parse.urlparse(uri)
+
+    if parsed.scheme == 'mongodb':
+        return pymongo_connect(uri, timeout=timeout)
+    if parsed.scheme == 'mongomock':
+        return mongomock_connect(uri, timeout=timeout)
+    if parsed.scheme == 'litemongo':
+        return litemongo_connect(uri)
+
+    raise ValueError(f'Unknown scheme: {uri}')
+
+
+def pymongo_connect(uri, database: str = None, timeout=30000):
     # URI Format is:
     # mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
-    mocking = False
-    if uri.startswith('mongomock'):
-        mocking = True
-        uri = uri.replace('mongomock', 'mongodb')
+    try:
+        parsed = pymongo.uri_parser.parse_uri(uri)
+    except pymongo.errors.InvalidURI as exc:
+        raise ValueError(str(exc)) from exc
 
-    parsed = pymongo.uri_parser.parse_uri(uri)
     if not parsed.get('database', None):
         raise ValueError(f'Failed to supply database on MongoDB uri: {uri}')
 
     try:
-        if mocking:
-            # Cache, this makes sure that if we get two requests to connect to exactly the same URI then
-            # an existing connection will be returned
-            global MOCKED  # pylint: disable=global-statement, global-variable-not-assigned
-            if uri in MOCKED:
-                return MOCKED[uri]
-
-            archive = mongomock_connect(uri, parsed['database'], timeout)
-            MOCKED[uri] = archive
-            return archive
-
-        return pymongo_connect(uri, parsed['database'], timeout)
+        client = pymongo.MongoClient(uri, connect=True, serverSelectionTimeoutMS=timeout)
+        database = client.get_default_database()
+        return MongoArchive(database)
     except pymongo.errors.ServerSelectionTimeoutError as exc:
         raise exceptions.ConnectionError(str(exc))
 
 
-def pymongo_connect(uri, database: str, timeout=30000):
-    client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=timeout)
-    database = client[database]
-    return MongoArchive(database)
-
-
-def mongomock_connect(uri, database: str, timeout=30000) -> MongoArchive:
+def mongomock_connect(uri, timeout=30000) -> MongoArchive:
+    # Cache, this makes sure that if we get two requests to connect to exactly the same URI then
+    # an existing connection will be returned
     import mongomock
     import mongomock.gridfs
 
+    global MOCKED  # pylint: disable=global-statement, global-variable-not-assigned
+    if uri in MOCKED:
+        return MOCKED[uri]
+
+    parsed = parse.urlparse(uri)
+
     mongomock.gridfs.enable_gridfs_integration()
-    client = mongomock.MongoClient(uri, serverSelectionTimeoutMS=timeout)
-    database = client[database]
+    client = mongomock.MongoClient(f'mongodb://localhost/{parsed.fragment}',
+                                   serverSelectionTimeoutMS=timeout)
+    database = client.get_default_database()
     return MongoArchive(database)
+
+
+def litemongo_connect(uri) -> MongoArchive:
+    import litemongo
+    import litemongo._vendor.mongomock.gridfs
+    litemongo._vendor.mongomock.gridfs.enable_gridfs_integration()  # pylint: disable=protected-access
+
+    client = litemongo.connect(uri)
+    database = client.get_default_database()
+    archive = MongoArchive(database)
+
+    return archive
