@@ -27,7 +27,7 @@ class BaseSavableObject(types.SavableObject):
     """A helper class that makes a class compatible with the historian by flagging certain
     attributes which will be saved/loaded/hashed and compared in __eq__.  This should be an
     exhaustive list of all the attributes that define this class.  If more complex functionality
-    is needed then the standard SavableComparable interface methods should be overwritten."""
+    is needed, then the standard SavableComparable interface methods should be overwritten."""
 
     ATTRS = tuple()
     IGNORE_MISSING = (

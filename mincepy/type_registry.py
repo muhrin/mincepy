@@ -6,6 +6,9 @@ from . import helpers
 from . import types
 
 SavableObjectType = Type[types.SavableObject]
+RegisterableType = Union[
+    helpers.TypeHelper, Type[helpers.TypeHelper], SavableObjectType
+]
 
 
 class TypeRegistry:
@@ -28,7 +31,7 @@ class TypeRegistry:
 
     def register_type(
         self,
-        obj_class_or_helper: Union[helpers.TypeHelper, SavableObjectType],
+        obj_class_or_helper: RegisterableType,
         replace=False,
     ) -> helpers.WrapperHelper:
         """Register a type new type
@@ -122,10 +125,13 @@ class TypeRegistry:
 
     def _register(
         self,
-        obj_class_or_helper: Union[helpers.TypeHelper, SavableObjectType],
+        obj_class_or_helper: RegisterableType,
         replace: bool,
     ) -> helpers.WrapperHelper:
         """Register a type and return the associated helper"""
+        if obj_class_or_helper is None:
+            raise ValueError("Must supply object type or helper, got None")
+
         if isinstance(obj_class_or_helper, type) and issubclass(
             obj_class_or_helper, helpers.TypeHelper
         ):

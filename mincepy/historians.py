@@ -545,10 +545,11 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return isinstance(obj_id, self._archive.get_id_type())
 
     def register_type(
-        self, obj_class_or_helper: HistorianType, replace=True
+        self, obj_class_or_helper: "type_registry.RegisterableType", replace=True
     ) -> helpers.TypeHelper:
         helper = self._type_registry.register_type(obj_class_or_helper, replace=replace)
         self._equator.add_equator(helper)
+
         return helper
 
     def register_types(
