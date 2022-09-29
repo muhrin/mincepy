@@ -6,7 +6,7 @@ __license__ = "LGPLv3"
 
 about = {}
 with open("mincepy/version.py") as f:
-    exec(f.read(), about)
+    exec(f.read(), about)  # nosec
 
 setup(
     name="mincepy",

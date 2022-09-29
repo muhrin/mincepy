@@ -296,7 +296,9 @@ class BaseArchive(Archive[IdT]):
 
     @classmethod
     def get_id_type(cls) -> Type[IdT]:
-        assert cls.ID_TYPE, "The ID type has not been set on this archive"
+        assert (  # nosec: intentional internal assert
+            cls.ID_TYPE
+        ), "The ID type has not been set on this archive"
         return cls.ID_TYPE
 
     def __init__(self):

@@ -52,7 +52,7 @@ class ObjRef(types.SavableObject):
                 raise RuntimeError("Cannot dereference a None reference")
             # Cache the object
             self._obj = self._loader.load(self._sid)
-            assert (
+            assert (  # nosec: intentional internal assert
                 self._obj is not None
             ), f"Loader did not load object using SID {self._sid}"
             self._sid = None

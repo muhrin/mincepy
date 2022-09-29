@@ -19,12 +19,11 @@ repos:
   rev: 3.9.2
   hooks:
     - id: flake8
-#-   repo: https://github.com/PyCQA/bandit
-#    rev: 1.7.4
-#    hooks:
-#    - id: bandit
-#      args: [ "-c", "pyproject.toml" ]
-#      additional_dependencies: [ "bandit[toml]" ]
+-   repo: https://github.com/PyCQA/bandit
+    rev: 1.7.4
+    hooks:
+    - id: bandit
+      args: [ "-c", ".bandit.yaml" ]
 - repo: https://github.com/commitizen-tools/commitizen
   rev: v2.35.0
   hooks:

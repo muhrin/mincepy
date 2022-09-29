@@ -120,7 +120,9 @@ def get_version(database) -> Optional[int]:
 
 @contextlib.contextmanager
 def temporary_collection(database: pymongo.database.Database, coll_name=None):
-    coll_name = coll_name or "".join(random.choices(string.ascii_letters, k=10))
+    coll_name = coll_name or "".join(
+        random.choices(string.ascii_letters, k=10)  # nosec
+    )
     coll = database[coll_name]
     yield coll
     database.drop_collection(coll_name)
