@@ -368,10 +368,8 @@ def test_path_helper(historian: mincepy.Historian):
             super().__init__()
             self.path = path
 
-    file = File(pathlib.Path("some_path"))
-    file_id = historian.save(file)
-    del file
-    loaded = historian.load(file_id)
+    path = pathlib.Path("some_path")
+    loaded = testing.do_round_trip(historian, File, path)
     assert loaded.path == pathlib.Path("some_path")
 
 
