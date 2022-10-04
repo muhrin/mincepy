@@ -31,6 +31,7 @@ setup(
         "dnspython",  # Needed to be able to connect using domain name rather than IP
         "pymongo<4.0",
         "litemongo",
+        "importlib-metadata<5.0",  # see: https://stackoverflow.com/questions/73929564/entrypoints-object-has-no-attribute-get-digital-ocean
         "mongomock",
         "bidict",
         "networkx",  # For reference graphs
