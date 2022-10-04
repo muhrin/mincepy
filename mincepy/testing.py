@@ -2,6 +2,7 @@
 """Classes and function useful for trying out mincepy functionality"""
 # pylint: disable=cyclic-import
 import contextlib
+import gc
 import logging
 import os
 import string
@@ -219,7 +220,10 @@ def do_round_trip(historian, factory, *args, **kwargs):
     loaded = historian.load(obj_id)
 
     # Make sure the object had really been garbage collected in between
-    assert ref_id != id(loaded)
+    if ref_id == id(loaded):
+        raise RuntimeError(
+            f"Historian did not load object because references are being held by: {gc.get_referrers(loaded)}"
+        )
     return loaded
 
 
@@ -230,6 +234,7 @@ def _do_create_and_save(historian, factory, *args, **kwargs):
 
     # Now delete and reload the object
     del obj
+    gc.collect()
     return obj_id, ref_id
 
 
