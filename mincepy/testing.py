@@ -21,6 +21,7 @@ DEFAULT_ARCHIVE_URI = "mongodb://localhost/mincepy-tests"
 # DEFAULT_ARCHIVE_URI = 'mongomock://localhost/mincepy-tests'
 DEFAULT_ARCHIVE_BASE_URI = "mongodb://127.0.0.1"
 
+
 # pylint: disable=redefined-outer-name, invalid-name
 
 
@@ -196,6 +197,37 @@ def populate(historian=None):
         historian.save(person)
         people.append(person)
     historian.save(people)
+
+
+def do_round_trip(historian, factory, *args, **kwargs):
+    """Given a historian, this function will:
+        1. create the object using factory(*args, **kwargs)
+        2. save the object and ask for it to be deleted,
+        3. reload the object using the object id
+        4. check that the python id of the loaded object is different from the original
+        5. return the loaded object
+
+    This is useful to check that saving and loading of an object work correctly and makes it easy to subsequently check
+    that the state of the loaded object is as expected.
+    """
+    obj_id, ref_id = _do_create_and_save(historian, factory, *args, **kwargs)
+
+    # Now reload
+    loaded = historian.load(obj_id)
+
+    # Make sure the object had really been garbage collected in between
+    assert ref_id != id(loaded)
+    return loaded
+
+
+def _do_create_and_save(historian, factory, *args, **kwargs):
+    obj = factory(*args, **kwargs)
+    obj_id = historian.save(obj)
+    ref_id = id(obj)
+
+    # Now delete and reload the object
+    del obj
+    return obj_id, ref_id
 
 
 HISTORIAN_TYPES = Car, Garage, Person, Cycle

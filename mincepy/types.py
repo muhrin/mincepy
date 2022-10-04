@@ -153,7 +153,7 @@ class Equator:
         try:
             equator = self.get_equator(obj)
         except TypeError:
-            # Try the objects's method
+            # Try the objects' method
             try:
                 yield from obj.yield_hashables(self)
             except AttributeError:

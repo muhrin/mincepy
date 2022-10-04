@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import collections
 from typing import MutableMapping
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 import mincepy
 from mincepy import testing
 from mincepy import builtins
+
 
 # region lists
 
@@ -336,3 +338,9 @@ def test_str_state(historian: mincepy.Historian):
     results = tuple(historian.find(state="hungry hippo!"))
     assert len(results) == 1
     assert results[0] is my_str
+
+
+def test_ordered_dict(historian: mincepy.Historian):
+    entries = [("a", 5), ("b", "10"), ("c", testing.Car())]
+    loaded = testing.do_round_trip(historian, collections.OrderedDict, entries)
+    assert list(loaded.items()) == entries

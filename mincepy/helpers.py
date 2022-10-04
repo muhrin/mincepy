@@ -44,7 +44,7 @@ class TypeHelper(fields.WithFields):
     the historian."""
 
     #: The type this helper corresponds to
-    TYPE = None  # type: type
+    TYPE: Type = None
     TYPE_ID = None  # The unique id for this type of object
     IMMUTABLE = False  # If set to true then the object is decoded straight away
     INJECT_CREATION_TRACKING = False

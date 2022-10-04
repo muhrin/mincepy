@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
-"""Module for all the built in container and other types"""
+"""Module for all the built-in container and other types"""
 
 from abc import ABCMeta
 import collections
 import collections.abc
+import typing
 import uuid
 
 from . import base_savable
@@ -366,6 +367,25 @@ class LiveRefDict(Reffer, LiveDict):
         return ObjProxy(self._ref(value))
 
 
+class OrderedDictHelper(helpers.BaseHelper):
+    """Enable saving of OrderedDicts.  In the database, these will be stored as a list of (key, value) pairs and hence
+    preserve the order."""
+
+    TYPE = collections.OrderedDict
+    TYPE_ID = uuid.UUID("9e7714f8-8ecf-466f-a0e1-6c9fc1d92f51")
+
+    def yield_hashables(self, obj, hasher):
+        yield from hasher.yield_hashables(list(obj.items()))
+
+    def save_instance_state(
+        self, obj: collections.OrderedDict, _saver
+    ) -> typing.List[typing.Tuple]:
+        return list(obj.items())
+
+    def load_instance_state(self, obj, saved_state: typing.List[typing.Tuple], _loader):
+        obj.__init__(saved_state)
+
+
 # endregion
 
 
@@ -410,6 +430,7 @@ HISTORIAN_TYPES = (
     RefDict,
     LiveDict,
     LiveRefDict,
+    OrderedDictHelper,
     ObjProxy,
     File,
 )
