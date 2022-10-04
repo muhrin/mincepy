@@ -341,6 +341,14 @@ def test_str_state(historian: mincepy.Historian):
 
 
 def test_ordered_dict(historian: mincepy.Historian):
+    """Test that OrderedDictHelper works correctly"""
     entries = [("a", 5), ("b", "10"), ("c", testing.Car())]
     loaded = testing.do_round_trip(historian, collections.OrderedDict, entries)
     assert list(loaded.items()) == entries
+
+
+def test_set(historian: mincepy.Historian):
+    """Test that SetHelper works correctly"""
+    entries = {5, "elephant", testing.Car()}
+    loaded = testing.do_round_trip(historian, set, entries)
+    assert loaded == entries

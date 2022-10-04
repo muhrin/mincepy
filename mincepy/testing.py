@@ -102,6 +102,9 @@ class Car(mincepy.ConvenientSavable):
         self.make = make
         self.colour = colour
 
+    def __hash__(self):
+        return hash((self.make, self.colour))
+
     def __str__(self) -> str:
         return f"{self.colour} {self.make}"
 

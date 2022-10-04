@@ -374,8 +374,9 @@ class OrderedDictHelper(helpers.BaseHelper):
     TYPE = collections.OrderedDict
     TYPE_ID = uuid.UUID("9e7714f8-8ecf-466f-a0e1-6c9fc1d92f51")
 
-    def yield_hashables(self, obj, hasher):
-        yield from hasher.yield_hashables(list(obj.items()))
+    def yield_hashables(self, obj: collections.OrderedDict, hasher):
+        for entry in obj.items():
+            yield from hasher.yield_hashables(entry)
 
     def save_instance_state(
         self, obj: collections.OrderedDict, _saver
@@ -387,6 +388,22 @@ class OrderedDictHelper(helpers.BaseHelper):
 
 
 # endregion
+
+
+class SetHelper(helpers.BaseHelper):
+    TYPE = set
+    TYPE_ID = uuid.UUID("3fb0db0e-e095-4829-928f-f72be46ff975")
+
+    def yield_hashables(self, obj: set, hasher):
+        # Yield hashes for all entries
+        for entry in obj:
+            yield from hasher.yield_hashables(entry)
+
+    def save_instance_state(self, obj: set, _saver) -> typing.List:
+        return list(obj)
+
+    def load_instance_state(self, obj: set, saved_state: List, _loader):
+        return obj.__init__(saved_state)
 
 
 class SnapshotIdHelper(helpers.TypeHelper):
@@ -431,6 +448,7 @@ HISTORIAN_TYPES = (
     LiveDict,
     LiveRefDict,
     OrderedDictHelper,
+    SetHelper,
     ObjProxy,
     File,
 )
