@@ -158,7 +158,7 @@ class Equator:
                 yield from obj.yield_hashables(self)
             except AttributeError:
                 raise TypeError(
-                    f"No helper registered and no yield_hashables method on '{type(obj)}'"
+                    f"No helper registered and no yield_hashables method on '{type(obj).__name__}'"
                 ) from None
         else:
             yield from equator.yield_hashables(obj, self)

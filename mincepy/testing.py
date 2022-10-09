@@ -215,14 +215,21 @@ def do_round_trip(historian, factory, *args, **kwargs):
     This is useful to check that saving and loading of an object work correctly and makes it easy to subsequently check
     that the state of the loaded object is as expected.
     """
-    obj_id = _do_create_and_save(historian, factory, *args, **kwargs)
+    obj_id, obj_type = _do_create_and_save(historian, factory, *args, **kwargs)
 
     # Now reload
-    return historian.load(obj_id)
+    loaded = historian.load(obj_id)
+    if not issubclass(type(loaded), obj_type):
+        raise TypeError(
+            f"Loaded type is {type(loaded).__name} while original was {obj_type.__name__}"
+        )
+
+    return loaded
 
 
 def _do_create_and_save(historian, factory, *args, **kwargs):
     obj = factory(*args, **kwargs)
+    obj_type = type(obj)
     obj_id = historian.save(obj)
 
     ref = weakref.ref(obj)
@@ -235,7 +242,7 @@ def _do_create_and_save(historian, factory, *args, **kwargs):
             f"Failed to delete object, references are being held by: {gc.get_referrers(ref())}"
         )
 
-    return obj_id
+    return obj_id, obj_type
 
 
 HISTORIAN_TYPES = Car, Garage, Person, Cycle

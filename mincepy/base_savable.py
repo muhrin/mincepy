@@ -30,9 +30,8 @@ class BaseSavableObject(types.SavableObject):
     is needed, then the standard SavableComparable interface methods should be overwritten."""
 
     ATTRS = tuple()
-    IGNORE_MISSING = (
-        True  # When loading ignore attributes that are missing in the record
-    )
+    # When loading ignore attributes that are missing in the record
+    IGNORE_MISSING = True
 
     def __new__(cls, *_args, **_kwargs):
         new_instance = super(BaseSavableObject, cls).__new__(cls)
