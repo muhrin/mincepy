@@ -327,9 +327,9 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
     def delete(self, *obj_or_identifier, imperative=True) -> result_types.DeleteResult:
         """Delete objects.
 
-        :param imperative: if True, this means that the caller explicitly expects this call to delete the passed objects
-            and it should therefore raise if an object cannot be found or has been deleted already.  If False, the
-            function will ignore these cases and continue.
+        :param imperative: if True, this means that the caller explicitly expects this call to delete the passed
+            objects, and it should therefore raise if an object cannot be found or has been deleted already.  If False,
+            the function will ignore these cases and continue.
         :raises mincepy.NotFound: if the object cannot be found (potentially because it was
             already deleted)
         """
@@ -515,6 +515,7 @@ class Historian:  # pylint: disable=too-many-public-methods, too-many-instance-a
         return self._equator.hash(obj)
 
     def eq(self, one: object, other: object):  # pylint: disable=invalid-name
+        """Returns `True` if object `one` is equal to `other`, `False` otherwise"""
         return self._equator.eq(one, other)
 
     # region Types

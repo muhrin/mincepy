@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import datetime
 import numbers
 import collections.abc
 from operator import itemgetter
@@ -125,3 +126,10 @@ class UuidEquator(SimpleHelper):
 
     def yield_hashables(self, obj: uuid.UUID, hasher):
         yield obj.bytes
+
+
+class DatetimeEquator(SimpleHelper):
+    TYPE = datetime.datetime
+
+    def yield_hashables(self, obj: datetime.datetime, hasher):
+        yield str(obj).encode("utf-8")  # TODO: Improve this

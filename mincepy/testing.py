@@ -7,7 +7,7 @@ import logging
 import os
 import string
 import random
-from typing import Iterator
+from typing import Iterator, Callable
 import uuid
 import weakref
 
@@ -204,7 +204,9 @@ def populate(historian=None):
     historian.save(people)
 
 
-def do_round_trip(historian, factory, *args, **kwargs):
+def do_round_trip(
+    historian: mincepy.Historian, factory: Callable, *args, **kwargs
+) -> object:
     """Given a historian, this function will:
         1. create the object using factory(*args, **kwargs)
         2. save the object and ask for it to be deleted,
@@ -221,13 +223,13 @@ def do_round_trip(historian, factory, *args, **kwargs):
     loaded = historian.load(obj_id)
     if not issubclass(type(loaded), obj_type):
         raise TypeError(
-            f"Loaded type is {type(loaded).__name} while original was {obj_type.__name__}"
+            f"Loaded type is {type(loaded).__name__} while original was {obj_type.__name__}"
         )
 
     return loaded
 
 
-def _do_create_and_save(historian, factory, *args, **kwargs):
+def _do_create_and_save(historian: mincepy.Historian, factory, *args, **kwargs):
     obj = factory(*args, **kwargs)
     obj_type = type(obj)
     obj_id = historian.save(obj)

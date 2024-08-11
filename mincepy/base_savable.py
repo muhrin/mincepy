@@ -51,7 +51,7 @@ class BaseSavableObject(types.SavableObject):
                     if attr_spec.name not in attrs:
                         attrs[attr_spec.name] = attr_spec
 
-        setattr(new_instance, "__attrs", attrs.values())
+        setattr(new_instance, "__attrs", tuple(attrs.values()))
         return new_instance
 
     def __eq__(self, other):

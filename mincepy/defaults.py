@@ -17,4 +17,5 @@ def get_default_equators():
         comparators.NoneEquator(),
         comparators.TupleEquator(),
         comparators.UuidEquator(),
+        comparators.DatetimeEquator(),
     )
