@@ -1,7 +1,7 @@
 
 PACKAGE="mincepy"
 REMOTE="muhrin"
-VERSION_FILE=${PACKAGE}/version.py
+VERSION_FILE=${PACKAGE}/__init__.py
 
 version=$1
 while true; do
@@ -15,8 +15,7 @@ done
 
 set -x
 
-ver_info=`python -c "print(tuple(int(entry) for entry in '$version'.split('.')))"`
-sed -i "/^version_info/c version_info = ${ver_info}" $VERSION_FILE
+sed -i "/^__version__/c __version__ = ${version}" $VERSION_FILE
 
 current_branch=`git rev-parse --abbrev-ref HEAD`
 

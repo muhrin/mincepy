@@ -1,18 +1,26 @@
-# -*- coding: utf-8 -*-
 """
 This module collects all the frontend database entities such as collections and results that a
 user interacts with (through the historian)
 """
+
 import functools
 import inspect
-from typing import TypeVar, Generic, Iterable, Callable, Any, Iterator, Optional, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Generic,
+    Iterable,
+    Iterator,
+    Optional,
+    TypeVar,
+    Union,
+)
 
-from . import archives
-from . import exceptions
-from . import expr
-from . import fields
-from . import records
-from . import types
+from . import exceptions, expr, fields, records, types
+
+if TYPE_CHECKING:
+    import mincepy
 
 T = TypeVar("T")  # The type stored by the collection pylint: disable=invalid-name
 
@@ -38,7 +46,7 @@ class ResultSet(Generic[T]):
     def __init__(
         self,
         historian,
-        archive_collection: archives.Collection,
+        archive_collection: "mincepy.archives.Collection",
         query: expr.Query,
         kwargs: dict = None,
         entry_factory: Callable[[Any], T] = None,
@@ -50,9 +58,7 @@ class ResultSet(Generic[T]):
         self._entry_factory = entry_factory or (lambda x: x)
 
     def __iter__(self) -> Iterable[T]:
-        for entry in self._archive_collection.find(
-            **self._query.__dict__, **self._kwargs
-        ):
+        for entry in self._archive_collection.find(**self._query.__dict__, **self._kwargs):
             yield self._entry_factory(entry)
 
     def __len__(self) -> int:
@@ -64,7 +70,7 @@ class ResultSet(Generic[T]):
         return self._historian
 
     @property
-    def archive_collection(self) -> archives.Collection:
+    def archive_collection(self) -> "mincepy.archives.Collection":
         """Access the archive these results are from"""
         return self._archive_collection
 
@@ -76,9 +82,7 @@ class ResultSet(Generic[T]):
     def distinct(self, key: Union[str, fields.Field]) -> Iterator:
         if isinstance(key, fields.Field):
             key = key.get_path()
-        yield from self._archive_collection.distinct(
-            key, filter=self._query.get_filter()
-        )
+        yield from self._archive_collection.distinct(key, filter=self._query.get_filter())
 
     def any(self) -> Optional[T]:
         """
@@ -108,9 +112,7 @@ class ResultSet(Generic[T]):
             return None
 
         if len(results) > 1:
-            raise exceptions.NotOneError(
-                "one() used with more than one result available"
-            )
+            raise exceptions.NotOneError("one() used with more than one result available")
 
         return self._entry_factory(results[0])
 
@@ -121,20 +123,20 @@ class ResultSet(Generic[T]):
     def _project(self, *field: str) -> Iterator:
         """Get raw fields from the record dictionary"""
         projection = {name: 1 for name in field}
-        for entry in self._archive_collection.find(
+        yield from self._archive_collection.find(
             **self._query.__dict__, projection=projection, **self._kwargs
-        ):
-            yield entry
+        )
 
 
 class EntriesCollection(Generic[T]):
-    """A collection of archive entries.  This is the base class, but it can be specialised to provide specific
-    functionality for a given collection"""
+    """
+    A collection of archive entries.  This is the base class, but it can be specialised to provide
+    specific functionality for a given collection"""
 
     def __init__(
         self,
         historian,
-        archive_collection: archives.Collection,
+        archive_collection: "mincepy.archives.Collection",
         entry_factory: Callable[[dict], T],
     ):
         self._historian = historian
@@ -185,7 +187,9 @@ class EntriesCollection(Generic[T]):
         state=None,
         extras: dict = None,
     ) -> Iterator:
-        """Get the distinct values for the given key, optionally restricting to a subset of results"""
+        """
+        Get the distinct values for the given key, optionally restricting to a subset of results
+        """
         yield from self.find(
             *filter,
             obj_type=obj_type,
@@ -209,7 +213,8 @@ class EntriesCollection(Generic[T]):
     ) -> expr.Query:
         """Prepare a query filter expression from the passed filter criteria"""
         for entry in expression:
-            # Automatically register any types passed in during find (unless that type id is already is use)
+            # Automatically register any types passed in during find
+            # (unless that type id is already is use)
             if inspect.isclass(entry) and issubclass(entry, types.SavableObject):
                 self._historian.type_registry.register_type(entry)
 
@@ -246,12 +251,17 @@ class EntriesCollection(Generic[T]):
         else:
             if isinstance(obj_id, list):
                 oper = expr.In(
-                    list(map(self._historian._prepare_obj_id, obj_id))
-                )  # pylint: disable=protected-access
+                    list(
+                        map(
+                            self._historian._prepare_obj_id,  # pylint: disable=protected-access
+                            obj_id,
+                        )
+                    )
+                )
             else:
                 oper = expr.Eq(
-                    self._historian._prepare_obj_id(obj_id)
-                )  # pylint: disable=protected-access
+                    self._historian._prepare_obj_id(obj_id)  # pylint: disable=protected-access
+                )
 
         return expr.Comparison(records.DataRecord.obj_id, oper)
 
@@ -260,13 +270,17 @@ class EntriesCollection(Generic[T]):
             oper = obj_type
         else:
             if isinstance(obj_type, list):
-                oper = expr.In(
-                    list(map(self._historian._prepare_type_id, obj_type))
-                )  # pylint: disable=protected-access
+                type_ids = list(
+                    map(
+                        self._historian._prepare_type_id,  # pylint: disable=protected-access
+                        obj_type,
+                    )
+                )
+                oper = expr.In(type_ids)
             else:
                 oper = expr.Eq(
-                    self._historian._prepare_type_id(obj_type)
-                )  # pylint: disable=protected-access
+                    self._historian._prepare_type_id(obj_type)  # pylint: disable=protected-access
+                )
 
         return expr.Comparison(records.DataRecord.type_id, oper)
 
@@ -277,9 +291,9 @@ class ObjectCollection(EntriesCollection[object]):
     def __init__(
         self,
         historian,
-        archive_collection: archives.Collection,
-        record_factory: Callable[[dict], records.DataRecord],
-        obj_loader: Callable[[records.DataRecord], object],
+        archive_collection: "mincepy.archives.Collection",
+        record_factory: Callable[[dict], "mincepy.DataRecord"],
+        obj_loader: Callable[["mincepy.DataRecord"], object],
     ):
         super().__init__(
             historian,
@@ -288,15 +302,13 @@ class ObjectCollection(EntriesCollection[object]):
         )
         self._record_factory = record_factory
         self._obj_loader = obj_loader
-        self._records = EntriesCollection(
-            self._historian, archive_collection, record_factory
-        )
+        self._records = EntriesCollection(self._historian, archive_collection, record_factory)
 
     def get(self, entry_id) -> object:
         return self._create_object(self._archive_collection.get(entry_id))
 
     @property
-    def records(self) -> EntriesCollection[records.DataRecord]:
+    def records(self) -> EntriesCollection["mincepy.DataRecord"]:
         """Access the records directly"""
         return self._records
 

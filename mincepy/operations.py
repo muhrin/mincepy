@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 """Module containing record operations that can be performed sent to the archive to perform"""
+
 import abc
 
 from . import records
@@ -89,8 +89,10 @@ class Delete(Operation):
 class Merge(Operation):
     """Merge a record into the archive.  This could be:
         * An entirely new snapshot, i.e. the object id doesn't exist in the archive at all
-        * A new version of a record, i.e. the object id does exist but this version is newer than any other
-        * An old version of a record, i.e. the object id does exist but this version is older than the latest
+        * A new version of a record, i.e. the object id does exist but this version is newer than
+            any other
+        * An old version of a record, i.e. the object id does exist but this version is older than
+            the latest
 
     In any case the snapshot id should not exist in the database already.
     """

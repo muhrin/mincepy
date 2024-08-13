@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import uuid
 
 import pytest
@@ -212,16 +211,8 @@ def test_find_arg_types(historian: mincepy.Historian):
 
     # Test different possibilities for object ids being passed
     list(historian.find(obj_id=red_ferrari_id))
-    list(
-        historian.find(
-            obj_id=[red_ferrari_id, green_ferrari_id, martin_id, red_honda_id]
-        )
-    )
-    list(
-        historian.find(
-            obj_id=(red_ferrari_id, green_ferrari_id, martin_id, red_honda_id)
-        )
-    )
+    list(historian.find(obj_id=[red_ferrari_id, green_ferrari_id, martin_id, red_honda_id]))
+    list(historian.find(obj_id=(red_ferrari_id, green_ferrari_id, martin_id, red_honda_id)))
     list(historian.find(obj_id=str(red_ferrari_id)))
 
     # Test object types
@@ -313,9 +304,7 @@ def test_snapshots_collection(historian: mincepy.Historian):
     assert set(car.colour for car in snapshots) == {"red", "brown"}
 
     assert (
-        historian.snapshots.records.find(Car.colour == "brown", obj_id=ferrari_id)
-        .one()
-        .version
+        historian.snapshots.records.find(Car.colour == "brown", obj_id=ferrari_id).one().version
         == 1
     )
 
@@ -342,10 +331,7 @@ def test_objects_collection(historian: mincepy.Historian):
     assert set(car.colour for car in objects) == {"brown"}
 
     assert (
-        historian.objects.records.find(Car.colour == "brown", obj_id=ferrari_id)
-        .one()
-        .version
-        == 1
+        historian.objects.records.find(Car.colour == "brown", obj_id=ferrari_id).one().version == 1
     )
 
 
@@ -452,9 +438,7 @@ def test_merge_file(historian: mincepy.Historian):
         # Now check that files contained within objects are correctly merged
         file_list = mincepy.List((file,))
         file_list.save()  # pylint: disable=no-member
-        result = remote.merge(
-            local.find(obj_id=file_list.obj_id)
-        )  # pylint: disable=no-member
+        result = remote.merge(local.find(obj_id=file_list.obj_id))  # pylint: disable=no-member
         assert len(result.merged) == 1
         assert historian.get_snapshot_id(file_list) in result.merged
 
@@ -463,9 +447,11 @@ def test_merge_file(historian: mincepy.Historian):
 
 
 def test_primitive_subtypes(historian: mincepy.Historian):
-    """This test catches the case where someone creates a subclass of a primitive.  This should not be
-    treated as a primitive by the historian as we need to reload the correct type when retrieving from
-    the database."""
+    """
+    This test catches the case where someone creates a subclass of a primitive.  This should not be
+    treated as a primitive by the historian as we need to reload the correct type when retrieving
+    from the database.
+    """
 
     class DictSubclass(dict, mincepy.BaseSavableObject):
         TYPE_ID = uuid.UUID("67a939ee-4be6-4006-ac77-fd1dbf3b0642")

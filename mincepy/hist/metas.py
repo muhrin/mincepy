@@ -1,20 +1,25 @@
-# -*- coding: utf-8 -*-
-from typing import Any, Optional, Mapping, Dict, Iterator
+from typing import TYPE_CHECKING, Any, Dict, Generic, Hashable, Iterator, Mapping, Optional, TypeVar
 
-from mincepy import archives
-from mincepy import historians  # pylint: disable=unused-import, cyclic-import
 from mincepy import exceptions
+
+if TYPE_CHECKING:
+    import mincepy
 
 __all__ = ("Meta",)
 
 
-class Meta:
+IdT = TypeVar("IdT", bound=Hashable)
+
+
+class Meta(Generic[IdT]):
     """A class for grouping metadata related methods"""
 
     # Meta is a 'friend' of Historian and so can access privates pylint: disable=protected-access
 
-    def __init__(self, historian, archive):
-        self._hist = historian  # type: historians.Historian
+    def __init__(
+        self, historian: "mincepy.Historian[IdT]", archive: "mincepy.Archive[IdT]"
+    ) -> None:
+        self._hist: mincepy.Historian[IdT] = historian
         self._archive = archive
         self._sticky = {}
 
@@ -72,9 +77,7 @@ class Meta:
         return self._archive.meta_set(obj_id, meta)
 
     def set_many(self, metas: Mapping[Any, Optional[dict]]):
-        mapped = {
-            self._hist._ensure_obj_id(ident): meta for ident, meta in metas.items()
-        }
+        mapped = {self._hist._ensure_obj_id(ident): meta for ident, meta in metas.items()}
         trans = self._hist.current_transaction()
         if trans:
             for entry in mapped.items():
@@ -105,9 +108,7 @@ class Meta:
             self._archive.meta_update(obj_id, meta)
 
     def update_many(self, metas: Mapping[Any, Optional[dict]]):
-        mapped = {
-            self._hist._ensure_obj_id(ident): meta for ident, meta in metas.items()
-        }
+        mapped = {self._hist._ensure_obj_id(ident): meta for ident, meta in metas.items()}
         trans = self._hist.current_transaction()
         if trans:
             for entry in mapped.items():
@@ -116,8 +117,8 @@ class Meta:
             self._archive.meta_update_many(mapped)
 
     def find(
-        self, filter, obj_id=None
-    ) -> Iterator[archives.Archive.MetaEntry]:  # pylint: disable=redefined-builtin
+        self, filter, obj_id=None  # pylint: disable=redefined-builtin
+    ) -> Iterator["mincepy.Archive.MetaEntry"]:
         """Find metadata matching the given criteria.  Each returned result is a tuple containing
         the corresponding object id and the metadata dictionary itself"""
         return self._archive.meta_find(filter=filter, obj_id=obj_id)

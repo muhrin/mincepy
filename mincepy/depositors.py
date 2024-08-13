@@ -1,23 +1,20 @@
-# -*- coding: utf-8 -*-
 """This module contains various strategies for loading, saving and migrating objects in the archive
 """
 
 from abc import ABCMeta, abstractmethod
 import contextlib
 import logging
-from typing import Optional, Dict, Any, Iterable, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Sequence
 
 import deprecation
 from pytray import tree
 
-import mincepy
-from . import archives
-from . import exceptions
-from . import operations
-from . import records
-from . import staging
+from . import archives, exceptions, operations, records, staging
 from . import transactions  # pylint: disable=unused-import
-from . import version as version_mod
+from . import version as version_
+
+if TYPE_CHECKING:
+    import mincepy
 
 __all__ = "Saver", "Loader", "SnapshotLoader", "LiveDepositor", "Migrator"
 
@@ -59,7 +56,7 @@ class Saver(Base, metaclass=ABCMeta):
     @deprecation.deprecated(
         deprecated_in="0.14.2",
         removed_in="0.16.0",
-        current_version=version_mod.__version__,
+        current_version=version_.__version__,
         details="Use get_snapshot_id() instead",
     )
     def ref(self, obj) -> records.SnapshotId:
@@ -125,44 +122,41 @@ class Loader(Base, metaclass=ABCMeta):
         try:
             entry = schema[path]
         except KeyError:
-            # There is no schema entry so this is a primitive type and only containers need to (potentially)
-            # decoded further
+            # There is no schema entry so this is a primitive type and only containers need to
+            # (potentially) decoded further
             if isinstance(encoded, CONTAINERS):
                 return self._recursive_unpack(encoded, schema, path, created_callback)
 
             # Fully decoded
             return encoded
-        else:
-            saved_state = encoded
-            helper = self.get_historian().get_helper(entry.type_id)
-            if helper.IMMUTABLE:
-                saved_state = self._recursive_unpack(
-                    encoded, schema, path, created_callback
-                )
 
-            new_obj = helper.new(saved_state)
-            if new_obj is None:
-                raise RuntimeError(
-                    f"Helper '{helper.__class__}' failed to create a class given state '{saved_state}'"
-                )
+        saved_state = encoded
+        helper = self.get_historian().get_helper(entry.type_id)
+        if helper.IMMUTABLE:
+            saved_state = self._recursive_unpack(encoded, schema, path, created_callback)
 
-            if created_callback is not None:
-                created_callback(path, new_obj)
+        new_obj = helper.new(saved_state)
+        if new_obj is None:
+            raise RuntimeError(
+                f"Helper '{helper.__class__}' failed to create a class given state "
+                f"'{saved_state}'"
+            )
 
-            if not helper.IMMUTABLE:
-                saved_state = self._recursive_unpack(
-                    encoded, schema, path, created_callback, updates
-                )
+        if created_callback is not None:
+            created_callback(path, new_obj)
 
-            updated = helper.ensure_up_to_date(saved_state, entry.version, self)
-            if updated is not None:
-                # Use the current version of the record
-                saved_state = updated
-                if updates is not None:
-                    updates[path] = updated
+        if not helper.IMMUTABLE:
+            saved_state = self._recursive_unpack(encoded, schema, path, created_callback, updates)
 
-            helper.load_instance_state(new_obj, saved_state, self)
-            return new_obj
+        updated = helper.ensure_up_to_date(saved_state, entry.version, self)
+        if updated is not None:
+            # Use the current version of the record
+            saved_state = updated
+            if updates is not None:
+                updates[path] = updated
+
+        helper.load_instance_state(new_obj, saved_state, self)
+        return new_obj
 
     def _recursive_unpack(
         self,
@@ -202,15 +196,11 @@ class LiveDepositor(Saver, Loader):
             return self._get_current_snapshot_id(obj)
         except exceptions.NotFound:
             # Then we have to save it and get the resulting reference
-            return self._save_object(
-                obj
-            ).snapshot_id  # pylint: disable=protected-access
+            return self._save_object(obj).snapshot_id  # pylint: disable=protected-access
 
     def _get_current_snapshot_id(self, obj) -> records.SnapshotId:
         """Get the current snapshot id of an object"""
-        return self._historian.current_transaction().get_snapshot_id_for_live_object(
-            obj
-        )
+        return self._historian.current_transaction().get_snapshot_id_for_live_object(obj)
 
     def load(self, snapshot_id: records.SnapshotId):
         try:
@@ -248,7 +238,7 @@ class LiveDepositor(Saver, Loader):
 
     def _load_object(self, obj_id) -> object:
         """Load an object form the database.  This method is deliberately private as it should
-        only be used by the the depositor and the historian"""
+        only be used by the depositor and the historian"""
         historian = self.get_historian()
         archive = self.get_archive()
         with historian.in_transaction() as trans:
@@ -263,24 +253,22 @@ class LiveDepositor(Saver, Loader):
             )
 
             try:
-                obj = historian._live_objects.get_object(
-                    obj_id
-                )  # pylint: disable=protected-access
+                obj = historian._live_objects.get_object(obj_id)  # pylint: disable=protected-access
             except exceptions.NotFound:
                 logger.debug("Loading object from record: %s", record.snapshot_id)
                 # Ok, just use the one from the archive
                 return self.load_from_record(record)
-            else:
-                # Compare with the current, live, version
-                live_record = historian._live_objects.get_record(
-                    obj
-                )  # pylint: disable=protected-access
-                if record.version != live_record.version:
-                    # The one in the archive is newer, so use that
-                    logger.debug("Updating object from record: %s", record.snapshot_id)
-                    self.update_from_record(obj, record)
 
-                return obj
+            # Compare with the current, live, version
+            live_record = historian._live_objects.get_record(  # pylint: disable=protected-access
+                obj
+            )
+            if record.version != live_record.version:
+                # The one in the archive is newer, so use that
+                logger.debug("Updating object from record: %s", record.snapshot_id)
+                self.update_from_record(obj, record)
+
+            return obj
 
     def update_from_record(self, obj: object, record: records.DataRecord) -> bool:
         """Do an in-place update of an object from a record"""
@@ -290,9 +278,7 @@ class LiveDepositor(Saver, Loader):
             # Make sure the record is in the transaction with the object
             trans.insert_live_object(obj, record)
 
-            saved_state = self._recursive_unpack(
-                record.state, record.get_state_schema()
-            )
+            saved_state = self._recursive_unpack(record.state, record.get_state_schema())
             helper.load_instance_state(obj, saved_state, self)
             return True
 
@@ -320,9 +306,9 @@ class LiveDepositor(Saver, Loader):
 
                 try:
                     # Let's see if we have a record at all
-                    record = historian._live_objects.get_record(
+                    record = historian._live_objects.get_record(  # pylint: disable=protected-access
                         obj
-                    )  # pylint: disable=protected-access
+                    )
                 except exceptions.NotFound:
                     # Object being saved for the first time
                     builder = self._create_builder(helper, snapshot_hash=current_hash)
@@ -331,30 +317,26 @@ class LiveDepositor(Saver, Loader):
                         # Apply the sticky meta
                         historian.meta.update(record.obj_id, historian.meta.sticky)
                     return record
-                else:
-                    if helper.IMMUTABLE:
-                        logger.info(
-                            "Tried to save immutable object with id '%s' again",
-                            record.obj_id,
-                        )
-                        return record
 
-                    # Check if our record is up-to-date
-                    with historian.transaction() as nested:
-                        loaded_obj = SnapshotLoader(historian).load_from_record(record)
-
-                        if current_hash == record.snapshot_hash and historian.eq(
-                            obj, loaded_obj
-                        ):
-                            # Objects identical
-                            nested.rollback()
-                        else:
-                            builder = records.make_child_builder(
-                                record, snapshot_hash=current_hash
-                            )
-                            record = self._save_from_builder(obj, builder)
-
+                if helper.IMMUTABLE:
+                    logger.info(
+                        "Tried to save immutable object with id '%s' again",
+                        record.obj_id,
+                    )
                     return record
+
+                # Check if our record is up-to-date
+                with historian.transaction() as nested:
+                    loaded_obj = SnapshotLoader(historian).load_from_record(record)
+
+                    if current_hash == record.snapshot_hash and historian.eq(obj, loaded_obj):
+                        # Objects identical
+                        nested.rollback()
+                    else:
+                        builder = records.make_child_builder(record, snapshot_hash=current_hash)
+                        record = self._save_from_builder(obj, builder)
+
+                return record
 
     def _save_from_builder(self, obj, builder: records.DataRecordBuilder):
         """Save a live object"""
@@ -368,9 +350,7 @@ class LiveDepositor(Saver, Loader):
             sid = records.SnapshotId(builder.obj_id, builder.version)
             with trans.prepare_for_saving(sid, obj):
                 # Inject the extras
-                builder.extras.update(
-                    self._get_extras(obj, builder.obj_id, builder.version)
-                )
+                builder.extras.update(self._get_extras(obj, builder.obj_id, builder.version))
 
                 # Now ask the object to save itself and create the record
                 builder.update(self.save_state(obj))
@@ -424,7 +404,7 @@ class LiveDepositor(Saver, Loader):
         return extras
 
     def _create_builder(self, helper, **additional) -> records.DataRecordBuilder:
-        """Create a record builder for a new object object"""
+        """Create a record builder for a new object"""
         additional = additional or {}
 
         builder = records.DataRecord.new_builder(
@@ -438,8 +418,8 @@ class LiveDepositor(Saver, Loader):
     @contextlib.contextmanager
     def _cycle_protection(self, obj: object):
         """This context manager is used as a means of circular-reference identification.
-        Naturally, such cyclic saving should never happen however if there is a bug, at least this method
-        allows us to catch it early and see the source.
+        Naturally, such cyclic saving should never happen however if there is a bug, at least this
+        method allows us to catch it early and see the source.
         """
         obj_id = id(obj)
         if obj_id in self._saving_set:
@@ -524,14 +504,14 @@ class Migrator(Saver, SnapshotLoader):
     def migrate_records(
         self, to_migrate: Iterable[records.DataRecord]
     ) -> Sequence[records.DataRecord]:
-        """Migrate multiple records.  This call will return an iterable of those that were migrated"""
+        """
+        Migrate multiple records.  This call will return an iterable of those that were migrated
+        """
         migrated = []
         with self._historian.in_transaction() as trans:  # type: transactions.Transaction
             for record in to_migrate:
                 updates = {}
-                obj = self.decode(
-                    record.state, record.get_state_schema(), updates=updates
-                )
+                obj = self.decode(record.state, record.get_state_schema(), updates=updates)
                 if updates:
                     self._migrate_record(record, obj, trans)
                     migrated.append(record)
@@ -551,6 +531,4 @@ class Migrator(Saver, SnapshotLoader):
             )
         )
 
-        logger.info(
-            "Snapshot %s has been migrated to the latest version", record.snapshot_id
-        )
+        logger.info("Snapshot %s has been migrated to the latest version", record.snapshot_id)

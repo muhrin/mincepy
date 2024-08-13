@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pytest
 
 import mincepy
@@ -80,10 +79,7 @@ def test_delete_find(historian: mincepy.Historian):
 
     # Now check the archive
     assert historian.snapshots.records.find(obj_id=car_id).count() == 2
-    assert (
-        historian.snapshots.records.find(obj_id=car_id, state=mincepy.DELETED).count()
-        == 1
-    )
+    assert historian.snapshots.records.find(obj_id=car_id, state=mincepy.DELETED).count() == 1
 
 
 def test_delete_multiple_versions(historian: mincepy.Historian):

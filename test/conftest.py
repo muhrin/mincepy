@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # pylint: disable=unused-import, redefined-outer-name
 import random
 
@@ -6,7 +5,8 @@ import pytest
 
 import mincepy
 from mincepy import testing
-from mincepy.testing import archive_uri, mongodb_archive, historian, archive_base_uri
+from mincepy.testing import archive_base_uri, archive_uri, historian, mongodb_archive
+
 from . import utils
 
 

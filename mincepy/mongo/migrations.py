@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 import pymongo.database
 import tqdm
 
 from . import migrate
-from .aggregation import eq_, and_
+from .aggregation import and_, eq_
 
 
 class Initial(migrate.Migration):

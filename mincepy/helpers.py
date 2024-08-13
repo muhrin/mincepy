@@ -1,18 +1,13 @@
-# -*- coding: utf-8 -*-
 from abc import ABCMeta
 import logging
-from typing import Type, Optional, Sequence
+from typing import TYPE_CHECKING, Optional, Sequence, Tuple, Type, Union
 
 import pytray.pretty
 
-from . import depositors
-from . import exceptions
-from . import expr
-from . import fields
-from . import migrations
-from . import saving
-from . import tracking
-from . import types
+from . import depositors, exceptions, expr, fields, migrations, saving, tracking
+
+if TYPE_CHECKING:
+    import mincepy
 
 __all__ = "TypeHelper", "WrapperHelper", "BaseHelper"
 
@@ -44,30 +39,45 @@ class TypeHelper(fields.WithFields):
     the historian."""
 
     #: The type this helper corresponds to
-    TYPE: Type = None
+    TYPE: Union[type, Tuple[type]] = None
     TYPE_ID = None  # The unique id for this type of object
     IMMUTABLE = False  # If set to true then the object is decoded straight away
     INJECT_CREATION_TRACKING = False
     # The latest migration, if there is one
-    LATEST_MIGRATION = None  # type: migrations.ObjectMigration
+    LATEST_MIGRATION: "mincepy.ObjectMigration" = None
 
     @classmethod
-    def init_field(cls, field: fields.Field, attr_name: str):
-        super().init_field(field, attr_name)
-        field.set_query_context(expr.Comparison("type_id", expr.Eq(cls.TYPE_ID)))
-        field.path_prefix = "state"
+    def init_field(cls, obj_field: fields.Field, attr_name: str):
+        super().init_field(obj_field, attr_name)
+        obj_field.set_query_context(expr.Comparison("type_id", expr.Eq(cls.TYPE_ID)))
+        obj_field.path_prefix = "state"
 
-    def __init__(self):
-        assert (
-            self.TYPE is not None
-        ), "Must set the TYPE to a type of or a tuple of types"
+    def __init__(self):  # pylint: disable=super-init-not-called
+        if isinstance(self.TYPE, tuple):
+            for entry in self.TYPE:  # pylint: disable=not-an-iterable
+                if not isinstance(entry, type):
+                    raise RuntimeError(
+                        f"All entries of the TYPE must be `types`, got '{self.TYPE}'"
+                    )
+        elif not isinstance(self.TYPE, type):
+            raise RuntimeError(
+                f"Must set the TYPE to a type or a tuple of types, got '{self.TYPE}'"
+            )
+
         if self.INJECT_CREATION_TRACKING:
             inject_creation_tracking(self.TYPE)
 
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({repr(self.TYPE)})"
+
     def new(self, encoded_saved_state):  # pylint: disable=unused-argument
         """Create a new blank object of this type"""
-        cls = self.TYPE
-        return cls.__new__(cls)
+        if isinstance(self.TYPE, tuple):
+            obj_type = self.TYPE[0]  # pylint: disable=unsubscriptable-object
+        else:
+            obj_type = self.TYPE
+
+        return obj_type.__new__(obj_type)
 
     def yield_hashables(self, obj: object, hasher):
         """Yield values from this object that should be included in its hash"""
@@ -75,14 +85,16 @@ class TypeHelper(fields.WithFields):
 
     def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
         """Determine if two objects are equal"""
-        if not isinstance(one, self.TYPE) or not isinstance(
+        if not isinstance(  # pylint: disable=isinstance-second-argument-not-valid-type
+            one, self.TYPE
+        ) or not isinstance(  # pylint: disable=isinstance-second-argument-not-valid-type
             other, self.TYPE
-        ):  # pylint: disable=isinstance-second-argument-not-valid-type
+        ):
             return False
 
-        return saving.save_instance_state(
-            one, type(self)
-        ) == saving.save_instance_state(other, type(self))
+        return saving.save_instance_state(one, type(self)) == saving.save_instance_state(
+            other, type(self)
+        )
 
     def save_instance_state(self, obj, saver):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
@@ -95,26 +107,23 @@ class TypeHelper(fields.WithFields):
         saving.load_instance_state(obj, saved_state, type(self))
 
     def get_version(self) -> Optional[int]:
-        """Gets the version of the latest migration, returns None if there is not migration"""
+        """Gets the version of the latest migration, returns `None` if there is not a migration"""
         if self.LATEST_MIGRATION is None:
             return None
 
         version = self.LATEST_MIGRATION.VERSION
         if version is None:
             raise RuntimeError(
-                f"Object '{self.TYPE}' has a migration ({self.LATEST_MIGRATION}) which has no version number"
+                f"Object '{self.TYPE}' has a migration ({self.LATEST_MIGRATION}) which has no "
+                f"version number"
             )
 
         return version
 
-    def ensure_up_to_date(
-        self, saved_state, version: Optional[int], loader: depositors.Loader
-    ):
+    def ensure_up_to_date(self, saved_state, version: Optional[int], loader: depositors.Loader):
         """Apply any migrations that are necessary to this saved state.  If no migrations are
         necessary then None is returned"""
-        latest_version = (
-            None if self.LATEST_MIGRATION is None else self.LATEST_MIGRATION.VERSION
-        )
+        latest_version = None if self.LATEST_MIGRATION is None else self.LATEST_MIGRATION.VERSION
         if latest_version == version:
             return None
 
@@ -152,9 +161,7 @@ class TypeHelper(fields.WithFields):
 
         return saved_state
 
-    def _get_migrations(
-        self, version: Optional[int]
-    ) -> Sequence[migrations.ObjectMigration]:
+    def _get_migrations(self, version: Optional[int]) -> Sequence[migrations.ObjectMigration]:
         """Get the sequence of migrations that needs to be applied to a given version"""
         if self.LATEST_MIGRATION is None:
             return []  # No migrations we can apply
@@ -188,11 +195,14 @@ class WrapperHelper(TypeHelper):
 
     # pylint: disable=invalid-name
 
-    def __init__(self, obj_type: Type[types.SavableObject]):
+    def __init__(self, obj_type: Type["mincepy.SavableObject"]):
         self.TYPE = obj_type
         self.TYPE_ID = obj_type.TYPE_ID
         self.LATEST_MIGRATION = obj_type.LATEST_MIGRATION
         super().__init__()
+
+    def __repr__(self) -> str:
+        return f"WrapperHelper({repr(self.TYPE)})"
 
     def yield_hashables(self, obj, hasher):
         yield from self.TYPE.yield_hashables(obj, hasher)
@@ -200,8 +210,8 @@ class WrapperHelper(TypeHelper):
     def eq(self, one, other) -> bool:
         return self.TYPE.__eq__(one, other)  # pylint: disable=unnecessary-dunder-call
 
-    def save_instance_state(self, obj: types.Savable, saver):
+    def save_instance_state(self, obj: "mincepy.Savable", saver):
         return self.TYPE.save_instance_state(obj, saver)
 
-    def load_instance_state(self, obj, saved_state: types.Savable, loader):
+    def load_instance_state(self, obj, saved_state: "mincepy.Savable", loader):
         self.TYPE.load_instance_state(obj, saved_state, loader)

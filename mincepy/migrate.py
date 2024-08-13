@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
-from typing import Iterator, Sequence, Iterable
+from typing import TYPE_CHECKING, Iterable, Iterator, Sequence
 
-import mincepy
-from . import depositors
-from . import helpers
-from .qops import elem_match_, or_, lt_
-from . import records
+from . import depositors, helpers, records
+from .qops import elem_match_, lt_, or_
+
+if TYPE_CHECKING:
+    import mincepy
 
 __all__ = ("Migrations",)
 
@@ -42,7 +41,7 @@ class Migrations:
         ]
 
         if not have_migrations:
-            return []
+            return iter([])
 
         # Now, let's look for those records that would need migrating
         archive = self._historian.archive

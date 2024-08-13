@@ -1,16 +1,16 @@
-# -*- coding: utf-8 -*-
 """This module contains the names of the keys in the various collections used by the mongo
 archive and methods to convert mincepy types to mongo collection entries and back"""
+
 import functools
 from typing import Optional
 
-import pymongo.collection
-import pymongo.errors
 from bidict import bidict
 import bson
+import pymongo.collection
+import pymongo.errors
 
+import mincepy.qops as q
 import mincepy.records
-from mincepy import q
 
 SETTINGS_COLLECTION = "settings"
 GLOBAL_SETTINGS = "global"
@@ -47,7 +47,7 @@ KEY_MAP = bidict(
 # endregion
 
 
-def to_record(entry) -> mincepy.DataRecord:
+def to_record(entry) -> "mincepy.DataRecord":
     """Convert a MongoDB data collection entry to a DataRecord"""
     record_dict = mincepy.DataRecord.defaults()
 
@@ -57,11 +57,7 @@ def to_record(entry) -> mincepy.DataRecord:
     # Invert our mapping of keys back to the data record property names and update over any
     # defaults
     record_dict.update(
-        {
-            recordkey: entry[dbkey]
-            for recordkey, dbkey in KEY_MAP.items()
-            if dbkey in entry
-        }
+        {recordkey: entry[dbkey] for recordkey, dbkey in KEY_MAP.items() if dbkey in entry}
     )
 
     return mincepy.DataRecord(**record_dict)
@@ -74,8 +70,8 @@ def to_document(record, exclude_defaults=False) -> dict:
     raise TypeError(record.__class__)
 
 
-@to_document.register(mincepy.DataRecord)
-def _(record: mincepy.DataRecord, exclude_defaults=False) -> dict:
+@to_document.register(mincepy.records.DataRecord)
+def _(record: mincepy.records.DataRecord, exclude_defaults=False) -> dict:
     """Convert a DataRecord to a MongoDB document with our keys"""
     defaults = mincepy.DataRecord.defaults()
     entry = {}
@@ -130,7 +126,7 @@ def remap_key(key: str) -> str:
     return ".".join(split_key)
 
 
-def to_id_dict(sid: mincepy.SnapshotId) -> dict:
+def to_id_dict(sid: mincepy.records.SnapshotId) -> dict:
     return {OBJ_ID: sid.obj_id, VERSION: sid.version}
 
 
@@ -144,8 +140,11 @@ def sid_from_str(sid_str: str):
 
 
 def safe_bulk_delete(collection: pymongo.collection.Collection, ids, id_key="_id"):
-    """Sometimes when you want to delete a bunch of documents using an identifier the 'delete document' itself exceeds
-    the 16MB Mongo limit.  This function will catch such cases and break up the command into suitably batches"""
+    """
+    Sometimes when you want to delete a bunch of documents using an identifier the 'delete document'
+    itself exceeds the 16MB Mongo limit.  This function will catch such cases and break up the
+    command into suitably batches
+    """
     ids = list(set(ids))  # No needs to repeat ourselves
     try:
         collection.delete_many({id_key: q.in_(*ids)})

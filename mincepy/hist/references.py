@@ -1,13 +1,9 @@
-# -*- coding: utf-8 -*-
-from typing import Generic, TypeVar, Set, overload
+from typing import Generic, Set, TypeVar, overload
 
 import networkx
 from networkx.algorithms import dag
 
-from mincepy import archives
-from mincepy import records
-from mincepy import operations
-from mincepy import transactions
+from mincepy import archives, operations, records, transactions
 
 __all__ = ("References",)
 
@@ -31,12 +27,10 @@ class References(Generic[IdT]):
     SnapshotId = records.SnapshotId[IdT]
 
     @overload
-    def references(self, identifier: IdT) -> Set[IdT]:
-        ...
+    def references(self, identifier: IdT) -> Set[IdT]: ...
 
     @overload
-    def references(self, identifier: "SnapshotId") -> "Set[SnapshotId]":
-        ...
+    def references(self, identifier: "SnapshotId") -> "Set[SnapshotId]": ...
 
     def references(self, identifier):
         """Get the ids of the objects referred to by the passed identifier."""
@@ -50,33 +44,24 @@ class References(Generic[IdT]):
         return set(edge[1] for edge in graph.edges)
 
     @overload
-    def referenced_by(self, identifier: IdT) -> "Set[IdT]":
-        ...
+    def referenced_by(self, identifier: IdT) -> "Set[IdT]": ...
 
     @overload
-    def referenced_by(self, identifier: "SnapshotId") -> "Set[SnapshotId]":
-        ...
+    def referenced_by(self, identifier: "SnapshotId") -> "Set[SnapshotId]": ...
 
     def referenced_by(self, identifier):
         """Get the ids of the objects that refer to the passed object"""
         if isinstance(identifier, records.SnapshotId):
-            graph = self.get_snapshot_ref_graph(
-                identifier, direction=archives.INCOMING, max_dist=1
-            )
+            graph = self.get_snapshot_ref_graph(identifier, direction=archives.INCOMING, max_dist=1)
         elif isinstance(identifier, self._archive.get_id_type()):
-            graph = self.get_obj_ref_graph(
-                identifier, direction=archives.INCOMING, max_dist=1
-            )
+            graph = self.get_obj_ref_graph(identifier, direction=archives.INCOMING, max_dist=1)
         else:
             raise TypeError(identifier)
 
         return set(edge[0] for edge in graph.edges)
 
     def get_snapshot_ref_graph(
-        self,
-        *snapshot_ids: SnapshotId,
-        direction=archives.OUTGOING,
-        max_dist: int = None
+        self, *snapshot_ids: SnapshotId, direction=archives.OUTGOING, max_dist: int = None
     ) -> networkx.DiGraph:
 
         return self._archive.get_snapshot_ref_graph(
@@ -87,9 +72,7 @@ class References(Generic[IdT]):
         self, *obj_ids: IdT, direction=archives.OUTGOING, max_dist: int = None
     ) -> networkx.DiGraph:
         obj_ids = set(obj_ids)
-        graph = self._archive.get_obj_ref_graph(
-            *obj_ids, direction=direction, max_dist=max_dist
-        )
+        graph = self._archive.get_obj_ref_graph(*obj_ids, direction=direction, max_dist=max_dist)
 
         # If there is a transaction then we should fix up the graph to contain information from that
         # too
@@ -114,9 +97,7 @@ class References(Generic[IdT]):
         return graph
 
 
-def _update_from_transaction(
-    graph: networkx.DiGraph, transaction: transactions.Transaction
-):
+def _update_from_transaction(graph: networkx.DiGraph, transaction: transactions.Transaction):
     """Given a transaction update the reference graph to reflect the insertion of any new records"""
     for op in transaction.staged:  # pylint: disable=invalid-name
         if isinstance(op, operations.Insert):

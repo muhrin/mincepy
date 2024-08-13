@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import logging
 from typing import List
 
@@ -8,9 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 def load_failed(_manager, entrypoint, exception):
-    logger.warning(
-        "Error loading mincepy plugin from entrypoing '%s':\n%s", entrypoint, exception
-    )
+    logger.warning("Error loading mincepy plugin from entrypoing '%s':\n%s", entrypoint, exception)
 
 
 def get_types() -> List:

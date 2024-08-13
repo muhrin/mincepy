@@ -1,10 +1,11 @@
-# -*- coding: utf-8 -*-
 """"Tests of migration"""
+
 import gc
 
 import mincepy
 from mincepy import testing
-from .common import CarV1, CarV2, StoreByValue, StoreByRef
+
+from .common import CarV1, CarV2, StoreByRef, StoreByValue
 
 
 def test_find_migratable(historian: mincepy.Historian):

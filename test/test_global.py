@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 """Test global functions in mincepy"""
+
 import mincepy
 from mincepy import testing
 

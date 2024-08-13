@@ -1,14 +1,10 @@
-# -*- coding: utf-8 -*-
 import collections
-from typing import Type, MutableMapping, Any, Union
+from typing import Any, MutableMapping, Type, Union
 
-from . import helpers
-from . import types
+from . import helpers, types
 
 SavableObjectType = Type[types.SavableObject]
-RegisterableType = Union[
-    helpers.TypeHelper, Type[helpers.TypeHelper], SavableObjectType
-]
+RegisterableType = Union[helpers.TypeHelper, Type[helpers.TypeHelper], SavableObjectType]
 
 
 class TypeRegistry:
@@ -16,10 +12,8 @@ class TypeRegistry:
     to store and track objects in the archive"""
 
     def __init__(self):
-        self._helpers = (
-            {}
-        )  # type: MutableMapping[SavableObjectType, helpers.TypeHelper]
-        self._type_ids = {}  # type: MutableMapping[Any, SavableObjectType]
+        self._helpers: MutableMapping[SavableObjectType, helpers.TypeHelper] = {}
+        self._type_ids: MutableMapping[Any, SavableObjectType] = {}
 
     def __contains__(self, item: SavableObjectType) -> bool:
         return item in self._helpers
@@ -37,8 +31,8 @@ class TypeRegistry:
         """Register a type new type
 
         :param obj_class_or_helper: the type helper of savable object to register
-        :param replace: if True, will silently replace an entry that has the same type id, otherwise raises a
-            ValueError the id is already registered
+        :param replace: if True, will silently replace an entry that has the same type id, otherwise
+            raises a `ValueError` the id is already registered
         """
         helper = self._register(obj_class_or_helper, replace)
 
@@ -49,10 +43,12 @@ class TypeRegistry:
         return helper
 
     def unregister_type(self, item: Union[helpers.TypeHelper, SavableObjectType, Any]):
-        """Un-register a type helper.  If the type is not registered, this method will return with no effect.
+        """
+        Un-register a type helper.  If the type is not registered, this method will return with no
+        effect.
 
-        :param item: either a `TypeHelper` (for mapped type), a `SavableObjectType` or a type id.  The checks will be
-            performed in this order.
+        :param item: either a `TypeHelper` (for mapped type), a `SavableObjectType` or a type id.
+            The checks will be performed in this order.
         """
         try:
             self._remove_using_type_id(item.TYPE_ID)
@@ -89,9 +85,7 @@ class TypeRegistry:
         except KeyError:
             raise TypeError(f"Type id '{type_id}' not known") from None
 
-    def get_helper_from_obj_type(
-        self, obj_type: SavableObjectType
-    ) -> helpers.TypeHelper:
+    def get_helper_from_obj_type(self, obj_type: SavableObjectType) -> helpers.TypeHelper:
         try:
             # Try the direct lookup
             return self._helpers[obj_type]
@@ -166,9 +160,9 @@ class TypeRegistry:
                 and self._type_ids[type_id] is not obj_type
             ):
                 raise ValueError(
-                    f"Helper for type id '{helper.TYPE_ID}' already exists for type '{self._type_ids[type_id]}' but "
-                    f"it is attempting to be replace by '{obj_type.__name__}'.  "
-                    f"Call with replace=True if this is intentional."
+                    f"Helper for type id '{helper.TYPE_ID}' already exists for type "
+                    f"'{self._type_ids[type_id]}' but it is attempting to be replace by "
+                    f"'{obj_type.__name__}'. Call with replace=True if this is intentional."
                 )
 
             self._helpers[obj_type] = helper

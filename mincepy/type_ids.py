@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 """Module for storing type ids of common mincePy types"""
+
 import uuid
 
 FILE_TYPE_ID = uuid.UUID("3bf3c24e-f6c8-4f70-956f-bdecd7aed091")

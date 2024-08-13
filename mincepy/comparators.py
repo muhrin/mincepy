@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
+import collections.abc
 import datetime
 import numbers
-import collections.abc
 from operator import itemgetter
 import uuid
 
@@ -25,7 +24,7 @@ class SimpleHelper(helpers.TypeHelper):
 
 
 class BytesEquator(SimpleHelper):
-    TYPE = collections.abc.ByteString
+    TYPE = bytes, bytearray
 
     def yield_hashables(self, obj, hasher):
         yield obj
@@ -57,7 +56,7 @@ class SetEquator(SimpleHelper):
 class MappingEquator(SimpleHelper):
     TYPE = collections.abc.Mapping
 
-    def yield_hashables(self, obj, hasher):
+    def yield_hashables(self, obj: collections.abc.Mapping, hasher):
         def hashed_key_mapping(mapping):
             for key, value in mapping.items():
                 yield tuple(hasher.yield_hashables(key)), value
@@ -72,7 +71,7 @@ class MappingEquator(SimpleHelper):
 class OrderedDictEquator(SimpleHelper):
     TYPE = collections.OrderedDict
 
-    def yield_hashables(self, obj, hasher):
+    def yield_hashables(self, obj: collections.OrderedDict, hasher):
         for key, val in sorted(obj, key=itemgetter(0)):
             yield from hasher.yield_hashables(key)
             yield from hasher.yield_hashables(val)

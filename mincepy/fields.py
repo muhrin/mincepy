@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Module that contains methods and classes for dealing with database storable attributes of
 objects"""
 
@@ -103,14 +102,12 @@ class Field(expr.WithQueryContext, expr.Queryable, property):
                 ):
                     properties = get_field_properties(self._properties.field_type)
                     try:
-                        child_field = type(self)(
-                            properties[item], path_prefix=self.get_path()
-                        )
+                        child_field = type(self)(properties[item], path_prefix=self.get_path())
                     except KeyError:
                         raise exc from None
-                    else:
-                        child_field.set_query_context(self._query_context)
-                        return child_field
+
+                    child_field.set_query_context(self._query_context)
+                    return child_field
 
                 if self._properties.dynamic:
                     # Creating a dynamic child
@@ -126,9 +123,7 @@ class Field(expr.WithQueryContext, expr.Queryable, property):
     def __field_name__(self) -> str:
         return self._properties.store_as
 
-    def __call__(
-        self, fget=None, fset=None, fdel=None, doc=None, prop_kwargs=None
-    ) -> property:
+    def __call__(self, fget=None, fset=None, fdel=None, doc=None, prop_kwargs=None) -> property:
         """This method allows the field to become a property"""
         self.getter(fget)
         self.setter(fset)
@@ -150,9 +145,7 @@ class Field(expr.WithQueryContext, expr.Queryable, property):
 
     def __delete__(self, obj):
         if self._deleter is None:
-            raise AttributeError(
-                f"can't delete attribute '{self._properties.attr_name}'"
-            )
+            raise AttributeError(f"can't delete attribute '{self._properties.attr_name}'")
         self._deleter(obj)
 
     def getter(self, fget):
@@ -172,9 +165,7 @@ class Field(expr.WithQueryContext, expr.Queryable, property):
         try:
             return obj.__dict__[self._properties.attr_name]
         except KeyError:
-            raise AttributeError(
-                f"unreadable attribute '{self._properties.attr_name}'"
-            ) from None
+            raise AttributeError(f"unreadable attribute '{self._properties.attr_name}'") from None
 
     def _setter(self, obj, value):
         """Default setter"""
@@ -236,10 +227,8 @@ class WithFields(metaclass=WithFieldMeta):
     """Base class for types that describe how to save objects in the database using db fields"""
 
     @classmethod
-    def init_field(cls, obj_field, attr_name: str):
-        obj_field._properties.class_created(
-            cls, attr_name
-        )  # pylint: disable=protected-access
+    def init_field(cls, obj_field: Field, attr_name: str):
+        obj_field._properties.class_created(cls, attr_name)  # pylint: disable=protected-access
 
     def __init__(self, **kwargs):
         for name, field_properties in get_field_properties(type(self)).items():
@@ -279,8 +268,6 @@ def get_field_properties(db_type: Type[WithFields]) -> Dict[str, FieldProperties
             continue
         for name, class_attr in entry.__dict__.items():
             if isinstance(class_attr, Field):
-                db_attrs[
-                    name
-                ] = class_attr._properties  # pylint: disable=protected-access
+                db_attrs[name] = class_attr._properties  # pylint: disable=protected-access
 
     return db_attrs

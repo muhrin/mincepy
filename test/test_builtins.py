@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import argparse
 import collections
 import pathlib
@@ -8,9 +7,7 @@ import uuid
 import pytest
 
 import mincepy
-from mincepy import testing
-from mincepy import builtins
-
+from mincepy import builtins, testing
 
 # region lists
 
@@ -34,9 +31,7 @@ def test_ref_list(historian: mincepy.Historian):
 
     # Now delete everything, reload, and make sure the condition is still satisfied
     list1_id, list2_id = historian.save(list1, list2)
-    assert (
-        car.is_saved()
-    ), "The container should automatically save all it's entries saved"
+    assert car.is_saved(), "The container should automatically save all it's entries saved"
     del list1, list2, car
 
     list1_loaded = historian.load(list1_id)
@@ -47,9 +42,7 @@ def test_ref_list(historian: mincepy.Historian):
     assert list1_loaded[0] is list2_loaded[0]
 
 
-@pytest.mark.parametrize(
-    "list_type", (builtins.List, builtins.LiveList, builtins.LiveRefList)
-)
+@pytest.mark.parametrize("list_type", (builtins.List, builtins.LiveList, builtins.LiveRefList))
 def test_list_primitives(list_type, historian: mincepy.Historian):
     """Test that we can store primitives in a ref list also"""
     reflist = list_type()
@@ -153,9 +146,7 @@ def test_ref_dict(historian: mincepy.Historian):
     assert dict1_loaded["car"] is dict2_loaded["car"]
 
 
-@pytest.mark.parametrize(
-    "dict_type", (builtins.RefDict, builtins.LiveDict, builtins.LiveRefDict)
-)
+@pytest.mark.parametrize("dict_type", (builtins.RefDict, builtins.LiveDict, builtins.LiveRefDict))
 def test_primitives(dict_type, historian: mincepy.Historian):
     """Test that we can store primitives in a ref list also"""
     refdict = dict_type()
@@ -172,9 +163,7 @@ def test_primitives(dict_type, historian: mincepy.Historian):
     assert loaded["2"] == 10.8
 
 
-@pytest.mark.parametrize(
-    "dict_type", (builtins.RefDict, builtins.LiveDict, builtins.LiveRefDict)
-)
+@pytest.mark.parametrize("dict_type", (builtins.RefDict, builtins.LiveDict, builtins.LiveRefDict))
 def test_ref_dicts_iterate(dict_type: MutableMapping):
     to_store = {"car": testing.Car(), "msg": "hello", "number": 5}
 

@@ -1,5 +1,4 @@
-# -*- coding: utf-8 -*-
-from typing import MutableMapping, Any, Optional
+from typing import MutableMapping, Optional
 
 from . import utils
 
@@ -14,7 +13,7 @@ class StagingArea:
 
     # pylint: disable=too-few-public-methods
 
-    staged_obj_info = utils.WeakObjectIdDict()  # type: MutableMapping[Any, dict]
+    staged_obj_info: MutableMapping[object, dict] = utils.WeakObjectIdDict[dict]()
 
     def __init__(self):
         raise RuntimeError("Cannot be instantiated")

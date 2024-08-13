@@ -1,15 +1,18 @@
-# -*- coding: utf-8 -*-
-from typing import Callable, Optional
+from typing import TYPE_CHECKING, Callable, Optional
 
-from mincepy import archives
-from mincepy import frontend
-import mincepy.records as recordsm
+import mincepy.frontend as frontend
+import mincepy.records as records_
+
+if TYPE_CHECKING:
+    import mincepy
 
 __all__ = ("LiveObjectsCollection",)
 
 
 class LiveObjectsCollection(frontend.ObjectCollection):
-    def __init__(self, historian, archive_collection: archives.Collection):
+    def __init__(
+        self, historian: "mincepy.Historian", archive_collection: "mincepy.archives.Collection"
+    ):
         super().__init__(
             historian,
             archive_collection,
@@ -23,16 +26,16 @@ class LiveObjectsCollection(frontend.ObjectCollection):
         )
 
 
-class LoadableRecord(recordsm.DataRecord):
+class LoadableRecord(records_.DataRecord):
     __slots__ = ()
-    _obj_loader: Optional[Callable[[recordsm.DataRecord], object]] = None
-    _snapshot_loader: Optional[Callable[[recordsm.DataRecord], object]] = None
+    _obj_loader: Optional[Callable[["mincepy.DataRecord"], object]] = None
+    _snapshot_loader: Optional[Callable[["mincepy.DataRecord"], object]] = None
 
     def __new__(
         cls,
         record_dict: dict,
-        snapshot_loader: Callable[[recordsm.DataRecord], object],
-        obj_loader: Callable[[recordsm.DataRecord], object],
+        snapshot_loader: Callable[["mincepy.DataRecord"], object],
+        obj_loader: Callable[["mincepy.DataRecord"], object],
     ):
         loadable = super().__new__(cls, **record_dict)
         loadable._obj_loader = obj_loader

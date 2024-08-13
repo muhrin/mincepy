@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 import functools
 
 import pymongo
 
-from mincepy import operations
-from mincepy import q
+import mincepy.operations as operations
+import mincepy.qops as q
 
 from . import db
 

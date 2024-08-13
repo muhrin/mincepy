@@ -1,18 +1,18 @@
-# -*- coding: utf-8 -*-
 import itertools
 import logging
-import operator
-from typing import Sequence, Union, Callable, Iterator, Iterable, List
+from typing import TYPE_CHECKING, Callable, Iterable, Iterator, List, Sequence, Union
 
 import bson
 import networkx
 import pymongo.collection
 
-import mincepy
-from mincepy import OUTGOING
-from . import aggregation
-from . import db
-from . import types
+import mincepy.archives as archives
+import mincepy.records as records
+
+from . import aggregation, db, types
+
+if TYPE_CHECKING:
+    import mincepy
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
@@ -36,14 +36,14 @@ class ReferenceManager:
         self._history_collection = history_collection
 
     def get_obj_ref_graphs(
-        self, obj_ids: Sequence[bson.ObjectId], direction=OUTGOING, max_dist: int = None
+        self, obj_ids: Sequence[bson.ObjectId], direction=archives.OUTGOING, max_dist: int = None
     ) -> networkx.DiGraph:
         return self._get_graph(obj_ids, direction=direction, max_dist=max_dist)
 
     def get_snapshot_ref_graph(
         self,
-        ids: Sequence[mincepy.SnapshotId],
-        direction=OUTGOING,
+        ids: Sequence["mincepy.SnapshotId"],
+        direction=archives.OUTGOING,
         max_dist: int = None,
     ) -> Iterator[networkx.DiGraph]:
         """Get the reference graph for a sequence of ids"""
@@ -63,7 +63,7 @@ class ReferenceManager:
     def _get_graph(
         self,
         ids: Sequence[Union[bson.ObjectId, types.SnapshotId]],
-        direction=OUTGOING,
+        direction=archives.OUTGOING,
         max_dist: int = None,
         node_factory: Callable = None,
     ) -> networkx.DiGraph:
@@ -81,13 +81,11 @@ class ReferenceManager:
         node_factory = node_factory or (lambda x: x)
 
         search_max_dist = max_dist
-        if max_dist is not None and direction == OUTGOING:
+        if max_dist is not None and direction == archives.OUTGOING:
             search_max_dist = max(max_dist - 1, 0)
 
         search_ids = self._prepare_for_ref_search(ids)
-        pipeline = self._get_ref_pipeline(
-            search_ids, direction=direction, max_dist=search_max_dist
-        )
+        pipeline = self._get_ref_pipeline(search_ids, direction=direction, max_dist=search_max_dist)
         # Need to allow disk use as the graph can get huge
         ref_results = {
             result["_id"]: result
@@ -119,17 +117,19 @@ class ReferenceManager:
                     for neighbour_id in entry["refs"]:
                         neighbour = node_factory(neighbour_id)
 
-                        if direction == OUTGOING or neighbour in graph.nodes:
+                        if direction == archives.OUTGOING or neighbour in graph.nodes:
                             graph.add_edge(this, neighbour)
 
         return graph
 
     def _get_ref_pipeline(
-        self, ids: Sequence, direction=OUTGOING, max_dist: int = None
+        self, ids: Sequence, direction=archives.OUTGOING, max_dist: int = None
     ) -> list:
-        """Get the reference lookup pipeline.  Given a sequence of ids, a direction and maximum distance this will
-        return a pipeline that can be used in an aggregation operation on the relevant collection to get the reference
-        graph."""
+        """
+        Get the reference lookup pipeline.  Given a sequence of ids, a direction and maximum
+        distance this will return a pipeline that can be used in an aggregation operation on the
+        relevant collection to get the reference graph.
+        """
         if max_dist is not None and max_dist < 0:
             raise ValueError(f"max_dist must be positive, got '{max_dist}'")
 
@@ -142,17 +142,13 @@ class ReferenceManager:
                 "as": "references",
                 "depthField": "depth",
             }
-            if direction == OUTGOING:
+            if direction == archives.OUTGOING:
                 lookup_params.update(
-                    dict(
-                        startWith="$refs", connectFromField="refs", connectToField="_id"
-                    )
+                    dict(startWith="$refs", connectFromField="refs", connectToField="_id")
                 )
             else:
                 lookup_params.update(
-                    dict(
-                        startWith="$_id", connectFromField="_id", connectToField="refs"
-                    )
+                    dict(startWith="$_id", connectFromField="_id", connectToField="refs")
                 )
 
             if max_dist is not None:
@@ -163,15 +159,16 @@ class ReferenceManager:
 
         return pipeline
 
-    def _prepare_for_ref_search(
-        self, ids: Sequence[Union[bson.ObjectId, mincepy.SnapshotId]]
-    ):
-        """Make sure that the references collections are up to date in preparation for a reference graph search"""
+    def _prepare_for_ref_search(self, ids: Sequence[Union[bson.ObjectId, "mincepy.SnapshotId"]]):
+        """
+        Make sure that the references collections are up-to-date in preparation for a reference
+        graph search
+        """
         hist_updated = False
         data_updated = False
         converted = []
         for entry in ids:
-            if isinstance(entry, mincepy.SnapshotId):
+            if isinstance(entry, records.SnapshotId):
                 if not hist_updated:
                     self._ensure_current("history")
                     hist_updated = True
@@ -202,9 +199,7 @@ class ReferenceManager:
         else:
             raise ValueError(f"Unsupported collection: {collection_name}")
 
-        logger.debug(
-            "Checking for missing reference in '%s' collection", collection_name
-        )
+        logger.debug("Checking for missing reference in '%s' collection", collection_name)
 
         to_insert = []
         for data_entry in self._get_missing_entries(collection, ids):

@@ -1,13 +1,10 @@
-# -*- coding: utf-8 -*-
 import contextlib
 import functools
 import uuid
 
 import deprecation
 
-from . import base_savable
-from . import tracking
-from . import version
+from . import base_savable, tracking, version
 
 __all__ = ("Process",)
 

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import logging
 import sys
 import uuid
@@ -37,9 +36,7 @@ def gui(uri):
     try:
         import mincepy_gui
     except ImportError:
-        click.echo(
-            "mincepy-gui not found, please install (e.g. via pip install mincepy-gui)"
-        )
+        click.echo("mincepy-gui not found, please install (e.g. via pip install mincepy-gui)")
         sys.exit(1)
     else:
         mincepy_gui.start(uri)

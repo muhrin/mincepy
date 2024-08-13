@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 try:
     from contextlib import nullcontext
 except ImportError:
@@ -7,8 +6,9 @@ except ImportError:
 import pytest
 
 import mincepy
-from mincepy.testing import Car
 import mincepy.testing
+from mincepy.testing import Car
+
 from . import utils
 
 # pylint: disable=invalid-name

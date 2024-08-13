@@ -1,8 +1,7 @@
-# -*- coding: utf-8 -*-
 import pytest
 
 import mincepy
-from mincepy.testing import Person, Car, Garage
+from mincepy.testing import Car, Garage, Person
 
 # pylint: disable=invalid-name
 
@@ -109,9 +108,7 @@ def test_snapshot_references(historian: mincepy.Historian):
 
     refs = historian.references.references(sid)
     assert len(refs) == len(address_book)
-    assert not set(historian.get_snapshot_id(person) for person in address_book) - set(
-        refs
-    )
+    assert not set(historian.get_snapshot_id(person) for person in address_book) - set(refs)
 
 
 def test_snapshot_referenced_by(historian: mincepy.Historian):
@@ -121,8 +118,6 @@ def test_snapshot_referenced_by(historian: mincepy.Historian):
     address_book.save()
     sid = historian.get_snapshot_id(address_book)
 
-    refs = historian.references.referenced_by(
-        historian.get_snapshot_id(address_book[0])
-    )
+    refs = historian.references.referenced_by(historian.get_snapshot_id(address_book[0]))
     assert len(refs) == 1
     assert sid in refs

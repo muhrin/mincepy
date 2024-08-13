@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import io
 import shutil
 
@@ -24,9 +23,7 @@ def test_file_basics(historian: mincepy.Historian):
         assert buffer.getvalue() == INITIAL_DATA
 
 
-def test_file_changing(
-    tmp_path, historian: mincepy.Historian
-):  # pylint: disable=unused-argument
+def test_file_changing(tmp_path, historian: mincepy.Historian):  # pylint: disable=unused-argument
     encoding = "utf-8"
     INITIAL_DATA = "Initial string"
     mince_file = historian.create_file(encoding=encoding)

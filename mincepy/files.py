@@ -1,18 +1,18 @@
-# -*- coding: utf-8 -*-
 import pathlib
 import shutil
 import tempfile
-from typing import Optional, BinaryIO, TextIO, Union
+from typing import BinaryIO, Optional, TextIO, Union
 
-from . import type_ids
-from . import base_savable
-from . import fields
+from . import base_savable, fields, type_ids
 
 __all__ = "File", "BaseFile"
 
 
 class File(base_savable.SimpleSavable):
-    """A mincePy file object.  These should not be instantiated directly but using Historian.create_file()"""
+    """
+    A mincePy file object.  These should not be instantiated directly but using
+    `Historian.create_file()`
+    """
 
     TYPE_ID = type_ids.FILE_TYPE_ID
     READ_SIZE = 256  # The number of bytes to read at a time
@@ -42,9 +42,7 @@ class File(base_savable.SimpleSavable):
         self._ensure_buffer()
         if "b" not in mode:
             kwargs.setdefault("encoding", self.encoding)
-        return open(
-            self._buffer_file, mode, **kwargs
-        )  # pylint: disable=unspecified-encoding
+        return open(self._buffer_file, mode, **kwargs)  # pylint: disable=unspecified-encoding
 
     def from_disk(self, path):
         """Copy the contents of a disk file to this file"""
@@ -114,9 +112,9 @@ class File(base_savable.SimpleSavable):
 
         If both files do not exist they are considered equal.
         """
-        if (
+        if (  # pylint: disable=comparison-with-callable
             not isinstance(other, File) or self.filename != other.filename
-        ):  # pylint: disable=comparison-with-callable
+        ):
             return False
 
         try:

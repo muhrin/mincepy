@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
 import mincepy
-
 from mincepy.testing import Car
 
 

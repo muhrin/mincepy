@@ -1,32 +1,26 @@
-# -*- coding: utf-8 -*-
-from typing import Optional, Sequence, Union, Iterable, Mapping, Iterator, Dict, Tuple
-import weakref
+from typing import Dict, Iterable, Iterator, Mapping, Optional, Sequence, Tuple, Union
 from urllib import parse
 import uuid
+import weakref
 
 import bson
 import gridfs
 import networkx
 import pymongo
-import pymongo.uri_parser
 import pymongo.database
 import pymongo.errors
+import pymongo.uri_parser
 
 # MincePy imports
-from mincepy import archives
-from mincepy import helpers
-from mincepy import operations
-from mincepy import q
-from mincepy import records
-from mincepy import exceptions
+import mincepy.archives as archives
+import mincepy.exceptions as exceptions
+import mincepy.helpers as helpers
+import mincepy.operations as operations
+import mincepy.qops as q
+import mincepy.records as records
 
 # Local imports
-from . import bulk
-from . import migrate
-from . import migrations
-from . import db
-from . import references
-from . import queries
+from . import bulk, db, migrate, migrations, queries, references
 
 __all__ = ("MongoArchive", "connect")
 
@@ -204,9 +198,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         found.pop("_id")
         return found.get(db.META, None)
 
-    def meta_get_many(
-        self, obj_ids: Iterable[bson.ObjectId]
-    ) -> Dict[bson.ObjectId, dict]:
+    def meta_get_many(self, obj_ids: Iterable[bson.ObjectId]) -> Dict[bson.ObjectId, dict]:
         # Find multiple
         for obj_id in obj_ids:
             if not isinstance(obj_id, bson.ObjectId):
@@ -226,9 +218,9 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             )
         except pymongo.errors.DuplicateKeyError as exc:
             raise exceptions.DuplicateKeyError(str(exc))
-        else:
-            if found.modified_count == 0:
-                raise exceptions.NotFound(f"No record with object id '{obj_id}' found")
+
+        if found.modified_count == 0:
+            raise exceptions.NotFound(f"No record with object id '{obj_id}' found")
 
     def meta_set_many(self, metas: Mapping[bson.ObjectId, Optional[dict]]):
         ops = []
@@ -255,14 +247,12 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def meta_update(self, obj_id, meta: Mapping):
         try:
             to_set = queries.expand_filter(db.META, meta)
-            res = self._data_collection.update_one(
-                {"_id": obj_id}, {"$set": to_set}, upsert=False
-            )
+            res = self._data_collection.update_one({"_id": obj_id}, {"$set": to_set}, upsert=False)
         except pymongo.errors.DuplicateKeyError as exc:
             raise exceptions.DuplicateKeyError(str(exc))
-        else:
-            if res.matched_count == 0:
-                raise exceptions.NotFound(f"No record with object id '{obj_id}' found")
+
+        if res.matched_count == 0:
+            raise exceptions.NotFound(f"No record with object id '{obj_id}' found")
 
     def meta_find(
         self,
@@ -302,9 +292,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
                 return
             for entry in keys:
                 if not isinstance(entry, tuple):
-                    raise TypeError(
-                        f"Keys must be list of tuples, got {entry.__class__.__name__}"
-                    )
+                    raise TypeError(f"Keys must be list of tuples, got {entry.__class__.__name__}")
 
         # Transform the keys
         keys = [(f"{db.META}.{name}", direction) for name, direction in keys]
@@ -381,8 +369,10 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             yield db.to_record(result)
 
     def distinct(
-        self, key: str, filter: dict = None
-    ) -> Iterator:  # pylint: disable=redefined-builtin
+        self,
+        key: str,
+        filter: dict = None,  # pylint: disable=redefined-builtin
+    ) -> Iterator:
         filter = db.remap(filter or {})
 
         if filter.get(db.VERSION, None) == -1:
@@ -443,9 +433,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def get_obj_ref_graph(
         self, *obj_ids: bson.ObjectId, direction=archives.OUTGOING, max_dist: int = None
     ) -> Iterator[networkx.DiGraph]:
-        return self._refman.get_obj_ref_graphs(
-            obj_ids, direction=direction, max_dist=max_dist
-        )
+        return self._refman.get_obj_ref_graphs(obj_ids, direction=direction, max_dist=max_dist)
 
     @staticmethod
     def _get_pipeline(
@@ -532,7 +520,7 @@ def _flatten_filter_dict(filter: dict) -> dict:  # pylint: disable=redefined-bui
     return query.build()
 
 
-class MongoRecordCollection(archives.RecordCollection):
+class MongoRecordCollection(archives.RecordCollection[bson.ObjectId]):
     def __init__(self, archive: MongoArchive, collection: pymongo.database.Collection):
         self._archive = archive
         self._collection = collection
@@ -587,19 +575,20 @@ class MongoRecordCollection(archives.RecordCollection):
         self,
         key: str,
         filter: dict = None,  # pylint: disable=redefined-builtin
+        meta: dict = None,
     ) -> Iterator[dict]:
+        if meta is not None:
+            raise ValueError("Getting distinct using meta filter is not supported yet")
         key = db.remap_key(key)
         yield from self._collection.distinct(key, filter)
 
     def get(self, entry_id: bson.ObjectId) -> dict:
-        doc = self._collection.find_one({"_id": entry_id})  # type: dict
+        doc: dict = self._collection.find_one({"_id": entry_id})
         if doc is None:
             raise exceptions.NotFound(entry_id)
         return db.remap_back(doc)
 
-    def count(
-        self, filter: dict, *, meta: dict = None  # pylint: disable=redefined-builtin
-    ) -> int:
+    def count(self, filter: dict, *, meta: dict = None) -> int:  # pylint: disable=redefined-builtin
         """Get the number of entries that match the search criteria"""
         # Create the pipeline
         pipeline = []
@@ -616,8 +605,8 @@ class MongoRecordCollection(archives.RecordCollection):
             result = next(self._collection.aggregate(pipeline))
         except StopIteration:
             return 0
-        else:
-            return result["total"]
+
+        return result["total"]
 
 
 MOCKED = weakref.WeakValueDictionary()
@@ -655,9 +644,7 @@ def pymongo_connect(uri, database: str = None, timeout=30000):
         raise ValueError(f"Failed to supply database on MongoDB uri: {uri}")
 
     try:
-        client = pymongo.MongoClient(
-            uri, connect=True, serverSelectionTimeoutMS=timeout
-        )
+        client = pymongo.MongoClient(uri, connect=True, serverSelectionTimeoutMS=timeout)
         database = client.get_default_database()
         return MongoArchive(database)
     except pymongo.errors.ServerSelectionTimeoutError as exc:
@@ -667,8 +654,7 @@ def pymongo_connect(uri, database: str = None, timeout=30000):
 def mongomock_connect(uri, timeout=30000) -> MongoArchive:
     # Cache, this makes sure that if we get two requests to connect to exactly the same URI then
     # an existing connection will be returned
-    import mongomock
-    import mongomock.gridfs
+    import mongomock.gridfs  # pylint: disable=import-outside-toplevel
 
     global MOCKED  # pylint: disable=global-statement, global-variable-not-assigned
     if uri in MOCKED:
@@ -685,8 +671,7 @@ def mongomock_connect(uri, timeout=30000) -> MongoArchive:
 
 
 def litemongo_connect(uri) -> MongoArchive:
-    import litemongo
-    import litemongo._vendor.mongomock.gridfs
+    import litemongo._vendor.mongomock.gridfs  # pylint: disable=import-outside-toplevel
 
     litemongo._vendor.mongomock.gridfs.enable_gridfs_integration()  # pylint: disable=protected-access
 

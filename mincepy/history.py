@@ -1,18 +1,17 @@
-# -*- coding: utf-8 -*-
 """
 This module exposes some global functionality for connecting to and interacting with the current
 historian
 """
+
 import os
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import deprecation
 
-from . import archive_factory
-from . import helpers
-from . import historians
-from . import plugins
-from . import version
+from . import archive_factory, helpers, plugins, version
+
+if TYPE_CHECKING:
+    import mincepy
 
 __all__ = (
     "connect",
@@ -61,7 +60,7 @@ def create_default_historian():
     return None
 
 
-def connect(uri: str = "", use_globally=False, timeout=30000) -> historians.Historian:
+def connect(uri: str = "", use_globally=False, timeout=30000) -> "mincepy.Historian":
     """Connect to an archive and return a corresponding historian
 
     :param uri: the URI of the archive to connect to
@@ -69,9 +68,7 @@ def connect(uri: str = "", use_globally=False, timeout=30000) -> historians.Hist
     :param timeout: a connection timeout (in milliseconds)
     """
     uri = uri or default_archive_uri()
-    hist = archive_factory.create_historian(
-        uri, apply_plugins=True, connect_timeout=timeout
-    )
+    hist = archive_factory.create_historian(uri, apply_plugins=True, connect_timeout=timeout)
     if use_globally:
         set_historian(hist, apply_plugins=False)
     return hist
@@ -86,7 +83,7 @@ def default_archive_uri() -> Optional[str]:
 # region Globals
 
 
-def get_historian(create=True) -> Optional[historians.Historian]:
+def get_historian(create=True) -> Optional["mincepy.Historian"]:
     """Get the currently set global historian.  If one doesn't exist and create is True then this
     call will attempt to create a new default historian using connect()"""
     global CURRENT_HISTORIAN  # pylint: disable=global-statement, global-variable-not-assigned
@@ -98,7 +95,7 @@ def get_historian(create=True) -> Optional[historians.Historian]:
     return CURRENT_HISTORIAN
 
 
-def set_historian(new_historian: Optional[historians.Historian], apply_plugins=True):
+def set_historian(new_historian: Optional["mincepy.Historian"], apply_plugins=True):
     """Set the current global historian.  Optionally load all plugins.
     To reset the historian pass None.
     """

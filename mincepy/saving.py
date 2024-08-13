@@ -1,20 +1,17 @@
-# -*- coding: utf-8 -*-
 """Module for methods related to saving and loading objects to/from records"""
 
 from typing import Type, Union
 
-from . import fields
+from . import fields, refs
 
 
-def save_instance_state(obj, db_type: Type[fields.WithFields] = None):
+def save_instance_state(obj, db_type: Type[fields.WithFields] = None) -> dict:
     """Save the instance state of an object.
 
     Given an object this function takes a DbType specifying the attributes to be saved and will use
     these to return a saved sate.  Note, that for regular Savable objects, the db_type is the object
     itself in which case this argument can be omitted.
     """
-    from . import refs  # pylint: disable=cyclic-import
-
     if db_type is None:
         assert issubclass(
             type(obj), fields.WithFields
@@ -42,8 +39,6 @@ def load_instance_state(
     db_type: Type[fields.WithFields] = None,
     ignore_missing=True,
 ):
-    from . import refs  # pylint: disable=cyclic-import
-
     if db_type is None:
         assert issubclass(
             type(obj), fields.WithFields
@@ -59,14 +54,13 @@ def load_instance_state(
                 if ignore_missing:
                     value = None
                 else:
-                    raise ValueError(
-                        f"Saved state missing '{properties.store_as}'"
-                    ) from None
+                    raise ValueError(f"Saved state missing '{properties.store_as}'") from None
 
             if properties.ref and value is not None:
-                assert isinstance(
-                    value, refs.ObjRef
-                ), f"Expected to see a reference in the saved state for key '{properties.store_as}' but got '{value}'"
+                assert isinstance(value, refs.ObjRef), (
+                    f"Expected to see a reference in the saved state for key "
+                    f"'{properties.store_as}' but got '{value}'"
+                )
                 value = value()  # Dereference it
 
             to_set[properties.attr_name] = value

@@ -1,13 +1,12 @@
-# -*- coding: utf-8 -*-
 """Classes and function useful for trying out mincepy functionality"""
-# pylint: disable=cyclic-import
+
 import contextlib
 import gc
 import logging
 import os
-import string
 import random
-from typing import Iterator, Callable
+import string
+from typing import Callable, Iterator
 import uuid
 import weakref
 
@@ -28,8 +27,9 @@ DEFAULT_ARCHIVE_BASE_URI = "mongodb://127.0.0.1"
 
 
 def get_base_uri() -> str:
-    """Get a base URI for an archive that can be used for testing.  This will not contain the database name as multiple
-    databases can be used during a test session."""
+    """
+    Get a base URI for an archive that can be used for testing.  This will not contain the database
+    name as multiple databases can be used during a test session."""
     return os.environ.get(ENV_ARCHIVE_BASE_URI, DEFAULT_ARCHIVE_BASE_URI)
 
 
@@ -46,8 +46,10 @@ def create_archive_uri(base_uri="", db_name=""):
 
 @contextlib.contextmanager
 # @mongomock.patch(servers=(('localhost', 27017),))
-def temporary_archive(archive_uri: str) -> Iterator[mincepy.Archive]:
-    """Create a temporary archive.  The associated database will be dropped on exiting the context"""
+def temporary_archive(archive_uri: str) -> Iterator["mincepy.Archive"]:
+    """
+    Create a temporary archive.  The associated database will be dropped on exiting the context
+    """
     archive = mincepy.mongo.connect(archive_uri)
     db = archive.database
     client = db.client
@@ -58,16 +60,17 @@ def temporary_archive(archive_uri: str) -> Iterator[mincepy.Archive]:
 
 
 @contextlib.contextmanager
-def temporary_historian(archive_uri: str = "") -> Iterator[mincepy.Archive]:
-    """Create a temporary historian.  The associated database will be dropped on exiting the context."""
+def temporary_historian(archive_uri: str = "") -> Iterator["mincepy.Archive"]:
+    """
+    Create a temporary historian.  The associated database will be dropped on exiting the context.
+    """
     with temporary_archive(archive_uri) as archive:
         yield mincepy.Historian(archive)
 
 
 try:
-    import pytest
-
     # Optional pytest fixtures
+    import pytest
 
     @pytest.fixture
     def archive_uri() -> str:
@@ -204,18 +207,17 @@ def populate(historian=None):
     historian.save(people)
 
 
-def do_round_trip(
-    historian: mincepy.Historian, factory: Callable, *args, **kwargs
-) -> object:
-    """Given a historian, this function will:
+def do_round_trip(historian: mincepy.Historian, factory: Callable, *args, **kwargs) -> object:
+    """
+    Given a historian, this function will:
         1. create the object using factory(*args, **kwargs)
         2. save the object and ask for it to be deleted,
         3. reload the object using the object id
         4. check that the python id of the loaded object is different from the original
         5. return the loaded object
 
-    This is useful to check that saving and loading of an object work correctly and makes it easy to subsequently check
-    that the state of the loaded object is as expected.
+    This is useful to check that saving and loading of an object work correctly and makes it easy to
+    subsequently check that the state of the loaded object is as expected.
     """
     obj_id, obj_type = _do_create_and_save(historian, factory, *args, **kwargs)
 

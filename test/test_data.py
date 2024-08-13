@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import gc
 import uuid
 
@@ -6,7 +5,7 @@ import pytest
 
 import mincepy
 import mincepy.builtins
-from mincepy.testing import Car, Garage, Cycle
+from mincepy.testing import Car, Cycle, Garage
 
 # pylint: disable=invalid-name
 
@@ -187,10 +186,7 @@ def test_user_info(historian: mincepy.Historian):
     record = historian.get_current_record(car)
 
     assert record.extras[mincepy.ExtraKeys.USER] == user_info[mincepy.ExtraKeys.USER]
-    assert (
-        record.extras[mincepy.ExtraKeys.HOSTNAME]
-        == user_info[mincepy.ExtraKeys.HOSTNAME]
-    )
+    assert record.extras[mincepy.ExtraKeys.HOSTNAME] == user_info[mincepy.ExtraKeys.HOSTNAME]
 
 
 def test_save_as_ref(historian: mincepy.Historian):

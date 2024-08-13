@@ -1,13 +1,10 @@
-# -*- coding: utf-8 -*-
 import argparse
 import datetime
 
 import pytest
 
 import mincepy
-from mincepy import expr
-from mincepy import fields
-from mincepy import saving
+from mincepy import expr, fields, saving
 
 # pylint: disable=too-few-public-methods, invalid-name, pointless-statement, protected-access
 
@@ -122,9 +119,7 @@ def test_immutable_property():
     saving.load_instance_state(ts, saved_state)
 
     # Check that it's been restored correctly
-    assert (
-        ts._creation_time == ctime
-    ) is True  # pylint: disable=comparison-with-callable
+    assert (ts._creation_time == ctime) is True  # pylint: disable=comparison-with-callable
     assert ts.creation_time == ctime
 
 
@@ -154,9 +149,7 @@ def test_fields():
 
     # Now check what it does if we miss a value
     with pytest.raises(ValueError):
-        saving.load_instance_state(
-            img, dict(width=512, height=512), ignore_missing=False
-        )
+        saving.load_instance_state(img, dict(width=512, height=512), ignore_missing=False)
 
     # Check that it hasn't destroyed the state
     assert img.width == 1024

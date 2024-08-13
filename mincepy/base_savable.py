@@ -1,11 +1,13 @@
-# -*- coding: utf-8 -*-
 import collections
-from typing import Optional
 import typing
+from typing import TYPE_CHECKING, Optional, cast
 
-from . import depositors
-from . import refs
-from . import types
+import mincepy.history
+
+from . import refs, types
+
+if TYPE_CHECKING:
+    import mincepy
 
 __all__ = (
     "BaseSavableObject",
@@ -59,15 +61,12 @@ class BaseSavableObject(types.SavableObject):
             return False
 
         return all(
-            getattr(self, attr.name) == getattr(other, attr.name)
-            for attr in self.__get_attrs()
+            getattr(self, attr.name) == getattr(other, attr.name) for attr in self.__get_attrs()
         )
 
     def yield_hashables(self, hasher):
         yield from super().yield_hashables(hasher)
-        yield from hasher.yield_hashables(
-            [getattr(self, attr.name) for attr in self.__get_attrs()]
-        )
+        yield from hasher.yield_hashables([getattr(self, attr.name) for attr in self.__get_attrs()])
 
     def save_instance_state(self, saver) -> dict:
         saved_state = super().save_instance_state(saver)
@@ -127,9 +126,7 @@ class ConvenienceMixin:
     def update_meta(self, meta: dict):
         """Update the metadata dictionary for this object"""
         if self._historian is None:
-            raise RuntimeError(
-                "Object must be saved before the metadata can be updated"
-            )
+            raise RuntimeError("Object must be saved before the metadata can be updated")
 
         self._historian.meta.update(self, meta)
 
@@ -144,11 +141,10 @@ class ConvenienceMixin:
         """Save the object"""
         if self._historian is None:
             # We don't have a historian yet (we haven't been saved), so use the current global one
-            from . import history  # pylint: disable=cyclic-import
-
-            historian = history.get_historian()
+            historian = mincepy.history.get_historian()
         else:
             historian = self._historian
+
         return historian.save_one(self, meta=meta)
 
     def sync(self):
@@ -156,21 +152,21 @@ class ConvenienceMixin:
         if self._historian is not None:
             self._historian.sync(self)
 
-    def save_instance_state(self, saver: depositors.Saver):
+    def save_instance_state(self, saver: "mincepy.Saver"):
         self._on_save(saver)
-        return super().save_instance_state(saver)
+        return cast(types.Savable, super()).save_instance_state(saver)
 
-    def load_instance_state(self, saved_state, loader: "depositors.Loader"):
+    def load_instance_state(self, saved_state, loader: "mincepy.Loader"):
         """Take the given object and load the instance state into it"""
-        super().load_instance_state(saved_state, loader)
+        cast(types.Savable, super()).load_instance_state(saved_state, loader)
         self._on_load(loader)
 
-    def _on_save(self, saver: depositors.Saver):
+    def _on_save(self, saver: "mincepy.Saver"):
         # Check if we've been assigned an object id, otherwise we're just being saved by value
         if saver.get_historian().get_obj_id(self) is not None:
             self._historian = saver.get_historian()
 
-    def _on_load(self, loader: depositors.Loader):
+    def _on_load(self, loader: "mincepy.Loader"):
         if loader.get_historian().get_obj_id(self) is not None:
             self._historian = loader.get_historian()
 

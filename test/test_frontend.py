@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
 import mincepy
-from mincepy import frontend
-from mincepy import testing
+from mincepy import frontend, testing
 
 # pylint: disable=invalid-name
 
@@ -10,9 +8,7 @@ def test_collection(historian):
     def identity(x):
         return x
 
-    coll = frontend.EntriesCollection(
-        historian, historian.archive.objects, entry_factory=identity
-    )
+    coll = frontend.EntriesCollection(historian, historian.archive.objects, entry_factory=identity)
     p1 = testing.Person("martin", 35)
     p1.save()
     p2 = testing.Person("john", 5)

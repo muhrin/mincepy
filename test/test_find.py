@@ -1,10 +1,9 @@
-# -*- coding: utf-8 -*-
 """Tests for the various historian find methods"""
 
 import pytest
 
-import mincepy.records
 from mincepy import testing
+import mincepy.records
 
 
 def test_find_state(historian: mincepy.Historian):
@@ -61,9 +60,7 @@ def test_simple_sort(historian: mincepy.Historian):
         cars.append(testing.Car(idx))
 
     historian.save(cars)
-    results = list(
-        historian.records.find(testing.Car, sort=mincepy.records.CREATION_TIME)
-    )
+    results = list(historian.records.find(testing.Car, sort=mincepy.records.CREATION_TIME))
     for idx, result in enumerate(results[1:]):
         # No need to subtract 1 from idx as we're already one behind because of the slicing
         assert result.creation_time >= results[idx].creation_time
@@ -173,9 +170,7 @@ def test_distinct(historian):
     car4.save()
 
     assert set(
-        historian.snapshots.records.distinct(
-            "version", obj_type=testing.Car, obj_id=id4
-        )
+        historian.snapshots.records.distinct("version", obj_type=testing.Car, obj_id=id4)
     ) == {0, 1}
 
     colours = set(historian.records.distinct("state.colour"))
@@ -222,11 +217,12 @@ def test_find_auto_registration(historian: mincepy.Historian):
     # This call should not raise as `User` should be automatically registered
     assert isinstance(historian.find(User).one(), User)
 
-    # Now try creating a second user type with the same TYPE_ID, here automatic registration should fail because
-    # otherwise we would clobber the existing helper in the registry
+    # Now try creating a second user type with the same TYPE_ID, here automatic registration should
+    # fail because otherwise we would clobber the existing helper in the registry
     class User2(mincepy.SimpleSavable):
         TYPE_ID = "User"
 
     with pytest.raises(ValueError):
-        # Should raise, because now we have the same type id and we would clobber the one already reigstered
+        # Should raise, because now we have the same type id and we would clobber the one already
+        # reigstered
         assert isinstance(historian.find(User2).one(), User)

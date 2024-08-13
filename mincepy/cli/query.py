@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from collections import OrderedDict
 import typing
 
@@ -8,6 +7,7 @@ from tabulate import tabulate
 
 import mincepy
 import mincepy.records
+import mincepy.testing
 
 
 @click.command()
@@ -17,7 +17,7 @@ import mincepy.records
 def query(obj_type, filter, limit):  # pylint: disable=redefined-builtin
     historian = mincepy.get_historian()
 
-    results = historian.find_recods(obj_type, state=filter, limit=limit, version=-1)
+    results = historian.records.find(obj_type, state=filter, limit=limit, version=-1)
 
     historian.register_types(mincepy.testing.HISTORIAN_TYPES)
 
@@ -57,9 +57,7 @@ def print_records(records: typing.Sequence[mincepy.records.DataRecord], historia
 
     for column_name in columns.keys():
         if column_name != REF:
-            columns[column_name] = [
-                get_value(column_name, record.state) for record in records
-            ]
+            columns[column_name] = [get_value(column_name, record.state) for record in records]
 
     rows = []
     for row in range(len(records)):
@@ -69,8 +67,7 @@ def print_records(records: typing.Sequence[mincepy.records.DataRecord], historia
         tabulate(
             rows,
             headers=[
-                ".".join(path) if isinstance(path, tuple) else path
-                for path in columns.keys()
+                ".".join(path) if isinstance(path, tuple) else path for path in columns.keys()
             ],
         )
     )

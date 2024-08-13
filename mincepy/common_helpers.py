@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
 # This module will be removed in 0.17.0
-from .builtins import PathHelper, NamespaceHelper, TupleHelper
+from .builtins import NamespaceHelper, PathHelper, TupleHelper
 
 __all__ = "PathHelper", "TupleHelper", "NamespaceHelper"
 

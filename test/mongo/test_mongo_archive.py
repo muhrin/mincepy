@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Specific tests for the MongoDB archive"""
 
 import bson
@@ -35,6 +34,4 @@ def test_distinct(historian: mincepy.Historian):
     testing.Car(colour="red").save()
 
     assert set(archive.distinct("state.colour")) == {"red", "blue"}
-    assert set(archive.distinct("state.colour", {"state": {"colour": "red"}})) == {
-        "red"
-    }
+    assert set(archive.distinct("state.colour", {"state": {"colour": "red"}})) == {"red"}

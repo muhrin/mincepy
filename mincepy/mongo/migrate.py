@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 import abc
 import contextlib
 import random
 import string
-from typing import List, Type, Optional
+from typing import List, Optional, Type
 
 import pymongo.database
 
@@ -105,8 +104,8 @@ def ensure_up_to_date(database: pymongo.database.Database, latest: Type[Migratio
     current_version = current.get(VERSION, None)
     if current_version and current_version > latest.VERSION:
         raise MigrationError(
-            f"The current database version ({current_version}) is higher than the code version ({latest.VERSION}) you "
-            f"may need to update your version of the code"
+            f"The current database version ({current_version}) is higher than the code version "
+            f"({latest.VERSION}) you may need to update your version of the code"
         )
 
     migrator = MigrationManager(latest)
@@ -120,9 +119,7 @@ def get_version(database) -> Optional[int]:
 
 @contextlib.contextmanager
 def temporary_collection(database: pymongo.database.Database, coll_name=None):
-    coll_name = coll_name or "".join(
-        random.choices(string.ascii_letters, k=10)  # nosec
-    )
+    coll_name = coll_name or "".join(random.choices(string.ascii_letters, k=10))  # nosec
     coll = database[coll_name]
     yield coll
     database.drop_collection(coll_name)

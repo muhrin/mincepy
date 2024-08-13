@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 """"Tests of migrations"""
+
 import gc
 import logging
 import uuid
@@ -8,7 +8,8 @@ import pytest
 
 import mincepy
 from mincepy import testing
-from .common import CarV0, CarV1, CarV2, StoreByValue, StoreByRef
+
+from .common import CarV0, CarV1, CarV2, StoreByRef, StoreByValue
 
 # pylint: disable=invalid-name
 

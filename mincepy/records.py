@@ -1,31 +1,33 @@
-# -*- coding: utf-8 -*-
 """This module defines the data record and other objects and functions related to storing things
 in an archive."""
 
-import copy
 import collections
+import copy
 import datetime
 import operator
 from typing import (
-    Optional,
-    Iterable,
-    Sequence,
-    Union,
-    Tuple,
+    TYPE_CHECKING,
     Any,
-    Mapping,
-    TypeVar,
     Generic,
+    Hashable,
+    Iterable,
     List,
+    Mapping,
+    Optional,
+    Sequence,
+    Tuple,
+    TypeVar,
+    Union,
 )
 
 import deprecation
 import pytray.tree
 
-from . import type_ids
-from . import fields
-from . import utils
-from . import version as version_mod
+from . import fields, type_ids, utils
+from . import version as version_
+
+if TYPE_CHECKING:
+    import mincepy
 
 __all__ = (
     "OBJ_ID",
@@ -76,16 +78,14 @@ SchemaEntry = collections.namedtuple("SchemaEntry", "type_id version")
 class ExtraKeys:
     # pylint: disable=too-few-public-methods
     CREATED_BY = "_created_by"  # The ID of the process the data was created in
-    COPIED_FROM = (
-        "_copied_from"  # The reference to the snapshot that this object was copied from
-    )
+    COPIED_FROM = "_copied_from"  # The reference to the snapshot that this object was copied from
     USER = "_user"  # The user that saved this snapshot
     HOSTNAME = "_hostname"  # The hostname of the computer this snapshot was saved on
 
 
 DELETED = "!!deleted"  # Special state to denote a deleted record
 
-IdT = TypeVar("IdT")  # The archive ID type
+IdT = TypeVar("IdT", bound=Hashable)  # The archive ID type
 
 #: The type ID - this is typically a UUID but can be something else in different contexts
 TypeId = Any
@@ -104,8 +104,11 @@ class SnapshotId(Generic[IdT]):
 
     @classmethod
     def from_dict(cls, sid_dict: dict) -> "SnapshotId":
-        """Build a snapshot ID from a dictionary.  Uses OBJ_ID and VERSION keys but ignores any additional keys making
-        it useful when passing **sid_dict to the constructor would fail because of the presence of unexpected keys."""
+        """
+        Build a snapshot ID from a dictionary.  Uses OBJ_ID and VERSION keys but ignores any
+        additional keys making it useful when passing **sid_dict to the constructor would fail
+        because of the presence of unexpected keys.
+        """
         return cls(sid_dict[OBJ_ID], sid_dict[VERSION])
 
     def __init__(self, obj_id, version: int):
@@ -146,7 +149,7 @@ class SnapshotId(Generic[IdT]):
 SnapshotRef = SnapshotId
 
 
-def readonly_field(field_name: str, **kwargs) -> fields.Field:
+def readonly_field(field_name: str, **kwargs) -> "mincepy.fields.Field":
     properties = dict(
         fget=operator.itemgetter(DATA_RECORD_FIELDS.index(field_name)), doc=field_name
     )
@@ -185,7 +188,7 @@ class DataRecord(tuple, fields.WithFields):
     @deprecation.deprecated(
         deprecated_in="0.15.20",
         removed_in="0.17.0",
-        current_version=version_mod.__version__,
+        current_version=version_.__version__,
         details="Use make_child_builder free function instead",
     )
     def child_builder(self, **kwargs) -> "DataRecordBuilder":
@@ -391,6 +394,4 @@ def make_child_builder(record: DataRecord, **kwargs) -> "DataRecordBuilder":
 
 def make_deleted_builder(record: DataRecord) -> DataRecordBuilder:
     """Get a record that represents the deletion of this object"""
-    return make_child_builder(
-        record, state=DELETED, state_types=None, snapshot_hash=None
-    )
+    return make_child_builder(record, state=DELETED, state_types=None, snapshot_hash=None)

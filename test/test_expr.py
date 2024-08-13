@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import pytest
 
 from mincepy import expr
@@ -83,9 +82,7 @@ def test_query_overlapping_filter_keys():
     compound1 = gt_24 & lt_38
     compound2 = gt_24 & lt_38
     query_filter = expr.Query(compound1, compound2).get_filter()
-    assert query_filter == {
-        "$and": [expr.query_expr(compound1), expr.query_expr(compound2)]
-    }
+    assert query_filter == {"$and": [expr.query_expr(compound1), expr.query_expr(compound2)]}
 
 
 def test_queryable():
@@ -147,9 +144,7 @@ def test_queryable():
         queryable.regex_(True)
 
     # Test starts_with
-    assert expr.query_expr(queryable.starts_with_(value)) == {
-        field_name: {"$regex": f"^{value}"}
-    }
+    assert expr.query_expr(queryable.starts_with_(value)) == {field_name: {"$regex": f"^{value}"}}
 
 
 def test_query_expr():

@@ -1,10 +1,8 @@
-# -*- coding: utf-8 -*-
 import copy as python_copy
 import functools
 from typing import Callable
 
-from . import records
-from . import staging
+from . import records, staging
 
 __all__ = "track", "copy", "deepcopy", "mark_as_copy"
 
@@ -61,9 +59,7 @@ def track(obj_or_fn):
     be the creator.  Or it can be used as a context in which case the creator should be passed as
     the argument.
     """
-    if isinstance(
-        obj_or_fn, Callable
-    ):  # pylint: disable=isinstance-second-argument-not-valid-type
+    if isinstance(obj_or_fn, Callable):  # pylint: disable=isinstance-second-argument-not-valid-type
         # We're acting as a decorator
         @functools.wraps(obj_or_fn)
         def wrapper(self, *args, **kwargs):

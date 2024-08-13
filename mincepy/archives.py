@@ -1,29 +1,29 @@
-# -*- coding: utf-8 -*-
 import abc
 from typing import (
-    Generic,
-    TypeVar,
-    NamedTuple,
-    Sequence,
-    Union,
-    Mapping,
-    Iterable,
-    Dict,
-    Iterator,
     Any,
-    Type,
-    Optional,
     Callable,
+    Dict,
+    Generic,
+    Hashable,
+    Iterable,
+    Iterator,
     List,
+    Mapping,
+    NamedTuple,
+    Optional,
+    Sequence,
     Tuple,
+    Type,
+    TypeVar,
+    Union,
 )
 
 import networkx
 
+from . import operations
 from . import qops as q
 from . import records
 from .records import DataRecord
-from . import operations
 
 __all__ = (
     "Archive",
@@ -35,7 +35,7 @@ __all__ = (
     "INCOMING",
 )
 
-IdT = TypeVar("IdT")  # The archive ID type
+IdT = TypeVar("IdT", bound=Hashable)  # The archive ID type
 
 # Sort options
 ASCENDING = 1
@@ -170,9 +170,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def meta_create_index(
-        self, keys: Union[str, List[Tuple]], unique=False, where_exist=False
-    ):
+    def meta_create_index(self, keys: Union[str, List[Tuple]], unique=False, where_exist=False):
         """Create an index on the metadata.  Takes either a single key or list of (key, direction)
         pairs
 
@@ -212,7 +210,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         extras: dict = None,
         limit=0,
         sort=None,
-        skip=0,
+        skip: int = 0,
     ) -> Iterator[DataRecord]:
         """Find records matching the given criteria
 
@@ -231,13 +229,13 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
             2. an iterable of object ids in which is treated as {'$in': list(obj_ids)}
             3. a general query filter to be applied to the object ids
         :param sort: sort the results by the given criteria
-        :param skip: skip the this many entries
+        :param skip: skip this many entries
         """
 
     @abc.abstractmethod
     def distinct(
-        self, key: str, filter: dict = None
-    ) -> Iterator:  # pylint: disable=redefined-builtin
+        self, key: str, filter: dict = None  # pylint: disable=redefined-builtin
+    ) -> Iterator:
         """Get distinct values of the given record key
 
         :param key: the key to find distinct values for, see DataRecord for possible keys
@@ -288,8 +286,9 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
 
 class BaseArchive(Archive[IdT]):
-    # This is _still_ an abstract class, pylint is just silly in not recognising that a class only becomes concrete
-    # once _all_ abstract methods are implemented.  See: https://github.com/PyCQA/pylint/issues/179
+    # This is _still_ an abstract class, pylint is just silly in not recognising that a class only
+    # becomes concrete once _all_ abstract methods are implemented.
+    # See: https://github.com/PyCQA/pylint/issues/179
     # pylint:disable=abstract-method
 
     ID_TYPE = None  # type: Type[IdT]
@@ -347,27 +346,26 @@ class BaseArchive(Archive[IdT]):
         self._listeners.remove(listener)
 
     def _fire_event(self, evt: Callable, *args, **kwargs):
-        """Inform all listeners of an event.  The event should be a method from the ArchiveListener interface"""
+        """
+        Inform all listeners of an event.  The event should be a method from the ArchiveListener
+        interface
+        """
         for listener in self._listeners:
             getattr(listener, evt.__name__)(self, *args, **kwargs)
 
 
-def scalar_query_spec(
-    specifier: Union[Mapping, Iterable[Any], Any]
-) -> Union[Any, Dict]:
+def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> Union[Any, Dict]:
     """Convenience function to create a query specifier for a given item.  There are three
     possibilities:
 
     1. The item is a mapping in which case it is returned as is.
     2. The item is an iterable (but not a mapping) in which case it is interpreted to mean:
         {'$in': list(iterable)}
-    3. it is a raw item item in which case it is matched directly
+    3. it is a raw item, in which case it is matched directly
     """
     if isinstance(specifier, dict):  # This has to be first as dict is iterable
         return specifier
-    if isinstance(
-        specifier, Iterable
-    ):  # pylint: disable=isinstance-second-argument-not-valid-type
+    if isinstance(specifier, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
         return q.in_(*specifier)
 
     return specifier
@@ -376,12 +374,12 @@ def scalar_query_spec(
 # pylint: disable=arguments-differ
 
 
-class Collection(metaclass=abc.ABCMeta):
+class Collection(Generic[IdT], metaclass=abc.ABCMeta):
     """An abstraction for a database collection"""
 
     @property
     @abc.abstractmethod
-    def archive(self) -> Archive:
+    def archive(self) -> Archive[IdT]:
         """Get the archive that this collection belongs to"""
 
     @abc.abstractmethod
@@ -411,7 +409,7 @@ class Collection(metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def get(self, entry_id) -> dict:
+    def get(self, entry_id: IdT) -> dict:
         """Get one entry using the principal id
 
         :raises mincepy.NotFound: if no object is found with the given id
@@ -422,7 +420,7 @@ class Collection(metaclass=abc.ABCMeta):
         """Get the number of entries that match the search criteria"""
 
 
-class RecordCollection(Collection):
+class RecordCollection(Collection[IdT]):
     """An abstraction for collections holding records"""
 
     @abc.abstractmethod
@@ -448,9 +446,7 @@ class RecordCollection(Collection):
         """Find all records matching the given criteria"""
 
     @abc.abstractmethod
-    def count(
-        self, filter: dict, *, meta: dict = None  # pylint: disable=redefined-builtin
-    ) -> int:
+    def count(self, filter: dict, *, meta: dict = None) -> int:  # pylint: disable=redefined-builtin
         """Get the number of entries that match the search criteria"""
 
 
@@ -458,12 +454,11 @@ class ArchiveListener:
     """Archive listener interface"""
 
     def on_bulk_write(self, archive: Archive, ops: Sequence[operations.Operation]):
-        """Called when an archive is about to perform a sequence of write operations but has not performed them yet.
-        The listener must not assume that the operations will be completed as there are a number of reasons why this
-        process could be interrupted.
+        """
+        Called when an archive is about to perform a sequence of write operations but has not
+        performed them yet. The listener must not assume that the operations will be completed as
+        there are a number of reasons why this process could be interrupted.
         """
 
-    def on_bulk_write_complete(
-        self, archive: Archive, ops: Sequence[operations.Operation]
-    ):
+    def on_bulk_write_complete(self, archive: Archive, ops: Sequence[operations.Operation]):
         """Called when an archive is has successfully performed a sequence of write operations"""

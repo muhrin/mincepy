@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*-
 from click.testing import CliRunner
 
 import mincepy
 import mincepy.cli.main
-from ..common import CarV1, CarV2, StoreByValue, StoreByRef
+
+from ..common import CarV1, CarV2, StoreByRef, StoreByValue
 
 
 def test_simple_migrate(historian: mincepy.Historian, archive_uri):

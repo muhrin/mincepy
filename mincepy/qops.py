@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Module containing functions to generate query operations.  To prevent clashes with python
 builtins we append underscores to the function names.  This also makes it safer to import this
 module as a wildcard import.

@@ -1,11 +1,13 @@
-# -*- coding: utf-8 -*-
 """References module"""
-from typing import Optional
 
-from . import exceptions
-from . import records
-from . import types
-from . import type_ids
+from typing import TYPE_CHECKING, Optional
+
+import mincepy.types as types
+
+from . import exceptions, records, type_ids
+
+if TYPE_CHECKING:
+    import mincepy
 
 __all__ = ("ObjRef", "ref")
 
@@ -17,7 +19,7 @@ class ObjRef(types.SavableObject):
     IMMUTABLE = True
 
     _obj = None
-    _sid: Optional[records.SnapshotId] = None
+    _sid: Optional["mincepy.SnapshotId"] = None
     _loader = None
 
     def __init__(self, obj=None):
@@ -61,7 +63,7 @@ class ObjRef(types.SavableObject):
             try:
                 self._historian.sync(self._obj)
             except exceptions.NotFound:
-                pass  # Object must never have been saved and is therefore up to date
+                pass  # Object must have never been saved and is therefore up-to-date
 
         return self._obj
 

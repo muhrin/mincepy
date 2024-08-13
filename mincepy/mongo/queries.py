@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 import functools
 from typing import Mapping
 
-from .aggregation import and_, eq_
 from . import db
+from .aggregation import and_, eq_
 
 
 def pipeline_latest_version(data_collection: str) -> list:

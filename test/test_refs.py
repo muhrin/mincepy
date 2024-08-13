@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
 """Module for testing object references"""
 
 from argparse import Namespace
 
 import mincepy
-import mincepy.records
 from mincepy import testing
+import mincepy.records
 
 # pylint: disable=invalid-name
 

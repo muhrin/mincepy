@@ -1,0 +1,166 @@
+[build-system]
+requires = ['flit_core >=3.9,<4']
+build-backend = 'flit_core.buildapi'
+
+[project]
+name = 'mincepy'
+dynamic = ["version", "description"]
+authors = [
+    { name = 'Martin Uhrin', email = 'martin.uhrin.10@ucl.ac.uk' },
+]
+readme = 'README.rst'
+license = { file = 'LICENSE.txt' }
+classifiers = [
+    'Development Status :: 4 - Beta',
+    'License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+]
+keywords = ["database", "schemaless", "nosql", "orm", "object-store", "concurrent", "optimistic-locking"]
+requires-python = '>=3.8'
+dependencies = [
+    "deprecation",
+    "dnspython", # Needed to be able to connect using domain name rather than IP
+    "pymongo<4.0",
+    "litemongo",
+    "importlib-metadata<5.0", # see: https://stackoverflow.com/questions/73929564/entrypoints-object-has-no-attribute-get-digital-ocean
+    "mongomock",
+    "bidict",
+    "networkx", # For reference graphs
+    "pytray>=0.2.1",
+    "stevedore",
+    "click",
+    "tabulate",
+    "tqdm",
+]
+
+[project.urls]
+Home = 'https://mincepy.readthedocs.io/en/latest/index.html'
+Source = 'https://github.com/muhrin/mincepy.git'
+
+[project.optional-dependencies]
+docs = [
+    "nbsphinx",
+    "sphinx",
+    "sphinx-autobuild",
+]
+dev = [
+    "black",
+    "flit",
+    "ipython",
+    "mongomock",
+    "pip",
+    "pylint",
+    "pytest>4",
+    "pytest-benchmark",
+    "pytest-cov",
+    "pre-commit",
+    "yapf",
+]
+cli = ["click", "tabulate"]
+gui = ["mincepy-gui"]
+sci = ["mincepy-sci"]
+
+[project.scripts]
+mince = "mincepy.cli:main"
+
+[project.entry-points."mincepy.plugins.types"]
+native = "mincepy.provides:get_types"
+
+
+[tool.flit.module]
+name = 'mincepy'
+
+[tool.flit.sdist]
+exclude = [
+    '.github/',
+    'docs/',
+    'examples/',
+    'test/',
+]
+
+[tool.flynt]
+line-length = 100
+fail-on-change = true
+
+[tool.isort]
+profile = "black"
+force_sort_within_sections = true
+include_trailing_comma = true
+line_length = 100
+multi_line_output = 3
+
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.black]
+line-length = 100
+
+[tool.pylint.messages_control]
+disable = [
+    # Unfortunately jaxtyping decorator creates a function that seems to mistakenly be identified as
+    # not returning anything, so we have to disable the error below for now
+    'assignment-from-no-return',
+    'duplicate-code',
+    'import-outside-toplevel',
+    'missing-docstring',
+    'locally-disabled',
+    'too-few-public-methods',
+    'too-many-arguments',
+    'too-many-instance-attributes',
+    'use-dict-literal',
+]
+
+[tool.pylint.design]
+max-locals = 20
+
+[pytest]
+log_cli = "True"
+log_cli_level = "DEBUG"
+
+[tool.pytest.ini_options]
+minversion = '6.0'
+testpaths = [
+    'test',
+]
+filterwarnings = [
+    'ignore::DeprecationWarning:frozendict:',
+]
+
+[tool.yapf]
+align_closing_bracket_with_visual_indent = true
+based_on_style = 'google'
+coalesce_brackets = true
+column_limit = 100
+dedent_closing_brackets = true
+indent_dictionary_value = false
+split_arguments_when_comma_terminated = true
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist = py311
+
+[testenv]
+usedevelop = true
+
+[testenv:py{39,310,311,312}]
+description = Run the unit tests
+extras =
+    dev
+commands = pytest {posargs}
+
+[testenv:pre-commit]
+description = Run the style checks and formatting
+extras =
+    dev
+commands = pre-commit run {posargs}
+
+[pytest]
+filterwarnings =
+    ignore::DeprecationWarning:distutils:
+"""

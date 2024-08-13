@@ -1,6 +1,5 @@
-# -*- coding: utf-8 -*-
-import mincepy.type_registry
 import mincepy.testing
+import mincepy.type_registry
 
 
 def test_basics():

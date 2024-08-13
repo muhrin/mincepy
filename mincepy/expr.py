@@ -1,8 +1,10 @@
-# -*- coding: utf-8 -*-
 """Query expressions"""
+
 import abc
 import copy
-from typing import Union, List, Iterable
+from typing import Iterable, List, Union
+
+import bson.regex
 
 __all__ = (
     "Expr",
@@ -32,12 +34,8 @@ __all__ = (
     "Query",
 )
 
-import bson.regex
-
 
 class FilterLike(metaclass=abc.ABCMeta):
-    """An abstract base class for objects representing a pyos path, e.g. pyos.pathlib.PurePath."""
-
     # pylint: disable=too-few-public-methods
 
     @abc.abstractmethod
@@ -79,9 +77,7 @@ class WithListOperand(FilterLike):
             raise TypeError(f"Expected a list, got {type(operand).__name__}")
         for entry in operand:
             if not isinstance(entry, Expr):
-                raise TypeError(
-                    f"Expected a list of Expr, found {type(entry).__name__}"
-                )
+                raise TypeError(f"Expected a list of Expr, found {type(entry).__name__}")
         self.operand = operand
 
     def __query_expr__(self) -> dict:
@@ -161,9 +157,7 @@ class Nin(SimpleOperator):
     oper = "$nin"
 
 
-COMPARISON_OPERATORS = {
-    oper_type.oper: oper_type for oper_type in SimpleOperator.__subclasses__()
-}
+COMPARISON_OPERATORS = {oper_type.oper: oper_type for oper_type in SimpleOperator.__subclasses__()}
 
 
 class Comparison(Expr):
@@ -177,9 +171,7 @@ class Comparison(Expr):
         if field is None:
             raise ValueError("field cannot be None")
         if not isinstance(expr, Operator):
-            raise TypeError(
-                f"Expected an operator expression, got '{type(expr).__name__}'"
-            )
+            raise TypeError(f"Expected an operator expression, got '{type(expr).__name__}'")
 
         self.field = field
         self.expr = expr
@@ -389,15 +381,14 @@ def query_expr(filter: FilterLike) -> dict:  # pylint: disable=redefined-builtin
     try:
         query_repr = filter.__query_expr__()
     except AttributeError:
-        raise TypeError(
-            "expected dict or object with __query_expr__, not " + str(filter)
-        ) from None
+        raise TypeError("expected dict or object with __query_expr__, not " + str(filter)) from None
 
     if isinstance(query_repr, dict):
         return query_repr
 
     raise TypeError(
-        f"expected {type(filter).__name__}.__query_expr__() to return dict, not {type(query_repr).__name__}"
+        f"expected {type(filter).__name__}.__query_expr__() to return dict, not "
+        f"{type(query_repr).__name__}"
     )
 
 
@@ -408,9 +399,7 @@ def field_name(field) -> str:
     try:
         name = field.__field_name__()
     except AttributeError:
-        raise TypeError(
-            f"expected str or object with __field__name__, not {field}"
-        ) from None
+        raise TypeError(f"expected str or object with __field__name__, not {field}") from None
 
     if isinstance(name, str):
         return name
@@ -486,9 +475,7 @@ def build_expr(item) -> Expr:  # noqa: C901
 class Query:
     __slots__ = "_filter_expressions", "limit", "sort", "skip"
 
-    def __init__(
-        self, *expr: Expr, limit: int = None, sort: dict = None, skip: int = None
-    ):
+    def __init__(self, *expr: Expr, limit: int = None, sort: dict = None, skip: int = None):
         self._filter_expressions = []  # type: List[Expr]
         self.extend(expr)
         self.limit = limit
@@ -508,9 +495,7 @@ class Query:
 
     @property
     def __dict__(self) -> dict:
-        return dict(
-            filter=self.get_filter(), sort=self.sort, limit=self.limit, skip=self.skip
-        )
+        return dict(filter=self.get_filter(), sort=self.sort, limit=self.limit, skip=self.skip)
 
     def append(self, expr: Expr):
         self._filter_expressions.append(build_expr(expr))

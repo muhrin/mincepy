@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import uuid
 
 import pytest
@@ -110,9 +109,7 @@ class Powerboat(Boat):
     TYPE_ID = uuid.UUID("924ef5b2-ce20-40b0-8c98-4da470f6c2c3")
     horsepower = mincepy.field()
 
-    def __init__(
-        self, make: str, length: float, horsepower: float, owner: testing.Person = None
-    ):
+    def __init__(self, make: str, length: float, horsepower: float, owner: testing.Person = None):
         super().__init__(make, length, owner)
         self.horsepower = horsepower
 

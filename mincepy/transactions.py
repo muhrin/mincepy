@@ -1,14 +1,17 @@
-# -*- coding: utf-8 -*-
 import contextlib
 import copy
 from typing import (
-    MutableMapping,
+    TYPE_CHECKING,
     Any,
-    List,
-    Sequence,
-    Optional,
     Dict,
+    Generic,
+    Hashable,
+    List,
+    MutableMapping,
+    Optional,
+    Sequence,
     Set,
+    TypeVar,
     Union,
     overload,
 )
@@ -16,26 +19,26 @@ import weakref
 
 import deprecation
 
-from . import archives
-from . import exceptions
-from . import operations
-from . import records
-from . import utils
-from . import version as version_mod
+from . import exceptions, operations, records, utils
+from . import version as version_
+
+if TYPE_CHECKING:
+    import mincepy
+
+IdT = TypeVar("IdT", bound=Hashable)
 
 
-class LiveObjects:
+class LiveObjects(Generic[IdT]):
     """A container for storing live objects"""
 
     def __init__(self):
         # Live object -> data records
-        self._records = (
-            utils.WeakObjectIdDict()
-        )  # type: MutableMapping[object, archives.DataRecord]
+        self._records: MutableMapping[object, "mincepy.DataRecord"] = utils.WeakObjectIdDict[
+            "mincepy.DataRecord"
+        ]()
+
         # Obj id -> (weak) object
-        self._objects = (
-            weakref.WeakValueDictionary()
-        )  # type: MutableMapping[Any, object]
+        self._objects: MutableMapping[IdT, object] = weakref.WeakValueDictionary()
 
     def __str__(self):
         return f"{len(self._objects)} live"
@@ -44,7 +47,7 @@ class LiveObjects:
         """Determine if an object instance is in this live objects container"""
         return item in self._records
 
-    def insert(self, obj: object, record: records.DataRecord):
+    def insert(self, obj: object, record: "mincepy.DataRecord"):
         self._records[obj] = record
         self._objects[record.obj_id] = obj
 
@@ -55,7 +58,7 @@ class LiveObjects:
         self._records.update(live_objects._records)
         self._objects.update(live_objects._objects)
 
-    def remove(self, obj_id) -> object:
+    def remove(self, obj_id: IdT) -> object:
         """Remove an object from the collection.  Returns the removed object.
 
         :raises: :class:`mincepy.NotFound` if the ID is not found
@@ -65,21 +68,19 @@ class LiveObjects:
         except KeyError:
             raise exceptions.NotFound(obj_id) from None
 
-    def get_record(self, obj: object) -> records.DataRecord:
+    def get_record(self, obj: object) -> "mincepy.DataRecord":
         try:
             return self._records[obj]
         except KeyError:
             raise exceptions.NotFound(f"No live object found '{obj}'") from None
 
     @overload
-    def get_object(self, identifier: records.SnapshotId):
-        ...
+    def get_object(self, identifier: "mincepy.SnapshotId[IdT]"): ...
 
     @overload
-    def get_object(self, identifier: Any):
-        ...
+    def get_object(self, identifier: Any): ...
 
-    def get_object(self, identifier: Union[records.SnapshotId, Any]):
+    def get_object(self, identifier: Union["mincepy.SnapshotId[IdT]", IdT]):
         """Get an object from the collection either by snapshot id or object id
 
         :raises: :class:`mincepy.NotFound` if the ID is not found
@@ -94,11 +95,9 @@ class LiveObjects:
         try:
             return self._objects[identifier]
         except KeyError:
-            raise exceptions.NotFound(
-                f"No live object with id '{identifier}'"
-            ) from None
+            raise exceptions.NotFound(f"No live object with id '{identifier}'") from None
 
-    def get_snapshot_id(self, obj) -> records.SnapshotId:
+    def get_snapshot_id(self, obj) -> "mincepy.SnapshotId[IdT]":
         """Given an object, get the snapshot id"""
         try:
             return self._records[obj].snapshot_id
@@ -115,7 +114,7 @@ class Transaction:
     committed at the end.
 
     A transaction has no interaction with the database and simply stores a transient state.  For
-    this reason things like constrains are not enforced and database queries will no reflect
+    this reason things like constrains are not enforced and database queries will not reflect
     mutations performed within the transaction (only upon commit).
     """
 
@@ -124,28 +123,28 @@ class Transaction:
     @deprecation.deprecated(
         deprecated_in="0.14.4",
         removed_in="0.16.0",
-        current_version=version_mod.__version__,
+        current_version=version_.__version__,
         details="Use get_snapshot_id_for_live_object() instead",
     )
-    def get_reference_for_live_object(self, obj) -> records.SnapshotId:
+    def get_reference_for_live_object(self, obj) -> "mincepy.SnapshotId":
         return self.get_snapshot_id_for_live_object(obj)
 
     @deprecation.deprecated(
         deprecated_in="0.14.4",
         removed_in="0.16.0",
-        current_version=version_mod.__version__,
+        current_version=version_.__version__,
         details="Use get_live_object_from_snapshot_id() instead",
     )
-    def get_live_object_from_reference(self, snapshot_id: records.SnapshotId):
+    def get_live_object_from_reference(self, snapshot_id: "mincepy.SnapshotId"):
         return self.get_live_object(snapshot_id)
 
     @deprecation.deprecated(
         deprecated_in="0.14.4",
         removed_in="0.16.0",
-        current_version=version_mod.__version__,
+        current_version=version_.__version__,
         details="Use get_live_object() instead",
     )
-    def get_live_object_from_snapshot_id(self, snapshot_id: records.SnapshotId):
+    def get_live_object_from_snapshot_id(self, snapshot_id: "mincepy.SnapshotId"):
         return self.get_live_object(snapshot_id)
 
     def __init__(self):
@@ -156,10 +155,10 @@ class Transaction:
 
         self._live_objects = LiveObjects()
         # Snapshot id -> obj for objects currently being saved
-        self._in_progress_cache = {}  # type: Dict[records.SnapshotId, object]
+        self._in_progress_cache = {}  # type: Dict["mincepy.SnapshotId", object]
 
         # Snapshots: snapshot id -> obj
-        self._snapshots = {}  # type: Dict[records.SnapshotId, Any]
+        self._snapshots = {}  # type: Dict["mincepy.SnapshotId", Any]
         # Maps from object id -> metadata dictionary
         self._metas = {}  # type: Dict[Any, dict]
 
@@ -189,12 +188,10 @@ class Transaction:
 
     # region LiveObjects
 
-    def insert_live_object(self, obj, record: records.DataRecord):
+    def insert_live_object(self, obj, record: "mincepy.DataRecord"):
         """Insert a live object along with an up-to-date record into the transaction"""
         if self.is_deleted(record.obj_id):
-            raise ValueError(
-                f"Object with id '{record.obj_id}' has already been deleted!"
-            )
+            raise ValueError(f"Object with id '{record.obj_id}' has already been deleted!")
 
         sid = record.snapshot_id
         if sid in self._in_progress_cache:
@@ -203,7 +200,7 @@ class Transaction:
         self._live_objects.insert(obj, record)
 
     @contextlib.contextmanager
-    def prepare_for_saving(self, snapshot_id: records.SnapshotId, obj):
+    def prepare_for_saving(self, snapshot_id: "mincepy.SnapshotId", obj):
         """Insert a snapshot reference for an object into the transaction"""
         self._in_progress_cache[snapshot_id] = obj
         try:
@@ -220,14 +217,12 @@ class Transaction:
             del self._in_progress_cache[snapshot_id]
 
     @overload
-    def get_live_object(self, identifier: records.SnapshotId) -> object:
-        ...
+    def get_live_object(self, identifier: "mincepy.SnapshotId") -> object: ...
 
     @overload
-    def get_live_object(self, identifier: Any) -> object:
-        ...
+    def get_live_object(self, identifier: Any) -> object: ...
 
-    def get_live_object(self, identifier: Union[records.SnapshotId, Any]) -> object:
+    def get_live_object(self, identifier: Union["mincepy.SnapshotId", Any]) -> object:
         if isinstance(identifier, records.SnapshotId):
             self._ensure_not_deleted(identifier.obj_id)
             try:
@@ -239,10 +234,10 @@ class Transaction:
         self._ensure_not_deleted(identifier)
         return self._live_objects.get_object(identifier)
 
-    def get_record_for_live_object(self, obj) -> records.DataRecord:
+    def get_record_for_live_object(self, obj) -> "mincepy.DataRecord":
         return self._live_objects.get_record(obj)
 
-    def get_snapshot_id_for_live_object(self, obj) -> records.SnapshotId:
+    def get_snapshot_id_for_live_object(self, obj) -> "mincepy.SnapshotId":
         for snapshot_id, cached_obj in self._in_progress_cache.items():
             if obj is cached_obj:
                 return snapshot_id
@@ -293,9 +288,7 @@ class Transaction:
         try:
             return self._snapshots[snapshot_id]
         except KeyError:
-            raise exceptions.NotFound(
-                f"No snapshot with id '{snapshot_id}' found"
-            ) from None
+            raise exceptions.NotFound(f"No snapshot with id '{snapshot_id}' found") from None
 
     def stage(self, op: operations.Operation):  # pylint: disable=invalid-name
         """Stage an operation to be carried out on completion of this transaction"""

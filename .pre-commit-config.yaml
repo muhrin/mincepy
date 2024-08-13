@@ -1,31 +1,77 @@
+ci:
+  skip: [ pylint ]
+
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.3.0
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
     hooks:
-    -   id: check-added-large-files
-        args: ['--maxkb=5000']
-    -   id: end-of-file-fixer
-    -   id: check-case-conflict
-    -   id: detect-private-key
-    -   id: check-docstring-first
--   repo: https://github.com/psf/black
-    rev: 22.8.0
+      - id: check-added-large-files
+        args: [ '--maxkb=5000' ]
+      - id: end-of-file-fixer
+      - id: check-case-conflict
+      - id: detect-private-key
+      - id: check-docstring-first
+      - id: fix-encoding-pragma
+        exclude: &exclude_files >
+          (?x)^(
+              docs/.*|
+          )$
+        args: [ --remove ]
+      - id: trailing-whitespace
+
+  - repo: https://github.com/ikamensh/flynt/
+    rev: '1.0.1'
     hooks:
-    -   id: black
+      - id: flynt
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
         exclude: (.*)/migrations
-- repo: https://github.com/pycqa/flake8
-  rev: 3.9.2
-  hooks:
-    - id: flake8
--   repo: https://github.com/PyCQA/bandit
-    rev: 1.7.4
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
     hooks:
-    - id: bandit
-      args: [ "-c", ".bandit.yaml" ]
-- repo: https://github.com/commitizen-tools/commitizen
-  rev: v2.35.0
-  hooks:
-    - id: commitizen
-      stages: [commit-msg]
+      - id: flake8
+
+  - repo: https://github.com/pycqa/isort
+    rev: '5.13.2'
+    hooks:
+      - id: isort
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        args: [ "-c", ".bandit.yaml" ]
+
+  - repo: https://github.com/PyCQA/pylint
+    # Configuration help can be found here:
+    # https://pylint.pycqa.org/en/latest/user_guide/installation/pre-commit-integration.html
+    rev: v3.2.6
+    hooks:
+      - id: pylint
+        alias: pylint-with-spelling
+        stages: [ manual ]
+        language: system
+        types: [ python ]
+        require_serial: true
+        exclude:
+          (?x)^(
+          docs/.*|
+          test/.*
+          )$
+
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.29.0
+    hooks:
+      - id: commitizen
+        stages: [ commit-msg ]
+
+  - repo: https://github.com/srstevenson/nb-clean
+    rev: 3.3.0
+    hooks:
+      - id: nb-clean

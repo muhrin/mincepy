@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Module for all the built-in container and other types that are supported by default"""
 
 from abc import ABCMeta
@@ -9,14 +8,9 @@ import pathlib
 import typing
 import uuid
 
-from . import base_savable
-from .files import File, BaseFile
-from . import helpers
-from . import records
-from . import refs
+from . import base_savable, helpers, records, refs, type_ids, types
+from .files import BaseFile, File
 from .utils import sync
-from . import types
-from . import type_ids
 
 __all__ = (
     "List",
@@ -35,13 +29,13 @@ __all__ = (
 
 class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
     """Mixin for helping user types to be compatible with the historian.
-    These typically have a .data member that stores the actual data (list, dict, str, etc)"""
+    These typically have a .data member that stores the actual data (list, dict, str, etc.)"""
 
     ATTRS = ("data",)
     data = None  # placeholder
     # This is an optional type for the data member.  See save_instance_state type for information
     # on when it might be useful
-    DATA_TYPE = None  # type: type
+    DATA_TYPE: type = None
 
     def save_instance_state(self, saver):
         # This is a convenient way of storing primitive data types directly as the state
@@ -50,9 +44,7 @@ class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
         if self.DATA_TYPE is not None and issubclass(
             self.DATA_TYPE, saver.get_historian().primitives
         ):
-            self._on_save(
-                saver
-            )  # Call this here are we aren't going to call up the hierarchy
+            self._on_save(saver)  # Call this here are we aren't going to call up the hierarchy
             return self.data
 
         return super().save_instance_state(saver)
@@ -62,9 +54,7 @@ class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
         if self.DATA_TYPE is not None and issubclass(
             self.DATA_TYPE, loader.get_historian().primitives
         ):
-            self._on_load(
-                loader
-            )  # Call this here are we aren't going to call up the hierarchy
+            self._on_load(loader)  # Call this here are we aren't going to call up the hierarchy
             self.data = saved_state
         else:
             super().load_instance_state(saved_state, loader)
@@ -256,9 +246,7 @@ class RefDict(collections.abc.MutableMapping, Reffer, _UserType):
     def __init__(self, *args, **kwargs):
         super().__init__()
         initial = dict(*args, **kwargs)
-        self.data = self.DATA_TYPE(
-            {key: self._ref(value) for key, value in initial.items()}
-        )
+        self.data = self.DATA_TYPE({key: self._ref(value) for key, value in initial.items()})
 
     def __str__(self):
         return str(self.data)
@@ -289,9 +277,7 @@ class LiveDict(collections.abc.MutableMapping, _UserType):
     def __init__(self, *args, **kwargs):
         super().__init__()
         initial = dict(*args, **kwargs)
-        self.data = RefDict(
-            {key: self._create_proxy(value) for key, value in initial.items()}
-        )
+        self.data = RefDict({key: self._create_proxy(value) for key, value in initial.items()})
 
     @sync()
     def __getitem__(self, item):
@@ -340,9 +326,7 @@ class LiveRefDict(Reffer, LiveDict):
         super().__init__()
 
         initial = dict(*args, **kwargs)
-        self.data = RefDict(
-            {key: self._create_proxy(value) for key, value in initial.items()}
-        )
+        self.data = RefDict({key: self._create_proxy(value) for key, value in initial.items()})
 
     @sync()
     def __getitem__(self, item):
@@ -370,8 +354,10 @@ class LiveRefDict(Reffer, LiveDict):
 
 
 class OrderedDictHelper(helpers.BaseHelper):
-    """Enable saving of OrderedDicts.  In the database, these will be stored as a list of (key, value) pairs and hence
-    preserve the order."""
+    """
+    Enable saving of OrderedDicts.  In the database, these will be stored as a list of (key, value)
+    pairs and hence preserve the order.
+    """
 
     TYPE = collections.OrderedDict
     TYPE_ID = uuid.UUID("9e7714f8-8ecf-466f-a0e1-6c9fc1d92f51")
@@ -386,7 +372,7 @@ class OrderedDictHelper(helpers.BaseHelper):
         return list(obj.items())
 
     def load_instance_state(self, obj, saved_state: typing.List[typing.Tuple], _loader):
-        obj.__init__(saved_state)
+        obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
 
 
 # endregion
@@ -405,7 +391,7 @@ class SetHelper(helpers.BaseHelper):
         return list(obj)
 
     def load_instance_state(self, obj: set, saved_state: List, _loader):
-        return obj.__init__(saved_state)
+        return obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
 
 
 class SnapshotIdHelper(helpers.TypeHelper):
@@ -415,10 +401,7 @@ class SnapshotIdHelper(helpers.TypeHelper):
     TYPE_ID = type_ids.SNAPSHOT_ID_TYPE_ID
 
     def eq(self, one, other):  # pylint: disable=invalid-name
-        if not (
-            isinstance(one, records.SnapshotId)
-            and isinstance(other, records.SnapshotId)
-        ):
+        if not (isinstance(one, records.SnapshotId) and isinstance(other, records.SnapshotId)):
             return False
 
         return one.obj_id == other.obj_id and one.version == other.version

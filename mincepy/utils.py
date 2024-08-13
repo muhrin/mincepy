@@ -1,26 +1,22 @@
-# -*- coding: utf-8 -*-
 import collections.abc
+from contextlib import nullcontext
 import functools
-from typing import TypeVar, Generic, Any, Type
+from typing import Generic, MutableMapping, Type, TypeVar
 import weakref
 
-try:
-    from contextlib import nullcontext
-except ImportError:
-    from contextlib2 import nullcontext
+V = TypeVar("V")
 
 
-class WeakObjectIdDict(collections.abc.MutableMapping):
+class WeakObjectIdDict(Generic[V], collections.abc.MutableMapping):
     """
-    Like weakref.WeakKeyDict but internally uses object ids instead of the object reference
-    itself thereby avoiding the need for the object to be hashable (and therefore immutable).
+    Like `weakref.WeakKeyDict` but internally uses object ids (from `id(obj)`) instead of the
+    object reference itself thereby avoiding the need for the object to be hashable
+    (and therefore immutable).
     """
 
     def __init__(self, seq=None, **kwargs):
-        self._refs = (
-            {}
-        )  # type: collections.abc.MutableMapping[int, weakref.ReferenceType]
-        self._values = {}  # type: collections.abc.MutableMapping[int, Any]
+        self._refs: MutableMapping[int, weakref.ReferenceType] = {}
+        self._values: MutableMapping[int, V] = {}
         if seq:
             if isinstance(seq, collections.abc.Mapping):
                 for key, value in seq.items():
@@ -35,19 +31,19 @@ class WeakObjectIdDict(collections.abc.MutableMapping):
     def __copy__(self):
         return WeakObjectIdDict(self)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: object) -> V:
         try:
             return self._values[id(item)]
         except KeyError:
             raise KeyError(item) from None
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: object, value: V):
         obj_id = id(key)
         wref = weakref.ref(key, functools.partial(self._finalised, obj_id))
         self._refs[obj_id] = wref
         self._values[obj_id] = value
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: object):
         obj_id = id(key)
         del self._values[obj_id]
         del self._refs[obj_id]
@@ -87,9 +83,7 @@ class NamedTupleBuilder(Generic[T]):
         defaults = defaults or {}
         diff = set(defaults.keys()) - set(tuple_type._fields)
         if diff:
-            raise RuntimeError(
-                f"Can't supply defaults that are not in the namedtuple: '{diff}'"
-            )
+            raise RuntimeError(f"Can't supply defaults that are not in the namedtuple: '{diff}'")
 
         super().__setattr__("_tuple_type", tuple_type)
         super().__setattr__("_values", defaults)
@@ -156,16 +150,16 @@ def to_slice(specifier) -> slice:
 
 
 def sync(save=False):
-    """Decorator that will call sync before the method is invoked to make sure the object is up
-    to date what what's in the database."""
+    """
+    Decorator that will call sync before the method is invoked to make sure the object is up-to-date
+    with what's in the database.
+    """
 
     def inner(obj_method):
         @functools.wraps(obj_method)
         def wrapper(self, *args, **kwargs):
             # pylint: disable=protected-access
-            ctx = (
-                nullcontext if self._historian is None else self._historian.transaction
-            )
+            ctx = nullcontext if self._historian is None else self._historian.transaction
             with ctx():
                 try:
                     self.__sync += 1
