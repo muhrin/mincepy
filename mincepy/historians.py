@@ -170,7 +170,7 @@ class Historian(
         """Access the snapshots"""
         return self._snapshots
 
-    def create_file(self, filename: str = None, encoding: str = None) -> builtins.BaseFile:
+    def create_file(self, filename: str = None, encoding: str = None) -> "mincepy.File":
         """Create a new file.  The historian will supply file type compatible with the archive in
         use."""
         return files.File(self._archive.file_store, filename, encoding)

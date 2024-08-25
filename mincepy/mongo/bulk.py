@@ -2,7 +2,7 @@ import functools
 
 import pymongo
 
-import mincepy.operations as operations
+from mincepy import operations
 import mincepy.qops as q
 
 from . import db

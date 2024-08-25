@@ -131,4 +131,4 @@ class DatetimeEquator(SimpleHelper):
     TYPE = datetime.datetime
 
     def yield_hashables(self, obj: datetime.datetime, hasher):
-        yield str(obj).encode("utf-8")  # TODO: Improve this
+        yield str(obj).encode("utf-8")

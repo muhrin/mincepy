@@ -1,14 +1,44 @@
 import logging
-from typing import TYPE_CHECKING
+import os
+from typing import TYPE_CHECKING, Optional
 
-from . import historians, plugins
+import deprecation
+
+from . import mongo, version
 
 if TYPE_CHECKING:
     import mincepy
 
-__all__ = "create_archive", "create_historian"
+__all__ = (
+    "create_archive",
+    "DEFAULT_ARCHIVE_URI",
+    "ENV_ARCHIVE_URI",
+    "archive_uri",
+    "default_archive_uri",
+)
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+_LOGGER = logging.getLogger(__name__)
+
+DEFAULT_ARCHIVE_URI = "mongodb://localhost/mincepy"
+ENV_ARCHIVE_URI = "MINCEPY_ARCHIVE"
+
+
+@deprecation.deprecated(
+    deprecated_in="0.15.3",
+    removed_in="0.16.0",
+    current_version=version.__version__,
+    details="Use default_archive_uri() instead",
+)
+def archive_uri() -> Optional[str]:
+    """Returns the default archive URI.  This is currently being taken from the environmental
+    MINCEPY_ARCHIVE, however it may chance to include a config file in the future."""
+    return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
+
+
+def default_archive_uri() -> Optional[str]:
+    """Returns the default archive URI.  This is currently being taken from the environmental
+    MINCEPY_ARCHIVE, however it may chance to include a config file in the future."""
+    return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
 
 
 def create_archive(uri: str, connect_timeout=30000) -> "mincepy.Archive":
@@ -17,25 +47,7 @@ def create_archive(uri: str, connect_timeout=30000) -> "mincepy.Archive":
     :param uri: the specification of where to connect to
     :param connect_timeout: a connection timeout (in milliseconds)
     """
-    from . import mongo  # pylint: disable=import-outside-toplevel, cyclic-import
-
     archive = mongo.connect(uri, timeout=connect_timeout)
 
-    logger.info("Connected to archive with uri: %s", uri)
+    _LOGGER.info("Connected to archive with uri: %s", uri)
     return archive
-
-
-def create_historian(
-    archive_uri: str, apply_plugins=True, connect_timeout=30000
-) -> "mincepy.Historian":
-    """Convenience function to create a standard historian directly from an archive URI
-
-    :param archive_uri: the specification of where to connect to
-    :param apply_plugins: register the plugin types with the new historian
-    :param connect_timeout: a connection timeout (in milliseconds)
-    """
-    historian = historians.Historian(create_archive(archive_uri, connect_timeout=connect_timeout))
-    if apply_plugins:
-        historian.register_types(plugins.get_types())
-
-    return historian

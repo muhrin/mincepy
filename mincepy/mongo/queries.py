@@ -45,7 +45,7 @@ def pipeline_latest_version(data_collection: str) -> list:
 
 
 class QueryBuilder:
-    """Simple MongoDB query builder.  Creates a compound query of one or more more terms"""
+    """Simple MongoDB query builder.  Creates a compound query of one or more terms"""
 
     def __init__(self, *terms):
         self._terms = []

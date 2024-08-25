@@ -3,46 +3,28 @@ This module exposes some global functionality for connecting to and interacting 
 historian
 """
 
-import os
 from typing import TYPE_CHECKING, Optional
 
 import deprecation
 
-from . import archive_factory, helpers, plugins, version
+from . import archive_factory, helpers, historians, plugins, version
 
 if TYPE_CHECKING:
     import mincepy
 
 __all__ = (
     "connect",
+    "create_historian",
     "get_historian",
     "set_historian",
-    "DEFAULT_ARCHIVE_URI",
-    "ENV_ARCHIVE_URI",
-    "archive_uri",
     "load",
     "save",
-    "default_archive_uri",
     "find",
     "delete",
     "db",
 )
 
-DEFAULT_ARCHIVE_URI = "mongodb://localhost/mincepy"
-ENV_ARCHIVE_URI = "MINCEPY_ARCHIVE"
 CURRENT_HISTORIAN = None
-
-
-@deprecation.deprecated(
-    deprecated_in="0.15.3",
-    removed_in="0.16.0",
-    current_version=version.__version__,
-    details="Use default_archive_uri() instead",
-)
-def archive_uri() -> Optional[str]:
-    """Returns the default archive URI.  This is currently being taken from the environmental
-    MINCEPY_ARCHIVE, however it may chance to include a config file in the future."""
-    return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
 
 
 @deprecation.deprecated(
@@ -53,9 +35,9 @@ def archive_uri() -> Optional[str]:
 )
 def create_default_historian():
     """Create a default historian using the current `archive_uri()`"""
-    uri = default_archive_uri()
+    uri = archive_factory.default_archive_uri()
     if uri:
-        return archive_factory.create_historian(uri)
+        return create_historian(uri)
 
     return None
 
@@ -67,17 +49,29 @@ def connect(uri: str = "", use_globally=False, timeout=30000) -> "mincepy.Histor
     :param use_globally: if True sets the newly create historian as the current global historian
     :param timeout: a connection timeout (in milliseconds)
     """
-    uri = uri or default_archive_uri()
-    hist = archive_factory.create_historian(uri, apply_plugins=True, connect_timeout=timeout)
+    uri = uri or archive_factory.default_archive_uri()
+    hist = create_historian(uri, apply_plugins=True, connect_timeout=timeout)
     if use_globally:
         set_historian(hist, apply_plugins=False)
     return hist
 
 
-def default_archive_uri() -> Optional[str]:
-    """Returns the default archive URI.  This is currently being taken from the environmental
-    MINCEPY_ARCHIVE, however it may chance to include a config file in the future."""
-    return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
+def create_historian(
+    archive_uri: str, apply_plugins=True, connect_timeout=30000
+) -> "mincepy.Historian":
+    """Convenience function to create a standard historian directly from an archive URI
+
+    :param archive_uri: the specification of where to connect to
+    :param apply_plugins: register the plugin types with the new historian
+    :param connect_timeout: a connection timeout (in milliseconds)
+    """
+    historian = historians.Historian(
+        archive_factory.create_archive(archive_uri, connect_timeout=connect_timeout)
+    )
+    if apply_plugins:
+        historian.register_types(plugins.get_types())
+
+    return historian
 
 
 # region Globals

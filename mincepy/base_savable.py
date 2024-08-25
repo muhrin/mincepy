@@ -2,8 +2,6 @@ import collections
 import typing
 from typing import TYPE_CHECKING, Optional, cast
 
-import mincepy.history
-
 from . import refs, types
 
 if TYPE_CHECKING:
@@ -140,8 +138,10 @@ class ConvenienceMixin:
     def save(self, meta: dict = None):
         """Save the object"""
         if self._historian is None:
+            import mincepy  # pylint: disable=import-outside-toplevel
+
             # We don't have a historian yet (we haven't been saved), so use the current global one
-            historian = mincepy.history.get_historian()
+            historian = mincepy.get_historian()
         else:
             historian = self._historian
 

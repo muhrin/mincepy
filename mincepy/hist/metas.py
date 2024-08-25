@@ -19,7 +19,7 @@ class Meta(Generic[IdT]):
     def __init__(
         self, historian: "mincepy.Historian[IdT]", archive: "mincepy.Archive[IdT]"
     ) -> None:
-        self._hist: mincepy.Historian[IdT] = historian
+        self._hist: "mincepy.Historian[IdT]" = historian
         self._archive = archive
         self._sticky = {}
 

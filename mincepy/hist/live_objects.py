@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, Callable, Optional
 
-import mincepy.frontend as frontend
-import mincepy.records as records_
+from mincepy import frontend
+from mincepy import records as records_
 
 if TYPE_CHECKING:
     import mincepy

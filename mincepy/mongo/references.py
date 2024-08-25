@@ -6,8 +6,7 @@ import bson
 import networkx
 import pymongo.collection
 
-import mincepy.archives as archives
-import mincepy.records as records
+from mincepy import archives, records
 
 from . import aggregation, db, types
 

@@ -110,13 +110,14 @@ disable = [
     'missing-docstring',
     'locally-disabled',
     'too-few-public-methods',
-    'too-many-arguments',
     'too-many-instance-attributes',
     'use-dict-literal',
 ]
 
 [tool.pylint.design]
+max-args = 10
 max-locals = 20
+max-parents = 12
 
 [pytest]
 log_cli = "True"

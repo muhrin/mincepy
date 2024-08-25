@@ -12,12 +12,9 @@ import pymongo.errors
 import pymongo.uri_parser
 
 # MincePy imports
-import mincepy.archives as archives
-import mincepy.exceptions as exceptions
-import mincepy.helpers as helpers
-import mincepy.operations as operations
-import mincepy.qops as q
-import mincepy.records as records
+from mincepy import archives, exceptions, helpers, operations
+from mincepy import qops as q
+from mincepy import records
 
 # Local imports
 from . import bulk, db, migrate, migrations, queries, references

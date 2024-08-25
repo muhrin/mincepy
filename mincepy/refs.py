@@ -1,10 +1,8 @@
-"""References module"""
+"""Module for mincepy object references"""
 
 from typing import TYPE_CHECKING, Optional
 
-import mincepy.types as types
-
-from . import exceptions, records, type_ids
+from . import exceptions, records, type_ids, types
 
 if TYPE_CHECKING:
     import mincepy

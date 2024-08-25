@@ -4,9 +4,7 @@ from hashlib import blake2b
 from typing import TYPE_CHECKING, List, Optional, Sequence, Type
 import uuid
 
-import mincepy.saving as saving
-
-from . import depositors, expr, fields, tracking
+from . import depositors, expr, fields, saving, tracking
 
 if TYPE_CHECKING:
     import mincepy
