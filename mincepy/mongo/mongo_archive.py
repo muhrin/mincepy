@@ -633,15 +633,19 @@ def pymongo_connect(uri, database: str = None, timeout=30000):
     # URI Format is:
     # mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
     try:
-        parsed = pymongo.uri_parser.parse_uri(uri)
+        parsed: dict = pymongo.uri_parser.parse_uri(uri)
     except pymongo.errors.InvalidURI as exc:
         raise ValueError(str(exc)) from exc
 
     if not parsed.get("database", None):
         raise ValueError(f"Failed to supply database on MongoDB uri: {uri}")
 
+    kwargs = {}
+    if "uuidRepresentation" not in parsed["options"]:
+        kwargs["uuidRepresentation"] = "standard"
+
     try:
-        client = pymongo.MongoClient(uri, connect=True, serverSelectionTimeoutMS=timeout)
+        client = pymongo.MongoClient(uri, connect=True, serverSelectionTimeoutMS=timeout, **kwargs)
         database = client.get_default_database()
         return MongoArchive(database)
     except pymongo.errors.ServerSelectionTimeoutError as exc:
