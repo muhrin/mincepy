@@ -43,7 +43,7 @@ class ObjRef(types.SavableObject):
     def __repr__(self) -> str:
         return f"ObjRef({self._obj if self._obj is not None else self._sid})"
 
-    def __call__(self, update=False):
+    def __call__(self, update=False) -> object:
         """Get the object being referenced.  If update is called then the latest version
         will be loaded from the historian"""
         if self._obj is None:

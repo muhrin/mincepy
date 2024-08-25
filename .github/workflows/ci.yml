@@ -60,7 +60,7 @@ jobs:
 
       - name: Create MongoDB Docker container
         id: build_mongo_docker
-        uses: DigiPie/mongo-action@v1.0.1
+        uses: DigiPie/mongo-action@v2.0.1
         with:
           image-version: latest
           port: 27017

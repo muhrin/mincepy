@@ -1,6 +1,7 @@
 """Module for testing object references"""
 
 from argparse import Namespace
+import gc
 
 import mincepy
 from mincepy import testing
@@ -129,6 +130,7 @@ def test_load_changed_ref(historian: mincepy.Historian, archive_uri):
     ref_id = historian.save(car_ref)
     ref_sid = historian.get_snapshot_id(car_ref)
     del car, car_ref
+    gc.collect()
 
     # Now, load the reference but don't dereference it yet
     loaded = historian.load(ref_id)
@@ -142,5 +144,5 @@ def test_load_changed_ref(historian: mincepy.Historian, archive_uri):
     assert loaded().make == "honda"
 
     # Now, check the snapshot still points to the original
-    loaded_snapshot = historian.load_snapshot(ref_sid)
+    loaded_snapshot: mincepy.ObjRef = historian.load_snapshot(ref_sid)
     assert loaded_snapshot().make == "skoda"
