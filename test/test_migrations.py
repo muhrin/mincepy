@@ -1,4 +1,4 @@
-""""Tests of migrations"""
+"""Tests of migrations"""
 
 import gc
 import logging

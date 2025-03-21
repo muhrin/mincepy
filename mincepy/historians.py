@@ -1,5 +1,6 @@
 # pylint: disable=too-many-lines
 import collections
+from collections.abc import Hashable
 import contextlib
 import getpass
 import logging
@@ -10,7 +11,6 @@ from typing import (
     Callable,
     Dict,
     Generic,
-    Hashable,
     Iterable,
     Iterator,
     List,

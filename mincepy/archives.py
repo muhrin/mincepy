@@ -1,10 +1,10 @@
 import abc
+from collections.abc import Hashable
 from typing import (
     Any,
     Callable,
     Dict,
     Generic,
-    Hashable,
     Iterable,
     Iterator,
     List,

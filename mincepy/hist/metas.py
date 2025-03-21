@@ -1,4 +1,5 @@
-from typing import TYPE_CHECKING, Any, Dict, Generic, Hashable, Iterator, Mapping, Optional, TypeVar
+from collections.abc import Hashable
+from typing import TYPE_CHECKING, Any, Dict, Generic, Iterator, Mapping, Optional, TypeVar
 
 from mincepy import exceptions
 

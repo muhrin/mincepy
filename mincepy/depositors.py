@@ -1,4 +1,5 @@
-"""This module contains various strategies for loading, saving and migrating objects in the archive
+"""
+This module contains various strategies for loading, saving and migrating objects in the archive
 """
 
 from abc import ABCMeta, abstractmethod

@@ -2,6 +2,7 @@
 in an archive."""
 
 import collections
+from collections.abc import Hashable
 import copy
 import datetime
 import operator
@@ -9,7 +10,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Generic,
-    Hashable,
     Iterable,
     List,
     Mapping,

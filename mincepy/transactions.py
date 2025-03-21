@@ -1,3 +1,4 @@
+from collections.abc import Hashable
 import contextlib
 import copy
 from typing import (
@@ -5,7 +6,6 @@ from typing import (
     Any,
     Dict,
     Generic,
-    Hashable,
     List,
     MutableMapping,
     Optional,
