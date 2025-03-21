@@ -217,8 +217,8 @@ class DataRecord(tuple, fields.WithFields):
         defaults.update(kwargs)
         return DataRecordBuilder(DataRecord, defaults)
 
-    # pylint: disable=too-many-arguments
     def __new__(
+        # pylint: disable=too-many-positional-arguments
         cls,
         obj_id,
         type_id,

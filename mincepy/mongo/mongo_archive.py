@@ -305,13 +305,13 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
     # endregion
 
-    # pylint: disable=too-many-arguments
     def find(
         self,
         obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
         type_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
-        _created_by=None,
-        _copied_from=None,
+        *,
+        created_by=None,
+        copied_from=None,
         version=None,
         state=None,
         state_types=None,
@@ -325,8 +325,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         pipeline = self._get_pipeline(
             obj_id=obj_id,
             type_id=type_id,
-            _created_by=_created_by,
-            _copied_from=_copied_from,
+            _created_by=created_by,
+            _copied_from=copied_from,
             version=version,
             state=state,
             state_types=state_types,
@@ -384,8 +384,9 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         self,
         obj_id: Optional[bson.ObjectId] = None,
         type_id=None,
-        _created_by=None,
-        _copied_from=None,
+        *,
+        created_by=None,
+        copied_from=None,
         version=-1,
         state=None,
         snapshot_hash=None,
@@ -396,8 +397,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         pipeline = self._get_pipeline(
             obj_id=obj_id,
             type_id=type_id,
-            _created_by=_created_by,
-            _copied_from=_copied_from,
+            _created_by=created_by,
+            _copied_from=copied_from,
             version=version,
             state=state,
             snapshot_hash=snapshot_hash,

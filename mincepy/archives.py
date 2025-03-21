@@ -117,7 +117,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def meta_set(self, obj_id: IdT, meta: Optional[Mapping]):
-        """Set the metadata on on the object with the corresponding id"""
+        """Set the metadata on the object with the corresponding id"""
 
     @abc.abstractmethod
     def meta_set_many(self, metas: Mapping[IdT, Optional[Mapping]]):
@@ -194,12 +194,12 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     def get_snapshot_ids(self, obj_id: IdT) -> "Sequence[Archive.SnapshotId]":
         """Returns a list of time ordered snapshot ids"""
 
-    # pylint: disable=too-many-arguments
     @abc.abstractmethod
     def find(
         self,
         obj_id: Union[IdT, Iterable[IdT], Dict] = None,
         type_id=None,
+        *,
         created_by: Optional[IdT] = None,
         copied_from: Optional[IdT] = None,
         version: int = None,
@@ -248,6 +248,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         self,
         obj_id=None,
         type_id=None,
+        *,
         created_by=None,
         copied_from=None,
         version=-1,
