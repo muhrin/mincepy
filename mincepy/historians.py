@@ -21,7 +21,6 @@ from typing import (
 )
 import weakref
 
-import deprecation
 import networkx
 
 from . import (
@@ -41,8 +40,7 @@ from . import (
     qops,
 )
 from . import records as records_  # The records module
-from . import refs, result_types, staging, tracking, type_registry, types, utils
-from . import version as version_
+from . import refs, result_types, staging, type_registry, types, utils
 from .transactions import LiveObjects, RollbackTransaction, Transaction
 
 if TYPE_CHECKING:
@@ -64,43 +62,6 @@ class Historian(
     a persistent store of the records.  It will keep track of all live objects (i.e. those that
     have active references to them) that have been loaded and/or saved as well as enabling the
     user to lookup objects in the archive."""
-
-    @deprecation.deprecated(
-        deprecated_in="0.14.5",
-        removed_in="0.16.0",
-        current_version=version_.__version__,
-        details="Use mincepy.copy() instead",
-    )
-    def copy(self, obj):
-        """Create a shallow copy of the object.  Using this method allows the historian to inject
-        information about where the object was copied from into the record if saved."""
-        return tracking.copy(obj)
-
-    @deprecation.deprecated(
-        deprecated_in="0.15.10",
-        removed_in="0.17.0",
-        current_version=version_.__version__,
-        details="Use mincepy.records.find() instead",
-    )
-    def find_records(self, *args, **kwargs) -> Iterator["mincepy.DataRecord"]:
-        """Find records
-
-        Has same signature as py:meth:`mincepy.Records.find`.
-        """
-        yield from self.records.find(*args, **kwargs)
-
-    @deprecation.deprecated(
-        deprecated_in="0.15.10",
-        removed_in="0.17.0",
-        current_version=version_.__version__,
-        details="Use mincepy.records.distinct() instead",
-    )
-    def find_distinct(self, *args, **kwargs):
-        """Get distinct values of the given record key
-
-        Has same signature as py:meth:`mincepy.Records.distinct`.
-        """
-        yield from self.records.distinct(*args, **kwargs)
 
     def __init__(self, archive: "mincepy.Archive[IdT]", equators=(), autosave: bool = True):
         # Params

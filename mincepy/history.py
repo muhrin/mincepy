@@ -5,9 +5,7 @@ historian
 
 from typing import TYPE_CHECKING, Optional
 
-import deprecation
-
-from . import archive_factory, helpers, historians, plugins, version
+from . import archive_factory, helpers, historians, plugins
 
 if TYPE_CHECKING:
     import mincepy
@@ -25,21 +23,6 @@ __all__ = (
 )
 
 CURRENT_HISTORIAN = None
-
-
-@deprecation.deprecated(
-    deprecated_in="0.15.3",
-    removed_in="0.16.0",
-    current_version=version.__version__,
-    details="Use connect(set_global=False) instead",
-)
-def create_default_historian():
-    """Create a default historian using the current `archive_uri()`"""
-    uri = archive_factory.default_archive_uri()
-    if uri:
-        return create_historian(uri)
-
-    return None
 
 
 def connect(uri: str = "", use_globally=False, timeout=30000) -> "mincepy.Historian":

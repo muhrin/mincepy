@@ -15,10 +15,7 @@ from typing import (
 )
 import weakref
 
-import deprecation
-
 from . import exceptions, operations, records, utils
-from . import version as version_
 
 if TYPE_CHECKING:
     import mincepy
@@ -117,33 +114,6 @@ class Transaction:
     """
 
     # pylint: disable=too-many-public-methods
-
-    @deprecation.deprecated(
-        deprecated_in="0.14.4",
-        removed_in="0.16.0",
-        current_version=version_.__version__,
-        details="Use get_snapshot_id_for_live_object() instead",
-    )
-    def get_reference_for_live_object(self, obj) -> "mincepy.SnapshotId":
-        return self.get_snapshot_id_for_live_object(obj)
-
-    @deprecation.deprecated(
-        deprecated_in="0.14.4",
-        removed_in="0.16.0",
-        current_version=version_.__version__,
-        details="Use get_live_object_from_snapshot_id() instead",
-    )
-    def get_live_object_from_reference(self, snapshot_id: "mincepy.SnapshotId"):
-        return self.get_live_object(snapshot_id)
-
-    @deprecation.deprecated(
-        deprecated_in="0.14.4",
-        removed_in="0.16.0",
-        current_version=version_.__version__,
-        details="Use get_live_object() instead",
-    )
-    def get_live_object_from_snapshot_id(self, snapshot_id: "mincepy.SnapshotId"):
-        return self.get_live_object(snapshot_id)
 
     def __init__(self):
         # Records staged for saving to the archive

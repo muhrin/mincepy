@@ -20,11 +20,9 @@ from typing import (
     Union,
 )
 
-import deprecation
 import pytray.tree
 
 from . import fields, type_ids, utils
-from . import version as version_
 
 if TYPE_CHECKING:
     import mincepy
@@ -184,38 +182,6 @@ class DataRecord(tuple, fields.WithFields):
     snapshot_hash = readonly_field(SNAPSHOT_HASH, store_as="hash")
     snapshot_time = readonly_field(SNAPSHOT_TIME, store_as="stime")
     extras = readonly_field(EXTRAS)
-
-    @deprecation.deprecated(
-        deprecated_in="0.15.20",
-        removed_in="0.17.0",
-        current_version=version_.__version__,
-        details="Use make_child_builder free function instead",
-    )
-    def child_builder(self, **kwargs) -> "DataRecordBuilder":
-        """
-        Get a child builder from this DataRecord instance.  The following attributes will be copied
-        over:
-
-        * obj_id
-        * type_id
-        * creation_time
-        * created_by
-
-        and version will be incremented by one.
-        """
-        defaults = self.defaults()
-        defaults.update(
-            {
-                OBJ_ID: self.obj_id,
-                TYPE_ID: self.type_id,
-                CREATION_TIME: self.creation_time,
-                VERSION: self.version + 1,
-                SNAPSHOT_TIME: utils.DefaultFromCall(datetime.datetime.now),
-                EXTRAS: copy.deepcopy(self.extras),
-            }
-        )
-        defaults.update(kwargs)
-        return DataRecordBuilder(DataRecord, defaults)
 
     def __new__(
         # pylint: disable=too-many-positional-arguments

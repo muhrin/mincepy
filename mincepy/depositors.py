@@ -7,12 +7,10 @@ import contextlib
 import logging
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Sequence
 
-import deprecation
 from pytray import tree
 
 from . import archives, exceptions, operations, records, staging
 from . import transactions  # pylint: disable=unused-import
-from . import version as version_
 
 if TYPE_CHECKING:
     import mincepy
@@ -53,16 +51,6 @@ class Saver(Base, metaclass=ABCMeta):
     """A depositor that knows how to save records to the archive"""
 
     _extras: dict[str, dict] = {}
-
-    @deprecation.deprecated(
-        deprecated_in="0.14.2",
-        removed_in="0.16.0",
-        current_version=version_.__version__,
-        details="Use get_snapshot_id() instead",
-    )
-    def ref(self, obj) -> records.SnapshotId:
-        """Get a persistent reference for the given object"""
-        return self.get_snapshot_id(obj)
 
     @abstractmethod
     def get_snapshot_id(self, obj) -> records.SnapshotId:

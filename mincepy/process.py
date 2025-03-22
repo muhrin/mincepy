@@ -1,27 +1,9 @@
 import contextlib
-import functools
 import uuid
 
-import deprecation
-
-from . import base_savable, tracking, version
+from . import base_savable, tracking
 
 __all__ = ("Process",)
-
-
-@deprecation.deprecated(
-    deprecated_in="0.14.5",
-    removed_in="0.16",
-    current_version=version.__version__,
-    details="Use mincepy.track() instead",
-)
-def track(func):
-    @functools.wraps(func)
-    def wrapper(self, *args, **kwargs):
-        with self.running():
-            return func(self, *args, **kwargs)
-
-    return wrapper
 
 
 class Process(base_savable.SimpleSavable):
