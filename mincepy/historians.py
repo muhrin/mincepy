@@ -27,6 +27,7 @@ import deprecation
 import networkx
 
 from . import (
+    _autosave,
     archives,
     builtins,
     defaults,
@@ -103,7 +104,11 @@ class Historian(
         """
         yield from self.records.distinct(*args, **kwargs)
 
-    def __init__(self, archive: "mincepy.Archive[IdT]", equators=()):
+    def __init__(self, archive: "mincepy.Archive[IdT]", equators=(), autosave: bool = True):
+        # Params
+        self._autosave = autosave
+
+        # State
         self._archive = archive
         self._equator = types.Equator(defaults.get_default_equators() + equators)
         # Register default types
@@ -222,7 +227,14 @@ class Historian(
 
         # Save the object and metadata
         with self.in_transaction():
-            record = self._live_depositor._save_object(obj)  # pylint: disable=protected-access
+            try:
+                record = self._live_depositor._save_object(obj)  # pylint: disable=protected-access
+            except TypeError:
+                if not self._autosave:
+                    raise
+                self.register_type(_autosave.autosavable(type(obj)))
+                record = self._live_depositor._save_object(obj)  # pylint: disable=protected-access
+
             if meta:
                 self.meta.update(record.obj_id, meta)
 
@@ -563,7 +575,19 @@ class Historian(
         ):
             self.register_type(type_id_or_type)
 
-        return self._type_registry.get_helper(type_id_or_type)
+        try:
+            return self._type_registry.get_helper(type_id_or_type)
+        except TypeError as exc:
+            if not self._autosave:
+                raise
+            try:
+                helper = _autosave.autosavable(type_id_or_type)
+            except TypeError:
+                # Failed to create an autosavable helper
+                raise exc from exc
+
+            self.register_type(helper)
+            return helper
 
     # endregion
 

@@ -36,10 +36,10 @@ class ObjectIdHelper(helpers.TypeHelper):
     def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
         return one == other
 
-    def save_instance_state(self, obj, _depositor):
+    def save_instance_state(self, obj, /, *_):
         return obj
 
-    def load_instance_state(self, obj, saved_state, _depositor):
+    def load_instance_state(self, obj, saved_state, /, *_):
         return obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
 
 

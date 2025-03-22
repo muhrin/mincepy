@@ -16,10 +16,10 @@ class SimpleHelper(helpers.TypeHelper):
     def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
         return one == other
 
-    def save_instance_state(self, obj, saver):
+    def save_instance_state(self, obj, saver, /):
         return obj.save_instance_state(saver)
 
-    def load_instance_state(self, obj, saved_state, loader):
+    def load_instance_state(self, obj, saved_state, loader, /):
         return obj.load(saved_state, loader)
 
 

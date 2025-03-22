@@ -11,6 +11,9 @@ from mincepy import testing
 def test_type_helper(historian: mincepy.Historian):
     """Check that a type helper can be used to make a non-historian compatible type compatible"""
 
+    # Prevent the historian from automatically making classes savable
+    historian._autosave = False
+
     class Bird:
         def __init__(self, specie="hoopoe"):
             self.specie = specie

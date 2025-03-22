@@ -172,6 +172,13 @@ class Cycle(mincepy.ConvenientSavable):
         yield from hasher.yield_hashables(id(self.ref))
 
 
+class Sphere:
+    __slots__ = "__weakref__", "radius"
+
+    def __init__(self, radius):
+        self.radius = radius
+
+
 def populate(historian=None):
     historian = historian or mincepy.get_historian()
 

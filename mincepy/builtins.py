@@ -366,12 +366,10 @@ class OrderedDictHelper(helpers.BaseHelper):
         for entry in obj.items():
             yield from hasher.yield_hashables(entry)
 
-    def save_instance_state(
-        self, obj: collections.OrderedDict, _saver
-    ) -> typing.List[typing.Tuple]:
+    def save_instance_state(self, obj: collections.OrderedDict, /, *_) -> typing.List[typing.Tuple]:
         return list(obj.items())
 
-    def load_instance_state(self, obj, saved_state: typing.List[typing.Tuple], _loader):
+    def load_instance_state(self, obj, saved_state: typing.List[typing.Tuple], /, *_):
         obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
 
 
@@ -387,10 +385,10 @@ class SetHelper(helpers.BaseHelper):
         for entry in obj:
             yield from hasher.yield_hashables(entry)
 
-    def save_instance_state(self, obj: set, _saver) -> typing.List:
+    def save_instance_state(self, obj: set, /, *_) -> typing.List:
         return list(obj)
 
-    def load_instance_state(self, obj: set, saved_state: List, _loader):
+    def load_instance_state(self, obj: set, saved_state: List, /, *_):
         return obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
 
 
@@ -410,10 +408,10 @@ class SnapshotIdHelper(helpers.TypeHelper):
         yield from hasher.yield_hashables(obj.obj_id)
         yield from hasher.yield_hashables(obj.version)
 
-    def save_instance_state(self, obj, _saver):
+    def save_instance_state(self, obj, /, *_):
         return obj.to_dict()
 
-    def load_instance_state(self, obj, saved_state, _loader):
+    def load_instance_state(self, obj, saved_state, /, *_):
         if isinstance(saved_state, list):
             # Legacy version
             obj.__init__(*saved_state)  # pylint: disable=unnecessary-dunder-call
@@ -430,13 +428,13 @@ class PathHelper(helpers.BaseHelper):
     def yield_hashables(self, obj: pathlib.Path, hasher):
         yield from hasher.yield_hashables(str(obj))
 
-    def save_instance_state(self, obj: pathlib.Path, _saver):
+    def save_instance_state(self, obj: pathlib.Path, /, *_):
         return str(obj)
 
     def new(self, encoded_saved_state):
         return pathlib.Path(encoded_saved_state)
 
-    def load_instance_state(self, obj: pathlib.Path, saved_state, _loader):
+    def load_instance_state(self, obj: pathlib.Path, saved_state, /, *_):
         pass  # Done it all in new
 
 
@@ -445,13 +443,13 @@ class TupleHelper(helpers.BaseHelper):
     TYPE_ID = uuid.UUID("fd9d2f50-71d6-4e70-90b7-117f23d9cbaf")
     IMMUTABLE = True
 
-    def save_instance_state(self, obj: tuple, _saver):
+    def save_instance_state(self, obj: tuple, /, *_):
         return list(obj)
 
     def new(self, encoded_saved_state):
         return self.TYPE(encoded_saved_state)
 
-    def load_instance_state(self, obj: pathlib.Path, saved_state, _loader):
+    def load_instance_state(self, obj: pathlib.Path, saved_state, /, *_):
         pass  # Done it all in new
 
     def yield_hashables(self, obj, hasher):
@@ -466,10 +464,10 @@ class NamespaceHelper(helpers.BaseHelper):
     def yield_hashables(self, obj, hasher):
         yield from hasher.yield_hashables(vars(obj))
 
-    def save_instance_state(self, obj, _saver):
+    def save_instance_state(self, obj, /, *_):
         return vars(obj)
 
-    def load_instance_state(self, obj, saved_state, _loader):
+    def load_instance_state(self, obj, saved_state, /, *_):
         obj.__init__(**saved_state)  # pylint: disable=unnecessary-dunder-call
 
 

@@ -96,13 +96,18 @@ class TypeHelper(fields.WithFields):
             other, type(self)
         )
 
-    def save_instance_state(self, obj, saver):  # pylint: disable=unused-argument
+    def save_instance_state(self, obj, saver, /):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
         return saving.save_instance_state(obj, type(self))
 
     def load_instance_state(
-        self, obj, saved_state, loader: depositors.Loader
-    ):  # pylint: disable=unused-argument
+        # pylint: disable=unused-argument
+        self,
+        obj,
+        saved_state,
+        loader: depositors.Loader,
+        /,
+    ):
         """Take the given blank object and load the instance state into it"""
         saving.load_instance_state(obj, saved_state, type(self))
 
@@ -210,8 +215,8 @@ class WrapperHelper(TypeHelper):
     def eq(self, one, other) -> bool:
         return self.TYPE.__eq__(one, other)  # pylint: disable=unnecessary-dunder-call
 
-    def save_instance_state(self, obj: "mincepy.Savable", saver):
+    def save_instance_state(self, obj: "mincepy.Savable", saver, /):
         return self.TYPE.save_instance_state(obj, saver)
 
-    def load_instance_state(self, obj, saved_state: "mincepy.Savable", loader):
+    def load_instance_state(self, obj, saved_state: "mincepy.Savable", loader, /):
         self.TYPE.load_instance_state(obj, saved_state, loader)
