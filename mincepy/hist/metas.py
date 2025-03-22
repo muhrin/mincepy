@@ -1,5 +1,5 @@
 from collections.abc import Hashable
-from typing import TYPE_CHECKING, Any, Dict, Generic, Iterator, Mapping, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Iterator, Mapping, Optional, TypeVar
 
 from mincepy import exceptions
 
@@ -38,7 +38,7 @@ class Meta(Generic[IdT]):
         meta = tuple(results.values())[0]
         return meta
 
-    def get_many(self, obj_or_identifiers) -> Dict[Any, dict]:
+    def get_many(self, obj_or_identifiers) -> dict[Any, dict]:
         obj_ids = set(map(self._hist._ensure_obj_id, obj_or_identifiers))
         trans = self._hist.current_transaction()
         if trans:

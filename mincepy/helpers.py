@@ -1,6 +1,6 @@
 from abc import ABCMeta
 import logging
-from typing import TYPE_CHECKING, Optional, Sequence, Tuple, Type, Union
+from typing import TYPE_CHECKING, Optional, Sequence, Union
 
 import pytray.pretty
 
@@ -14,7 +14,7 @@ __all__ = "TypeHelper", "WrapperHelper", "BaseHelper"
 logger = logging.getLogger(__name__)
 
 
-def inject_creation_tracking(cls: Type):
+def inject_creation_tracking(cls: type):
     # Check to make sure we don't do this twice!
     if not hasattr(cls, "__orig_new"):
         cls.__orig_new = cls.__new__  # pylint: disable=protected-access
@@ -27,7 +27,7 @@ def inject_creation_tracking(cls: Type):
         cls.__new__ = new
 
 
-def remove_creation_tracking(cls: Type):
+def remove_creation_tracking(cls: type):
     try:
         cls.__new__ = cls.__orig_new  # pylint: disable=protected-access
     except AttributeError:
@@ -39,7 +39,7 @@ class TypeHelper(fields.WithFields):
     the historian."""
 
     #: The type this helper corresponds to
-    TYPE: Union[type, Tuple[type]] = None
+    TYPE: Union[type, tuple[type]] = None
     TYPE_ID = None  # The unique id for this type of object
     IMMUTABLE = False  # If set to true then the object is decoded straight away
     INJECT_CREATION_TRACKING = False
@@ -200,7 +200,7 @@ class WrapperHelper(TypeHelper):
 
     # pylint: disable=invalid-name
 
-    def __init__(self, obj_type: Type["mincepy.SavableObject"]):
+    def __init__(self, obj_type: type["mincepy.SavableObject"]):
         self.TYPE = obj_type
         self.TYPE_ID = obj_type.TYPE_ID
         self.LATEST_MIGRATION = obj_type.LATEST_MIGRATION

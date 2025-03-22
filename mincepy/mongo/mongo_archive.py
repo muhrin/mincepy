@@ -1,4 +1,4 @@
-from typing import Dict, Iterable, Iterator, Mapping, Optional, Sequence, Tuple, Union
+from typing import Iterable, Iterator, Mapping, Optional, Sequence, Union
 from urllib import parse
 import uuid
 import weakref
@@ -195,7 +195,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         found.pop("_id")
         return found.get(db.META, None)
 
-    def meta_get_many(self, obj_ids: Iterable[bson.ObjectId]) -> Dict[bson.ObjectId, dict]:
+    def meta_get_many(self, obj_ids: Iterable[bson.ObjectId]) -> dict[bson.ObjectId, dict]:
         # Find multiple
         for obj_id in obj_ids:
             if not isinstance(obj_id, bson.ObjectId):
@@ -254,8 +254,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def meta_find(
         self,
         filter: dict = None,  # pylint: disable=redefined-builtin
-        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
-    ) -> Iterator[Tuple[bson.ObjectId, Dict]]:
+        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], dict] = None,
+    ) -> Iterator[tuple[bson.ObjectId, dict]]:
         match = queries.expand_filter(db.META, filter)
         if obj_id is not None:
             match["_id"] = scalar_query_spec(obj_id)
@@ -307,8 +307,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
     def find(
         self,
-        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
-        type_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Dict] = None,
+        obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], dict] = None,
+        type_id: Union[bson.ObjectId, Iterable[bson.ObjectId], dict] = None,
         *,
         created_by=None,
         copied_from=None,

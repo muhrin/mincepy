@@ -5,7 +5,6 @@ import argparse
 import collections
 import collections.abc
 import pathlib
-import typing
 import uuid
 
 from . import base_savable, helpers, records, refs, type_ids, types
@@ -366,10 +365,10 @@ class OrderedDictHelper(helpers.BaseHelper):
         for entry in obj.items():
             yield from hasher.yield_hashables(entry)
 
-    def save_instance_state(self, obj: collections.OrderedDict, /, *_) -> typing.List[typing.Tuple]:
+    def save_instance_state(self, obj: collections.OrderedDict, /, *_) -> list[tuple]:
         return list(obj.items())
 
-    def load_instance_state(self, obj, saved_state: typing.List[typing.Tuple], /, *_):
+    def load_instance_state(self, obj, saved_state: list[tuple], /, *_):
         obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
 
 
@@ -385,10 +384,10 @@ class SetHelper(helpers.BaseHelper):
         for entry in obj:
             yield from hasher.yield_hashables(entry)
 
-    def save_instance_state(self, obj: set, /, *_) -> typing.List:
+    def save_instance_state(self, obj: set, /, *_) -> list:
         return list(obj)
 
-    def load_instance_state(self, obj: set, saved_state: List, /, *_):
+    def load_instance_state(self, obj: set, saved_state: list, /, *_):
         return obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
 
 

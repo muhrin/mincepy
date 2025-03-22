@@ -1,12 +1,12 @@
 """Module for methods related to saving and loading objects to/from records"""
 
-from typing import TYPE_CHECKING, Type, Union
+from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     import mincepy
 
 
-def save_instance_state(obj, db_type: Type["mincepy.fields.WithFields"] = None) -> dict:
+def save_instance_state(obj, db_type: type["mincepy.fields.WithFields"] = None) -> dict:
     """Save the instance state of an object.
 
     Given an object this function takes a DbType specifying the attributes to be saved and will use
@@ -39,7 +39,7 @@ def save_instance_state(obj, db_type: Type["mincepy.fields.WithFields"] = None) 
 def load_instance_state(
     obj,
     state: Union[list, dict],
-    db_type: Type["mincepy.fields.WithFields"] = None,
+    db_type: type["mincepy.fields.WithFields"] = None,
     ignore_missing=True,
 ):
     import mincepy  # pylint: disable=import-outside-toplevel

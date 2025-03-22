@@ -2,7 +2,7 @@
 objects"""
 
 import abc
-from typing import Dict, Type
+from typing import Type
 
 from . import expr
 
@@ -245,7 +245,7 @@ class WithFields(metaclass=WithFieldMeta):
             raise ValueError(f"Got unexpected keyword argument(s) '{kwargs}'")
 
 
-def get_fields(db_type: Type[WithFields]) -> Dict[str, Field]:
+def get_fields(db_type: Type[WithFields]) -> dict[str, Field]:
     """Given a WithField type this will return all the database attributes as a dictionary where the
     key is the attribute name"""
     db_attrs = {}
@@ -259,7 +259,7 @@ def get_fields(db_type: Type[WithFields]) -> Dict[str, Field]:
     return db_attrs
 
 
-def get_field_properties(db_type: Type[WithFields]) -> Dict[str, FieldProperties]:
+def get_field_properties(db_type: Type[WithFields]) -> dict[str, FieldProperties]:
     """Given a WithField type this will return all the database attributes as a dictionary where the
     key is the attribute name"""
     db_attrs = {}

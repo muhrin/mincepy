@@ -5,7 +5,7 @@ This module contains various strategies for loading, saving and migrating object
 from abc import ABCMeta, abstractmethod
 import contextlib
 import logging
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Iterable, Optional, Sequence
 
 import deprecation
 from pytray import tree
@@ -52,7 +52,7 @@ class Base(metaclass=ABCMeta):
 class Saver(Base, metaclass=ABCMeta):
     """A depositor that knows how to save records to the archive"""
 
-    _extras: Dict[str, Dict] = {}
+    _extras: dict[str, dict] = {}
 
     @deprecation.deprecated(
         deprecated_in="0.14.2",
@@ -446,7 +446,7 @@ class SnapshotLoader(Loader):
 
     def __init__(self, historian):
         super().__init__(historian)
-        self._snapshots = {}  # type: Dict[records.SnapshotId, object]
+        self._snapshots: dict[records.SnapshotId, object] = {}
 
     def load(self, snapshot_id: records.SnapshotId) -> object:
         """Load an object from its snapshot id"""

@@ -4,9 +4,7 @@ import copy
 from typing import (
     TYPE_CHECKING,
     Any,
-    Dict,
     Generic,
-    List,
     MutableMapping,
     Optional,
     Sequence,
@@ -149,18 +147,18 @@ class Transaction:
 
     def __init__(self):
         # Records staged for saving to the archive
-        self._staged = []  # type: List[operations.Operation]
+        self._staged: list[operations.Operation] = []
 
         self._deleted = set()  # A set of deleted obj ids
 
         self._live_objects = LiveObjects()
         # Snapshot id -> obj for objects currently being saved
-        self._in_progress_cache = {}  # type: Dict["mincepy.SnapshotId", object]
+        self._in_progress_cache: dict["mincepy.SnapshotId", object] = {}
 
         # Snapshots: snapshot id -> obj
-        self._snapshots = {}  # type: Dict["mincepy.SnapshotId", Any]
+        self._snapshots: dict["mincepy.SnapshotId", Any] = {}
         # Maps from object id -> metadata dictionary
-        self._metas = {}  # type: Dict[Any, dict]
+        self._metas: dict[Any, dict] = {}
 
     def __str__(self):
         return (

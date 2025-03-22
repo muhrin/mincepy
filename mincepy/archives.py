@@ -3,16 +3,13 @@ from collections.abc import Hashable
 from typing import (
     Any,
     Callable,
-    Dict,
     Generic,
     Iterable,
     Iterator,
-    List,
     Mapping,
     NamedTuple,
     Optional,
     Sequence,
-    Tuple,
     Type,
     TypeVar,
     Union,
@@ -111,7 +108,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         """Get the metadata for an objects."""
 
     @abc.abstractmethod
-    def meta_get_many(self, obj_ids: Iterable[IdT]) -> Dict:
+    def meta_get_many(self, obj_ids: Iterable[IdT]) -> dict:
         """Get the metadata for multiple objects.  Returns a dictionary mapping the object id to
         the metadata dictionary"""
 
@@ -170,7 +167,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def meta_create_index(self, keys: Union[str, List[Tuple]], unique=False, where_exist=False):
+    def meta_create_index(self, keys: Union[str, list[tuple]], unique=False, where_exist=False):
         """Create an index on the metadata.  Takes either a single key or list of (key, direction)
         pairs
 
@@ -197,7 +194,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def find(
         self,
-        obj_id: Union[IdT, Iterable[IdT], Dict] = None,
+        obj_id: Union[IdT, Iterable[IdT], dict] = None,
         type_id=None,
         *,
         created_by: Optional[IdT] = None,
@@ -315,7 +312,7 @@ class BaseArchive(Archive[IdT]):
         """
         self.bulk_write([operations.Insert(record) for record in data_records])
 
-    def meta_get_many(self, obj_ids: Iterable[IdT]) -> Dict[IdT, dict]:
+    def meta_get_many(self, obj_ids: Iterable[IdT]) -> dict[IdT, dict]:
         metas = {}
         for obj_id in obj_ids:
             metas[obj_id] = self.meta_get(obj_id)
@@ -355,7 +352,7 @@ class BaseArchive(Archive[IdT]):
             getattr(listener, evt.__name__)(self, *args, **kwargs)
 
 
-def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> Union[Any, Dict]:
+def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> Union[Any, dict]:
     """Convenience function to create a query specifier for a given item.  There are three
     possibilities:
 

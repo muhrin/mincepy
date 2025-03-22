@@ -9,11 +9,9 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
-    Dict,
     Generic,
     Iterable,
     Iterator,
-    List,
     Literal,
     Optional,
     Sequence,
@@ -342,7 +340,7 @@ class Historian(
         obj_ids = list(map(self._ensure_obj_id, obj_or_identifier))
 
         # Find the current records (i.e. from our cache)
-        records: Dict[Any, "mincepy.DataRecord"] = {}
+        records: dict[Any, "mincepy.DataRecord"] = {}
         left_to_find = set()
         for obj_id in obj_ids:
             try:
@@ -995,7 +993,7 @@ class Historian(
 
         return obj_id
 
-    def _prepare_obj_id(self, obj_id) -> Optional[Union[IdT, List[IdT]]]:
+    def _prepare_obj_id(self, obj_id) -> Optional[Union[IdT, list[IdT]]]:
         if obj_id is None:
             return None
 
