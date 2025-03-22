@@ -9,9 +9,9 @@ mincePy
     :target: https://codecov.io/gh/muhrin/mincepy
     :alt: Coverage
 
-.. image:: https://travis-ci.com/muhrin/mincepy.svg?branch=master
-    :target: https://travis-ci.com/github/muhrin/mincepy
-    :alt: Travis CI
+.. image:: https://github.com/muhrin/mincepy/actions/workflows/ci.yml/badge.svg
+    :target: https://github.com/muhrin/mincepy/actions/workflows/ci.yml
+    :alt: Tests
 
 .. image:: https://img.shields.io/pypi/v/mincepy.svg
     :target: https://pypi.python.org/pypi/mincepy/
