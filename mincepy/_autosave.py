@@ -10,6 +10,8 @@ if TYPE_CHECKING:
 
 TYPE_ID_PREFIX = "autosave"
 
+State = Union[dict, tuple]
+
 
 def _create_helper(obj_type: type, obj_path: str) -> "mincepy.TypeHelper":
     """Create a type helper that uses the object path as the type id"""
@@ -19,13 +21,12 @@ def _create_helper(obj_type: type, obj_path: str) -> "mincepy.TypeHelper":
         TYPE_ID = f"{TYPE_ID_PREFIX}:{obj_path}"
 
         @override
-        def save_instance_state(self, obj, /, *_) -> dict:
-            return _writables(obj)
+        def save_instance_state(self, obj, /, *_) -> State:
+            return _get_state(obj)
 
         @override
-        def load_instance_state(self, obj, saved_state: dict, /, *_):
-            for name, value in saved_state.items():
-                setattr(obj, name, value)
+        def load_instance_state(self, obj, state: State, /, *_) -> None:
+            _set_state(obj, state)
 
     return AutoSavable()
 
@@ -45,7 +46,7 @@ def autosavable(obj_type_or_id: Union[type, str]) -> "mincepy.TypeHelper":
     return _create_helper(obj_type, obj_path)
 
 
-def _writables(obj) -> dict:
+def _get_state(obj) -> State:
     """
     Get the writable attributes of an object.
 
@@ -53,11 +54,34 @@ def _writables(obj) -> dict:
     back to that
     """
     try:
-        return dict(vars(obj))
-    except TypeError:
+        obj.__getstate__()
+    except AttributeError:
+        pass
+
+    try:
+        return obj.__dict__
+    except AttributeError:
         if "__weakref__" not in obj.__slots__:
             raise ValueError(
                 f"Object `{obj}` is not compatible with the historian because it uses __slots__ "
                 f"but does not have __weakref__.  Add it to make it compatible."
             ) from None
         return {name: getattr(obj, name) for name in obj.__slots__ if name not in ["__weakref__"]}
+
+
+def _set_state(obj, state):
+    try:
+        obj.__setstate__(state)
+    except AttributeError:
+        pass
+
+    if not isinstance(state, dict):
+        raise ValueError(
+            f"State must be dict or the object must support __setstate__, got: {type(obj).__name__}"
+        )
+    try:
+        obj.__dict__.update(state)
+    except AttributeError:
+        # Could be a __slots__ object
+        for name, value in state.items():
+            setattr(obj, name, value)

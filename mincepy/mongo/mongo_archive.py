@@ -663,10 +663,14 @@ def mongomock_connect(uri, timeout=30000) -> MongoArchive:
         return MOCKED[uri]
 
     parsed = parse.urlparse(uri)
+    options = parse.parse_qs(parsed.query)
+    kwargs = {}
+    if "uuidRepresentation" not in options:
+        kwargs["uuidRepresentation"] = "standard"
 
     mongomock.gridfs.enable_gridfs_integration()
     client = mongomock.MongoClient(
-        f"mongodb://localhost/{parsed.fragment}", serverSelectionTimeoutMS=timeout
+        f"mongodb://localhost/{parsed.fragment}", serverSelectionTimeoutMS=timeout, **kwargs
     )
     database = client.get_default_database()
     return MongoArchive(database)
@@ -677,7 +681,13 @@ def litemongo_connect(uri) -> MongoArchive:
 
     litemongo._vendor.mongomock.gridfs.enable_gridfs_integration()  # pylint: disable=protected-access
 
-    client = litemongo.connect(uri)
+    parsed = parse.urlparse(uri)
+    options = parse.parse_qs(parsed.query)
+    kwargs = {}
+    if "uuidRepresentation" not in options:
+        kwargs["uuidRepresentation"] = "standard"
+
+    client = litemongo.connect(uri, **kwargs)
     database = client.get_default_database()
     archive = MongoArchive(database)
 
