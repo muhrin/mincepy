@@ -536,7 +536,7 @@ class Historian(
 
         try:
             return self._type_registry.get_helper(type_id_or_type)
-        except TypeError as exc:
+        except ValueError as exc:
             if not self._autosave:
                 raise
             try:

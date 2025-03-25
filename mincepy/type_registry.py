@@ -1,10 +1,12 @@
 import collections
-from typing import Any, MutableMapping, Type, Union
+from typing import Any, Hashable, Union
 
 from . import helpers, types
 
-SavableObjectType = Type[types.SavableObject]
-RegisterableType = Union[helpers.TypeHelper, Type[helpers.TypeHelper], SavableObjectType]
+SavableObjectType = type[types.SavableObject]
+RegisterableType = Union[helpers.TypeHelper, type[helpers.TypeHelper], type[types.SavableObject]]
+TypeId = Hashable
+TypeIdOrType = Union[TypeId, type]  # pylint: disable=invalid-name
 
 
 class TypeRegistry:
@@ -12,14 +14,14 @@ class TypeRegistry:
     to store and track objects in the archive"""
 
     def __init__(self):
-        self._helpers: MutableMapping[SavableObjectType, helpers.TypeHelper] = {}
-        self._type_ids: MutableMapping[Any, SavableObjectType] = {}
+        self._helpers: dict[type, helpers.TypeHelper] = {}
+        self._type_ids: dict[TypeId, type] = {}
 
-    def __contains__(self, item: SavableObjectType) -> bool:
+    def __contains__(self, item: type) -> bool:
         return item in self._helpers
 
     @property
-    def type_helpers(self) -> MutableMapping[Type, helpers.TypeHelper]:
+    def type_helpers(self) -> dict[type, helpers.TypeHelper]:
         """Get the mapping of registered type helpers"""
         return self._helpers
 
@@ -42,7 +44,7 @@ class TypeRegistry:
 
         return helper
 
-    def unregister_type(self, item: Union[helpers.TypeHelper, SavableObjectType, Any]):
+    def unregister_type(self, item: Union[helpers.TypeHelper, type, Any]):
         """
         Un-register a type helper.  If the type is not registered, this method will return with no
         effect.
@@ -56,8 +58,12 @@ class TypeRegistry:
             # Maybe it is a type id
             self._remove_using_type_id(item)
 
-    def get_type_id(self, obj_type: SavableObjectType):
-        """Given a type return the corresponding type id if it registered with this registry"""
+    def get_type_id(self, obj_type: type) -> TypeId:
+        """
+        Given a type return the corresponding type id if it registered with this registry
+
+        :raises: `ValueError` if the object type is not registered
+        """
         if obj_type in self._type_ids:
             # We've been passed a known type id
             return obj_type
@@ -73,19 +79,28 @@ class TypeRegistry:
 
         raise ValueError(f"Type '{obj_type}' is not known")
 
-    def get_helper(self, type_id_or_type) -> helpers.TypeHelper:
+    def get_helper(self, type_id_or_type: TypeIdOrType) -> helpers.TypeHelper:
+        """
+        :raises ValueError: if there is no helper associated with the passed type or id
+        """
         if isinstance(type_id_or_type, type):
             return self.get_helper_from_obj_type(type_id_or_type)
 
         return self.get_helper_from_type_id(type_id_or_type)
 
-    def get_helper_from_type_id(self, type_id) -> helpers.TypeHelper:
+    def get_helper_from_type_id(self, type_id: TypeId) -> helpers.TypeHelper:
+        """
+        :param type_id: the type identifier
+        :raises: `ValueError` if the type id is not known
+        """
         try:
-            return self.get_helper_from_obj_type(self._type_ids[type_id])
+            type_id = self._type_ids[type_id]
         except KeyError:
-            raise TypeError(f"Type id '{type_id}' not known") from None
+            raise ValueError(f"Type id '{type_id}' not known") from None
 
-    def get_helper_from_obj_type(self, obj_type: SavableObjectType) -> helpers.TypeHelper:
+        return self.get_helper_from_obj_type(type_id)
+
+    def get_helper_from_obj_type(self, obj_type: type) -> helpers.TypeHelper:
         try:
             # Try the direct lookup
             return self._helpers[obj_type]
@@ -96,10 +111,13 @@ class TypeRegistry:
                     return helper
             raise ValueError(f"Type '{obj_type}' has not been registered") from None
 
-    def get_version_info(self, type_id_or_type) -> collections.OrderedDict:
+    def get_version_info(self, type_id_or_type: TypeIdOrType) -> collections.OrderedDict:
         """Get version information about a type.  This will return a reverse mro ordered dictionary
         where the key is the type id and the value is the version.  Only registered entries will
-        appear."""
+        appear.
+
+        :raises ValueError: if type_id_or_type is not known
+        """
         helper = self.get_helper(type_id_or_type)
         type_info = collections.OrderedDict()
 
@@ -168,7 +186,7 @@ class TypeRegistry:
             self._helpers[obj_type] = helper
             self._type_ids[helper.TYPE_ID] = obj_type
 
-    def _remove_using_type_id(self, type_id: Any):
+    def _remove_using_type_id(self, type_id: TypeId):
         obj_type = self._type_ids.pop(type_id, None)
         if obj_type is not None:
             self._helpers.pop(obj_type)

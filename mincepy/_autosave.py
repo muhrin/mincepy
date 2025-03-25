@@ -54,7 +54,7 @@ def _get_state(obj) -> State:
     back to that
     """
     try:
-        obj.__getstate__()
+        return obj.__getstate__()
     except AttributeError:
         pass
 

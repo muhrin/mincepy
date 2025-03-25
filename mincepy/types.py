@@ -191,7 +191,7 @@ def is_savable_type(obj_type: Type) -> bool:
     return issubclass(obj_type, SavableObject) and obj_type.TYPE_ID is not None
 
 
-def savable_mro(obj_type: Type[SavableObject]) -> List[Type[SavableObject]]:
+def savable_mro(obj_type: Type[SavableObject]) -> list[Type[SavableObject]]:
     """Given a SavableObject type this will give the mro of the savable types in the hierarchy"""
     mro = obj_type.mro()
     return list(filter(is_savable_type, mro))
