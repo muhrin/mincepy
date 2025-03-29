@@ -633,7 +633,7 @@ class MongoRecordCollection(archives.RecordCollection[bson.ObjectId]):
 MOCKED = weakref.WeakValueDictionary()
 
 
-def connect(uri: str, timeout=30000) -> MongoArchive:
+def connect(uri: Union[str, parse.ParseResult], timeout=30000) -> MongoArchive:
     """
     Connect to the database using the passed URI string.
 
@@ -641,13 +641,18 @@ def connect(uri: str, timeout=30000) -> MongoArchive:
     :param timeout: a connection time (in milliseconds)
     :return: the connected mongo archive
     """
-    parsed = parse.urlparse(uri)
+    if isinstance(uri, str):
+        parsed = parse.urlparse(uri)
+    elif isinstance(uri, parse.ParseResult):
+        parsed = uri
+    else:
+        raise ValueError("uri must be either a string or a urllib ParseResult")
 
     if parsed.scheme == "mongodb":
         return pymongo_connect(uri, timeout=timeout)
     if parsed.scheme == "mongomock":
         return mongomock_connect(uri, timeout=timeout)
-    if parsed.scheme == "litemongo":
+    if parsed.scheme in ("litemongo", ""):
         return litemongo_connect(uri)
 
     raise ValueError(f"Unknown scheme: {uri}")
@@ -699,12 +704,15 @@ def mongomock_connect(uri, timeout=30000) -> MongoArchive:
     return MongoArchive(database)
 
 
-def litemongo_connect(uri) -> MongoArchive:
+def litemongo_connect(uri: Union[str, parse.ParseResult]) -> MongoArchive:
     import litemongo._vendor.mongomock.gridfs  # pylint: disable=import-outside-toplevel
 
     litemongo._vendor.mongomock.gridfs.enable_gridfs_integration()  # pylint: disable=protected-access
 
-    parsed = parse.urlparse(uri)
+    if isinstance(uri, str):
+        parsed = parse.urlparse(uri)
+    else:
+        parsed = uri
     options = parse.parse_qs(parsed.query)
     kwargs = {}
     if "uuidRepresentation" not in options:

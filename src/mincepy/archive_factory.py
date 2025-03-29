@@ -1,6 +1,7 @@
 import logging
 import os
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
+from urllib import parse
 
 from . import mongo
 
@@ -26,7 +27,7 @@ def default_archive_uri() -> Optional[str]:
     return os.environ.get(ENV_ARCHIVE_URI, DEFAULT_ARCHIVE_URI)
 
 
-def create_archive(uri: str, connect_timeout=30000) -> "mincepy.Archive":
+def create_archive(uri: Union[str, parse.ParseResult], connect_timeout=30000) -> "mincepy.Archive":
     """Create an archive type based on a URI string
 
     :param uri: the specification of where to connect to

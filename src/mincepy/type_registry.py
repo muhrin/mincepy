@@ -1,5 +1,6 @@
 import collections
-from typing import Any, Hashable, Union
+from collections.abc import Hashable
+from typing import Any, Union
 
 from . import helpers, types
 

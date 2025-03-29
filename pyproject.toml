@@ -36,6 +36,7 @@ dependencies = [
     "click",
     "tabulate",
     "tqdm",
+    "typing-extensions",
 ]
 
 [project.urls]

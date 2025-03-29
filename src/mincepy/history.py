@@ -3,7 +3,8 @@ This module exposes some global functionality for connecting to and interacting 
 historian
 """
 
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union
+from urllib import parse
 
 from . import archive_factory, helpers, historians, plugins
 
@@ -25,7 +26,9 @@ __all__ = (
 CURRENT_HISTORIAN = None
 
 
-def connect(uri: str = "", use_globally=False, timeout=30000) -> "mincepy.Historian":
+def connect(
+    uri: Union[str, parse.ParseResult] = "", use_globally=False, timeout=30000
+) -> "mincepy.Historian":
     """Connect to an archive and return a corresponding historian
 
     :param uri: the URI of the archive to connect to
@@ -40,7 +43,7 @@ def connect(uri: str = "", use_globally=False, timeout=30000) -> "mincepy.Histor
 
 
 def create_historian(
-    archive_uri: str, apply_plugins=True, connect_timeout=30000
+    archive_uri: Union[str, parse.ParseResult], apply_plugins=True, connect_timeout=30000
 ) -> "mincepy.Historian":
     """Convenience function to create a standard historian directly from an archive URI
 
