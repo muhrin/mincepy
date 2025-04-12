@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import datetime
 from hashlib import blake2b
-from typing import TYPE_CHECKING, List, Optional, Sequence, Type
+from typing import TYPE_CHECKING, Hashable, List, Optional, Sequence, Type
 import uuid
 
 from . import depositors, expr, fields, saving, tracking
@@ -33,7 +33,7 @@ def is_primitive(obj):
 class Savable(fields.WithFields, expr.FilterLike):
     """Interface for an object that can save and load its instance state"""
 
-    TYPE_ID = None
+    TYPE_ID: Hashable = None
     LATEST_MIGRATION: Optional["mincepy.ObjectMigration"] = None
 
     def __init__(self, *args, **kwargs):

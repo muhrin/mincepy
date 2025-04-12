@@ -658,9 +658,13 @@ def connect(uri: Union[str, parse.ParseResult], timeout=30000) -> MongoArchive:
     raise ValueError(f"Unknown scheme: {uri}")
 
 
-def pymongo_connect(uri, database: str = None, timeout=30000):
+def pymongo_connect(uri: Union[str, parse.ParseResult], database: str = None, timeout=30000):
     # URI Format is:
     # mongodb://[username:password@]host1[:port1][,...hostN[:portN]][/[database][?options]]
+
+    if isinstance(uri, parse.ParseResult):
+        uri = parse.urlunparse(uri)
+
     try:
         parsed: dict = pymongo.uri_parser.parse_uri(uri)
     except pymongo.errors.InvalidURI as exc:
@@ -681,7 +685,7 @@ def pymongo_connect(uri, database: str = None, timeout=30000):
         raise exceptions.ConnectionError(str(exc))
 
 
-def mongomock_connect(uri, timeout=30000) -> MongoArchive:
+def mongomock_connect(uri: str, timeout=30000) -> MongoArchive:
     # Cache, this makes sure that if we get two requests to connect to exactly the same URI then
     # an existing connection will be returned
     import mongomock.gridfs  # pylint: disable=import-outside-toplevel
