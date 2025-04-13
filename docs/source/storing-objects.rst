@@ -17,8 +17,7 @@ Don't worry, we've got your back.  Migrations are a way to tell mincePy how to g
 
 .. code-block:: python
 
-    class Car(mincepy.SimpleSavable):
-        TYPE_ID = uuid.UUID('297808e4-9bc7-4f0a-9f8d-850a5f558663')
+    class Car(mincepy.SimpleSavable, type_id=uuid.UUID('297808e4-9bc7-4f0a-9f8d-850a5f558663')):
         ATTRS = ('colour', 'make')
 
         def __init__(self, colour: str, make: str):
@@ -48,8 +47,7 @@ Ok, and now we decide that instead of storing the details as a list, we want to 
 
 .. code-block:: python
 
-    class Car(mincepy.SimpleSavable):
-        TYPE_ID = uuid.UUID('297808e4-9bc7-4f0a-9f8d-850a5f558663')
+    class Car(mincepy.SimpleSavable, type_id=uuid.UUID('297808e4-9bc7-4f0a-9f8d-850a5f558663')):
         ATTRS = ('colour', 'make')
 
         class Migration1(mincepy.ObjectMigration):
@@ -100,8 +98,7 @@ If you decide you want to change the format of ``Car`` again, say by adding a re
 
 .. code-block:: python
 
-    class Car(mincepy.SimpleSavable):
-        TYPE_ID = uuid.UUID('297808e4-9bc7-4f0a-9f8d-850a5f558663')
+    class Car(mincepy.SimpleSavable, type_id=uuid.UUID('297808e4-9bc7-4f0a-9f8d-850a5f558663')):
         ATTRS = ('colour', 'make')
 
         class Migration1(mincepy.ObjectMigration):

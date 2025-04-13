@@ -83,8 +83,7 @@ def test_create_delete_load(historian: mincepy.Historian):
 
 
 def test_storing_internal_object(historian: mincepy.Historian):
-    class Person(mincepy.SavableObject):
-        TYPE_ID = uuid.UUID("f6f83595-6375-4bc4-89f2-d8f31a1286b0")
+    class Person(mincepy.SavableObject, type_id=uuid.UUID("f6f83595-6375-4bc4-89f2-d8f31a1286b0")):
 
         def __init__(self, car):
             super().__init__()
@@ -216,8 +215,9 @@ def test_user_info(historian: mincepy.Historian):
 
 
 def test_save_as_ref(historian: mincepy.Historian):
-    class Person(mincepy.ConvenientSavable):
-        TYPE_ID = uuid.UUID("692429b6-a08b-489a-aa09-6eb3174b6405")
+    class Person(
+        mincepy.ConvenientSavable, type_id=uuid.UUID("692429b6-a08b-489a-aa09-6eb3174b6405")
+    ):
         car = mincepy.field(ref=True)  # Save the car by reference
 
         def __init__(self, car):
@@ -238,8 +238,9 @@ def test_save_as_ref(historian: mincepy.Historian):
 
 
 def test_encode_nested(historian: mincepy.Historian):
-    class CarDelegate(mincepy.SimpleSavable):
-        TYPE_ID = uuid.UUID("c0148a43-c0c0-4d2b-9262-ed1c8c6ab2fc")
+    class CarDelegate(
+        mincepy.SimpleSavable, type_id=uuid.UUID("c0148a43-c0c0-4d2b-9262-ed1c8c6ab2fc")
+    ):
         car = mincepy.field()
 
         def __init__(self, car):

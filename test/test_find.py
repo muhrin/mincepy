@@ -204,8 +204,7 @@ def test_find_operators(historian):
 def test_find_auto_registration(historian: mincepy.Historian):
     """This issue addresses the problem raised in https://github.com/muhrin/mincepy/issues/20"""
 
-    class User(mincepy.SimpleSavable):
-        TYPE_ID = "User"
+    class User(mincepy.SimpleSavable, type_id="User"):
         name = mincepy.field()
         email = mincepy.field()
         api_key = mincepy.field()
@@ -219,8 +218,8 @@ def test_find_auto_registration(historian: mincepy.Historian):
 
     # Now try creating a second user type with the same TYPE_ID, here automatic registration should
     # fail because otherwise we would clobber the existing helper in the registry
-    class User2(mincepy.SimpleSavable):
-        TYPE_ID = "User"
+    class User2(mincepy.SimpleSavable, type_id="User"):
+        pass
 
     with pytest.raises(ValueError):
         # Should raise, because now we have the same type id and we would clobber the one already

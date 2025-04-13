@@ -27,19 +27,24 @@ DEFAULT_REFERENCES_COLLECTION = "references"
 scalar_query_spec = archives.scalar_query_spec
 
 
-class ObjectIdHelper(helpers.TypeHelper):
-    TYPE = bson.ObjectId
-    TYPE_ID = uuid.UUID("bdde0765-36d2-4f06-bb8b-536a429f32ab")
-
-    def yield_hashables(self, obj, hasher):  # pylint: disable=unused-argument
+class ObjectIdHelper(
+    helpers.TypeHelper,
+    obj_type=bson.ObjectId,
+    type_id=uuid.UUID("bdde0765-36d2-4f06-bb8b-536a429f32ab"),
+):
+    @override
+    def yield_hashables(self, obj, hasher, /):  # pylint: disable=unused-argument
         yield obj.binary
 
-    def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
+    @override
+    def eq(self, one, other, /) -> bool:  # pylint: disable=invalid-name
         return one == other
 
+    @override
     def save_instance_state(self, obj, /, *_):
         return obj
 
+    @override
     def load_instance_state(self, obj, saved_state, /, *_):
         return obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
 

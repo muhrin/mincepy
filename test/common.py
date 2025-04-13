@@ -5,8 +5,7 @@ import mincepy
 # pylint: disable=invalid-name
 
 
-class CarV0(mincepy.ConvenientSavable):
-    TYPE_ID = uuid.UUID("297808e4-9bc7-4f0a-9f8d-850a5f558663")
+class CarV0(mincepy.ConvenientSavable, type_id=uuid.UUID("297808e4-9bc7-4f0a-9f8d-850a5f558663")):
     colour = mincepy.field()
     make = mincepy.field()
 
@@ -25,8 +24,7 @@ class CarV0(mincepy.ConvenientSavable):
         self.make = saved_state[1]
 
 
-class CarV1(mincepy.ConvenientSavable):
-    TYPE_ID = uuid.UUID("297808e4-9bc7-4f0a-9f8d-850a5f558663")
+class CarV1(mincepy.ConvenientSavable, type_id=uuid.UUID("297808e4-9bc7-4f0a-9f8d-850a5f558663")):
     colour = mincepy.field()
     make = mincepy.field()
 
@@ -49,8 +47,7 @@ class CarV1(mincepy.ConvenientSavable):
     # attributes as a dictionary
 
 
-class CarV2(mincepy.ConvenientSavable):
-    TYPE_ID = uuid.UUID("297808e4-9bc7-4f0a-9f8d-850a5f558663")
+class CarV2(mincepy.ConvenientSavable, type_id=uuid.UUID("297808e4-9bc7-4f0a-9f8d-850a5f558663")):
     colour = mincepy.field()
     make = mincepy.field()
     reg = mincepy.field()  # New attribute
@@ -75,21 +72,18 @@ class CarV2(mincepy.ConvenientSavable):
         self.reg = reg
 
 
-class HatchbackCarV0(CarV0):
+class HatchbackCarV0(CarV0, type_id=uuid.UUID("d4131d3c-c140-4959-a545-21082dae9f1b")):
     """A hatchback that inherits from CarV0"""
 
-    TYPE_ID = uuid.UUID("d4131d3c-c140-4959-a545-21082dae9f1b")
 
-
-class HatchbackCarV1(CarV1):
+class HatchbackCarV1(CarV1, type_id=uuid.UUID("d4131d3c-c140-4959-a545-21082dae9f1b")):
     """A hatchback that inherits from CarV1, simulating what would have happened if parent was
     migrated"""
 
-    TYPE_ID = uuid.UUID("d4131d3c-c140-4959-a545-21082dae9f1b")
 
-
-class StoreByValue(mincepy.ConvenientSavable):
-    TYPE_ID = uuid.UUID("40377bfc-901c-48bb-a85c-1dd692cddcae")
+class StoreByValue(
+    mincepy.ConvenientSavable, type_id=uuid.UUID("40377bfc-901c-48bb-a85c-1dd692cddcae")
+):
     ref = mincepy.field()
 
     def __init__(self, ref):
@@ -97,8 +91,9 @@ class StoreByValue(mincepy.ConvenientSavable):
         self.ref = ref
 
 
-class StoreByRef(mincepy.ConvenientSavable):
-    TYPE_ID = uuid.UUID("40377bfc-901c-48bb-a85c-1dd692cddcae")
+class StoreByRef(
+    mincepy.ConvenientSavable, type_id=uuid.UUID("40377bfc-901c-48bb-a85c-1dd692cddcae")
+):
     ref = mincepy.field(ref=True)
 
     class ToRefMigration(mincepy.ObjectMigration):
@@ -118,8 +113,7 @@ class StoreByRef(mincepy.ConvenientSavable):
         self.ref = ref
 
 
-class A(mincepy.ConvenientSavable):
-    TYPE_ID = uuid.UUID("a50f21bc-899e-445f-baf7-0a1a373e51fc")
+class A(mincepy.ConvenientSavable, type_id=uuid.UUID("a50f21bc-899e-445f-baf7-0a1a373e51fc")):
     migrations = mincepy.field()
 
     class Migration(mincepy.ObjectMigration):
@@ -136,8 +130,7 @@ class A(mincepy.ConvenientSavable):
         self.migrations = []
 
 
-class B(A):
-    TYPE_ID = uuid.UUID("f1c07f5f-bf64-441d-8dc7-bbde65eb6fa2")
+class B(A, type_id=uuid.UUID("f1c07f5f-bf64-441d-8dc7-bbde65eb6fa2")):
 
     class Migration(mincepy.ObjectMigration):
         VERSION = 2
@@ -149,8 +142,7 @@ class B(A):
     LATEST_MIGRATION = Migration
 
 
-class BV3(A):
-    TYPE_ID = uuid.UUID("f1c07f5f-bf64-441d-8dc7-bbde65eb6fa2")
+class BV3(A, type_id=uuid.UUID("f1c07f5f-bf64-441d-8dc7-bbde65eb6fa2")):
 
     class Migration(mincepy.ObjectMigration):
         VERSION = 3
@@ -163,9 +155,9 @@ class BV3(A):
     LATEST_MIGRATION = Migration
 
 
-class C(B):
-    TYPE_ID = uuid.UUID("c76153c1-82d0-4048-bdbe-937889c7fac9")
+class C(B, type_id=uuid.UUID("c76153c1-82d0-4048-bdbe-937889c7fac9")):
+    pass
 
 
-class C_BV3(BV3):
-    TYPE_ID = uuid.UUID("c76153c1-82d0-4048-bdbe-937889c7fac9")
+class C_BV3(BV3, type_id=uuid.UUID("c76153c1-82d0-4048-bdbe-937889c7fac9")):
+    pass

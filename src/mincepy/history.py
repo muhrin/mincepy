@@ -105,7 +105,9 @@ def delete(*obj_or_identifier):
     return get_historian().delete(*obj_or_identifier)
 
 
-def db(type_id_or_type) -> helpers.TypeHelper:  # pylint: disable=invalid-name
+def db(
+    type_id_or_type: "mincepy.typing.TypeIdOrType",
+) -> helpers.TypeHelper:  # pylint: disable=invalid-name
     """Get the database type helper for a type.  See :py:meth:`mincepy.Historian.get_helper`"""
     return get_historian().get_helper(type_id_or_type)
 

@@ -8,8 +8,9 @@ import logging
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Sequence
 
 from pytray import tree
+from typing_extensions import override
 
-from . import archives, exceptions, operations, records, staging
+from . import exceptions, operations, records, staging
 from . import transactions  # pylint: disable=unused-import
 
 if TYPE_CHECKING:
@@ -25,7 +26,7 @@ CONTAINERS = list, dict
 class Base(metaclass=ABCMeta):
     """Common base for loader and saver"""
 
-    def __init__(self, historian):
+    def __init__(self, historian: "mincepy.Historian"):
         self._historian: "mincepy.Historian" = historian
 
     @property
@@ -34,7 +35,7 @@ class Base(metaclass=ABCMeta):
         return self._historian
 
     @property
-    def archive(self) -> archives.Archive:
+    def archive(self) -> "mincepy.Archive":
         """Get the archive of the owning historian"""
         return self._historian.archive
 
@@ -42,18 +43,18 @@ class Base(metaclass=ABCMeta):
         """Get the owning historian"""
         return self._historian
 
-    def get_archive(self) -> archives.Archive:
+    def get_archive(self) -> "mincepy.Archive":
         """Get the archive of the owning historian"""
         return self._historian.archive
 
 
-class Saver(Base, metaclass=ABCMeta):
+class Saver(Base):
     """A depositor that knows how to save records to the archive"""
 
     _extras: dict[str, dict] = {}
 
     @abstractmethod
-    def get_snapshot_id(self, obj) -> records.SnapshotId:
+    def get_snapshot_id(self, obj) -> "mincepy.SnapshotId":
         """Get a persistent reference for the given object"""
 
     def encode(self, obj, schema=None, path=()):
@@ -91,11 +92,11 @@ class Saver(Base, metaclass=ABCMeta):
         pass
 
 
-class Loader(Base, metaclass=ABCMeta):
+class Loader(Base):
     """A loader that knows how to load objects from the archive"""
 
     @abstractmethod
-    def load(self, snapshot_id: records.SnapshotId):
+    def load(self, snapshot_id: "mincepy.SnapshotId"):
         """Load an object"""
 
     def decode(
@@ -174,7 +175,7 @@ class LiveDepositor(Saver, Loader):
         super().__init__(*args, **kwargs)
         self._saving_set = set()
 
-    def get_snapshot_id(self, obj) -> Optional[records.SnapshotId]:
+    def get_snapshot_id(self, obj) -> Optional["mincepy.SnapshotId"]:
         if obj is None:
             return None
 
@@ -187,17 +188,18 @@ class LiveDepositor(Saver, Loader):
             # Then we have to save it and get the resulting reference
             return self._save_object(obj).snapshot_id  # pylint: disable=protected-access
 
-    def _get_current_snapshot_id(self, obj) -> records.SnapshotId:
+    def _get_current_snapshot_id(self, obj) -> "mincepy.SnapshotId":
         """Get the current snapshot id of an object"""
         return self._historian.current_transaction().get_snapshot_id_for_live_object(obj)
 
-    def load(self, snapshot_id: records.SnapshotId):
+    @override
+    def load(self, snapshot_id: "mincepy.SnapshotId"):
         try:
             return self._historian.get_obj(snapshot_id.obj_id)
         except exceptions.NotFound:
             return self._load_object(snapshot_id.obj_id)
 
-    def load_from_record(self, record: records.DataRecord) -> object:
+    def load_from_record(self, record: "mincepy.DataRecord") -> object:
         """Load an object from a record"""
         with self._historian.in_transaction() as trans:
 
@@ -259,7 +261,7 @@ class LiveDepositor(Saver, Loader):
 
             return obj
 
-    def update_from_record(self, obj: object, record: records.DataRecord) -> bool:
+    def update_from_record(self, obj: object, record: "mincepy.DataRecord") -> bool:
         """Do an in-place update of an object from a record"""
         historian = self.get_historian()
         helper = historian.get_helper(type(obj))
@@ -271,7 +273,7 @@ class LiveDepositor(Saver, Loader):
             helper.load_instance_state(obj, saved_state, self)
             return True
 
-    def _save_object(self, obj: object) -> records.DataRecord:
+    def _save_object(self, obj: object) -> "mincepy.DataRecord":
         historian = self._historian
 
         try:
@@ -392,7 +394,9 @@ class LiveDepositor(Saver, Loader):
 
         return extras
 
-    def _create_builder(self, helper, **additional) -> records.DataRecordBuilder:
+    def _create_builder(
+        self, helper: "mincepy.TypeHelper", **additional
+    ) -> records.DataRecordBuilder:
         """Create a record builder for a new object"""
         additional = additional or {}
 
@@ -432,10 +436,11 @@ class SnapshotLoader(Loader):
     one external call to `load` should be made.  This is because it keeps an internal
     cache."""
 
-    def __init__(self, historian):
+    def __init__(self, historian: "mincepy.Historian"):
         super().__init__(historian)
         self._snapshots: dict[records.SnapshotId, object] = {}
 
+    @override
     def load(self, snapshot_id: records.SnapshotId) -> object:
         """Load an object from its snapshot id"""
         if not isinstance(snapshot_id, records.SnapshotId):
@@ -473,7 +478,7 @@ class SnapshotLoader(Loader):
 class Migrator(Saver, SnapshotLoader):
     """A migrating depositor used to make migrations to database records"""
 
-    def get_snapshot_id(self, obj) -> records.SnapshotId:
+    def get_snapshot_id(self, obj) -> "mincepy.SnapshotId":
         try:
             return self.get_historian().get_snapshot_id(obj)
         except exceptions.NotFound:
@@ -491,8 +496,8 @@ class Migrator(Saver, SnapshotLoader):
         return self.get_historian().get_snapshot_id(obj)
 
     def migrate_records(
-        self, to_migrate: Iterable[records.DataRecord]
-    ) -> Sequence[records.DataRecord]:
+        self, to_migrate: Iterable["mincepy.DataRecord"]
+    ) -> Sequence["mincepy.DataRecord"]:
         """
         Migrate multiple records.  This call will return an iterable of those that were migrated
         """

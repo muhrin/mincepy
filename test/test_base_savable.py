@@ -8,8 +8,7 @@ from mincepy.testing import Car
 def test_save_as_ref(historian: mincepy.Historian):
     """Test the 'AsRef' functionality of BaseSavableObject"""
 
-    class Person(mincepy.SimpleSavable):
-        TYPE_ID = uuid.UUID("692429b6-a08b-489a-aa09-6eb3174b6405")
+    class Person(mincepy.SimpleSavable, type_id=uuid.UUID("692429b6-a08b-489a-aa09-6eb3174b6405")):
         ATTRS = (mincepy.AsRef("car"), "name")  # Save the car by reference
 
         def __init__(self, name: str, car):

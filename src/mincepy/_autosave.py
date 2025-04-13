@@ -14,17 +14,39 @@ TYPE_ID_PREFIX = "autosave"
 def _create_helper(obj_type: type, obj_path: str) -> "mincepy.TypeHelper":
     """Create a type helper that uses the object path as the type id"""
 
-    class AutoSavable(helpers.TypeHelper):
-        TYPE = obj_type
-        TYPE_ID = f"{TYPE_ID_PREFIX}:{obj_path}"
+    class AutoSavable(
+        helpers.TypeHelper, obj_type=obj_type, type_id=f"{TYPE_ID_PREFIX}:{obj_path}"
+    ):
+        @override
+        def save_instance_state(self, obj, saver: "mincepy.Saver", /) -> dict:
+            saved_state = _get_state(obj)
+            # Check if a superclass wants to save the state
+            super_state = {}
+            for super_type in obj_type.mro()[1:]:
+                try:
+                    helper: "mincepy.TypeHelper" = (
+                        saver.historian.type_registry.get_helper_from_obj_type(super_type)
+                    )
+                    super_state = helper.save_instance_state(obj, saver)
+                    break
+                except ValueError:
+                    pass
+            saved_state.update(super_state)
+            return saved_state
 
         @override
-        def save_instance_state(self, obj, /, *_) -> dict:
-            return _get_state(obj)
-
-        @override
-        def load_instance_state(self, obj, state: dict, /, *_) -> None:
+        def load_instance_state(self, obj, state: dict, loader: "mincepy.Loader", /) -> None:
             _set_state(obj, state)
+            # Now see if there is a superclass that wants to load the instance state
+            for super_type in obj_type.mro()[1:]:
+                try:
+                    helper: "mincepy.TypeHelper" = (
+                        loader.historian.type_registry.get_helper_from_obj_type(super_type)
+                    )
+                    helper.load_instance_state(obj, state, loader)
+                    break
+                except ValueError:
+                    pass
 
     return AutoSavable()
 

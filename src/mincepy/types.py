@@ -1,10 +1,12 @@
-from abc import ABCMeta, abstractmethod
+import abc
 import datetime
 from hashlib import blake2b
-from typing import TYPE_CHECKING, Hashable, List, Optional, Sequence, Type
+from typing import TYPE_CHECKING, Any, Optional, Sequence, Union
 import uuid
 
-from . import depositors, expr, fields, saving, tracking
+from typing_extensions import override
+
+from . import expr, fields, saving, tracking
 
 if TYPE_CHECKING:
     import mincepy
@@ -30,14 +32,31 @@ def is_primitive(obj):
     return obj.__class__ in PRIMITIVE_TYPES
 
 
-class Savable(fields.WithFields, expr.FilterLike):
+class SavableMeta(abc.ABCMeta, fields.WithFieldMeta):
+    def __new__(
+        mcs,
+        name,
+        bases,
+        attrs,
+        *,
+        type_id: Optional["mincepy.typing.TypeId"] = None,
+        immutable: bool = False,
+    ):
+        attrs["TYPE_ID"] = type_id
+        attrs["IMMUTABLE"] = immutable
+        return super().__new__(mcs, name, bases, attrs)
+
+
+class Savable(fields.WithFields, expr.FilterLike, metaclass=SavableMeta):
     """Interface for an object that can save and load its instance state"""
 
-    TYPE_ID: Hashable = None
+    TYPE_ID: "mincepy.typing.TypeId"
     LATEST_MIGRATION: Optional["mincepy.ObjectMigration"] = None
 
     def __init__(self, *args, **kwargs):
-        assert self.TYPE_ID is not None, "Must set the TYPE_ID for an object to be savable"
+        assert (
+            self.TYPE_ID is not None
+        ), f"Must set the TYPE_ID for an object `{type(self).__name__}` to be savable"
         super().__init__(*args, **kwargs)
 
     @classmethod
@@ -50,40 +69,44 @@ class Savable(fields.WithFields, expr.FilterLike):
         """This method gives savables the ability to be used in query filter expressions"""
         return cls.__expr__().__query_expr__()
 
-    def save_instance_state(self, saver: depositors.Saver):  # pylint: disable=unused-argument
+    def save_instance_state(self, saver: "mincepy.Saver", /):  # pylint: disable=unused-argument
         """Save the instance state of an object, should return a saved instance"""
         return saving.save_instance_state(self)
 
     def load_instance_state(
-        self, saved_state, loader: depositors.Loader
-    ):  # pylint: disable=unused-argument
+        # pylint: disable=unused-argument
+        self,
+        saved_state,
+        loader: "mincepy.Loader",
+        /,
+    ):
         """Take the given object and load the instance state into it"""
         saving.load_instance_state(self, saved_state)
 
 
-class Comparable(metaclass=ABCMeta):
+class Comparable(metaclass=abc.ABCMeta):
     """Interface for an object that can be compared and hashed"""
 
-    @abstractmethod
-    def __eq__(self, other) -> bool:
+    @abc.abstractmethod
+    def __eq__(self, other, /) -> bool:
         """Determine if two objects are equal"""
 
-    @abstractmethod
-    def yield_hashables(self, hasher):
+    @abc.abstractmethod
+    def yield_hashables(self, hasher, /):
         """Produce a hash representing the value"""
 
 
-class Object(Comparable, metaclass=ABCMeta):
+class Object(Comparable):  # pylint: disable=abstract-method
     """A simple object that is comparable"""
 
 
-class SavableObject(Object, Savable, metaclass=ABCMeta):
+class SavableObject(Savable, Object):
     """A class that is both savable and comparable"""
 
     _historian: "mincepy.Historian" = None
 
     @classmethod
-    def init_field(cls, obj_field: fields.Field, attr_name: str):
+    def init_field(cls, obj_field: "mincepy.fields.Field", attr_name: str):
         super().init_field(obj_field, attr_name)
         obj_field.set_query_context(expr.Comparison("type_id", expr.Eq(cls.TYPE_ID)))
         obj_field.path_prefix = "state"
@@ -92,21 +115,23 @@ class SavableObject(Object, Savable, metaclass=ABCMeta):
         super().__init__(*args, **kwargs)
         tracking.obj_created(self)
 
-    def __eq__(self, other) -> bool:
+    @override
+    def __eq__(self, other, /) -> bool:
         """Determine if two objects are equal"""
         if not isinstance(other, type(self)):
             return False
 
         return saving.save_instance_state(self) == saving.save_instance_state(other)
 
-    def yield_hashables(self, hasher):
+    @override
+    def yield_hashables(self, hasher, /):
         """Produce a hash representing the object"""
         yield from hasher.yield_hashables(saving.save_instance_state(self))
 
 
 class Equator:
     def __init__(self, equators: Sequence["mincepy.TypeHelper"] = tuple()):
-        self._equators: List["mincepy.TypeHelper"] = []
+        self._equators: list["mincepy.TypeHelper"] = []
 
         def do_hash(*args):
             hasher = blake2b(digest_size=32)
@@ -187,11 +212,18 @@ class Equator:
         return fmt.format(value)
 
 
-def is_savable_type(obj_type: Type) -> bool:
+def is_savable_type(obj_type: type) -> bool:
     return issubclass(obj_type, SavableObject) and obj_type.TYPE_ID is not None
 
 
-def savable_mro(obj_type: Type[SavableObject]) -> list[Type[SavableObject]]:
+def savable_mro(obj_type: type[SavableObject]) -> list[type[SavableObject]]:
     """Given a SavableObject type this will give the mro of the savable types in the hierarchy"""
     mro = obj_type.mro()
     return list(filter(is_savable_type, mro))
+
+
+def is_subclass(to_test: Any, of_what: Union[type, tuple[type]]) -> bool:
+    try:
+        return issubclass(to_test, of_what)
+    except TypeError:
+        return False

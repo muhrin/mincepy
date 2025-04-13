@@ -5,11 +5,17 @@ import argparse
 import collections
 import collections.abc
 import pathlib
+from typing import TYPE_CHECKING
 import uuid
+
+from typing_extensions import override
 
 from . import base_savable, helpers, records, refs, type_ids, types
 from .files import BaseFile, File
 from .utils import sync
+
+if TYPE_CHECKING:
+    import mincepy
 
 __all__ = (
     "List",
@@ -36,7 +42,8 @@ class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
     # on when it might be useful
     DATA_TYPE: type = None
 
-    def save_instance_state(self, saver):
+    @override
+    def save_instance_state(self, saver: "mincepy.Saver", /):
         # This is a convenient way of storing primitive data types directly as the state
         # rather than having to be a 'data' member of a dictionary.  This makes it much
         # easier to search these types
@@ -48,7 +55,8 @@ class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
 
         return super().save_instance_state(saver)
 
-    def load_instance_state(self, saved_state, loader):
+    @override
+    def load_instance_state(self, saved_state, loader: "mincepy.Loader", /):
         # See save_instance_state
         if self.DATA_TYPE is not None and issubclass(
             self.DATA_TYPE, loader.get_historian().primitives
@@ -59,10 +67,8 @@ class _UserType(base_savable.SimpleSavable, metaclass=ABCMeta):
             super().load_instance_state(saved_state, loader)
 
 
-class ObjProxy(_UserType):
+class ObjProxy(_UserType, type_id=uuid.UUID("d43c2db5-1e8c-428f-988f-8b198accde47")):
     """A simple proxy for any object/data type which can also be a primitive"""
-
-    TYPE_ID = uuid.UUID("d43c2db5-1e8c-428f-988f-8b198accde47")
 
     def __init__(self, data=None):
         super().__init__()
@@ -75,8 +81,9 @@ class ObjProxy(_UserType):
         self.data = value
 
 
-class Str(collections.UserString, _UserType):
-    TYPE_ID = uuid.UUID("350f3634-4a6f-4d35-b229-71238ce9727d")
+class Str(
+    collections.UserString, _UserType, type_id=uuid.UUID("350f3634-4a6f-4d35-b229-71238ce9727d")
+):
     DATA_TYPE = str
 
     def __init__(self, seq):
@@ -111,8 +118,9 @@ class Reffer:
 # region lists
 
 
-class List(collections.UserList, _UserType):
-    TYPE_ID = uuid.UUID("2b033f70-168f-4412-99ea-d1f131e3a25a")
+class List(
+    collections.UserList, _UserType, type_id=uuid.UUID("2b033f70-168f-4412-99ea-d1f131e3a25a")
+):
     DATA_TYPE = list
 
     def __init__(self, initlist=None):
@@ -120,10 +128,14 @@ class List(collections.UserList, _UserType):
         _UserType.__init__(self)
 
 
-class RefList(collections.abc.MutableSequence, Reffer, _UserType):
+class RefList(
+    collections.abc.MutableSequence,
+    Reffer,
+    _UserType,
+    type_id=uuid.UUID("091efff5-136d-4ac2-bd59-28f50f151263"),
+):
     """A list that stores all entries as references in the database except primitives"""
 
-    TYPE_ID = uuid.UUID("091efff5-136d-4ac2-bd59-28f50f151263")
     DATA_TYPE = list
 
     def __init__(self, init_list=None):
@@ -153,10 +165,12 @@ class RefList(collections.abc.MutableSequence, Reffer, _UserType):
         self.data.insert(index, self._ref(value))
 
 
-class LiveList(collections.abc.MutableSequence, _UserType):
+class LiveList(
+    collections.abc.MutableSequence,
+    _UserType,
+    type_id=uuid.UUID("c83e6206-cd29-4fda-bf76-11fce1681cd9"),
+):
     """A list that is always in sync with the database"""
-
-    TYPE_ID = uuid.UUID("c83e6206-cd29-4fda-bf76-11fce1681cd9")
 
     def __init__(self, init_list=None):
         super().__init__()
@@ -200,10 +214,8 @@ class LiveList(collections.abc.MutableSequence, _UserType):
         return ObjProxy(obj)
 
 
-class LiveRefList(Reffer, LiveList):
+class LiveRefList(Reffer, LiveList, type_id=uuid.UUID("98454806-c587-4fcc-a514-65fdefb0180d")):
     """A live list that uses references to store objects"""
-
-    TYPE_ID = uuid.UUID("98454806-c587-4fcc-a514-65fdefb0180d")
 
     @sync()
     def __getitem__(self, item):
@@ -227,8 +239,9 @@ class LiveRefList(Reffer, LiveList):
 # region Dicts
 
 
-class Dict(collections.UserDict, _UserType):
-    TYPE_ID = uuid.UUID("a7584078-95b6-4e00-bb8a-b077852ca510")
+class Dict(
+    collections.UserDict, _UserType, type_id=uuid.UUID("a7584078-95b6-4e00-bb8a-b077852ca510")
+):
     DATA_TYPE = dict
 
     def __init__(self, *args, **kwarg):
@@ -236,10 +249,14 @@ class Dict(collections.UserDict, _UserType):
         _UserType.__init__(self)
 
 
-class RefDict(collections.abc.MutableMapping, Reffer, _UserType):
+class RefDict(
+    collections.abc.MutableMapping,
+    Reffer,
+    _UserType,
+    type_id=uuid.UUID("c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0"),
+):
     """A dictionary that stores all values as references in the database."""
 
-    TYPE_ID = uuid.UUID("c95f4c4e-766b-4dda-a43c-5fca4fd7bdd0")
     DATA_TYPE = dict
 
     def __init__(self, *args, **kwargs):
@@ -269,8 +286,11 @@ class RefDict(collections.abc.MutableMapping, Reffer, _UserType):
         return self.data.__len__()
 
 
-class LiveDict(collections.abc.MutableMapping, _UserType):
-    TYPE_ID = uuid.UUID("740cc832-721c-4f85-9628-706257eb55b9")
+class LiveDict(
+    collections.abc.MutableMapping,
+    _UserType,
+    type_id=uuid.UUID("740cc832-721c-4f85-9628-706257eb55b9"),
+):
     DATA_TYPE = RefDict
 
     def __init__(self, *args, **kwargs):
@@ -316,10 +336,8 @@ class LiveDict(collections.abc.MutableMapping, _UserType):
         return ObjProxy(value)
 
 
-class LiveRefDict(Reffer, LiveDict):
+class LiveRefDict(Reffer, LiveDict, type_id=uuid.UUID("16e7e814-8268-46e0-8d8e-6f34132366b9")):
     """A live dictionary that uses references to refer to contained objects"""
-
-    TYPE_ID = uuid.UUID("16e7e814-8268-46e0-8d8e-6f34132366b9")
 
     def __init__(self, *args, **kwargs):
         super().__init__()
@@ -352,16 +370,17 @@ class LiveRefDict(Reffer, LiveDict):
         return ObjProxy(self._ref(value))
 
 
-class OrderedDictHelper(helpers.BaseHelper):
+class OrderedDictHelper(
+    helpers.BaseHelper,
+    obj_type=collections.OrderedDict,
+    type_id=uuid.UUID("9e7714f8-8ecf-466f-a0e1-6c9fc1d92f51"),
+):
     """
     Enable saving of OrderedDicts.  In the database, these will be stored as a list of (key, value)
     pairs and hence preserve the order.
     """
 
-    TYPE = collections.OrderedDict
-    TYPE_ID = uuid.UUID("9e7714f8-8ecf-466f-a0e1-6c9fc1d92f51")
-
-    def yield_hashables(self, obj: collections.OrderedDict, hasher):
+    def yield_hashables(self, obj: collections.OrderedDict, hasher, /):
         for entry in obj.items():
             yield from hasher.yield_hashables(entry)
 
@@ -375,11 +394,10 @@ class OrderedDictHelper(helpers.BaseHelper):
 # endregion
 
 
-class SetHelper(helpers.BaseHelper):
-    TYPE = set
-    TYPE_ID = uuid.UUID("3fb0db0e-e095-4829-928f-f72be46ff975")
-
-    def yield_hashables(self, obj: set, hasher):
+class SetHelper(
+    helpers.BaseHelper, obj_type=set, type_id=uuid.UUID("3fb0db0e-e095-4829-928f-f72be46ff975")
+):
+    def yield_hashables(self, obj: set, hasher, /):
         # Yield hashes for all entries
         for entry in obj:
             yield from hasher.yield_hashables(entry)
@@ -391,25 +409,28 @@ class SetHelper(helpers.BaseHelper):
         return obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
 
 
-class SnapshotIdHelper(helpers.TypeHelper):
+class SnapshotIdHelper(
+    helpers.TypeHelper, obj_type=records.SnapshotId, type_id=type_ids.SNAPSHOT_ID_TYPE_ID
+):
     """Add ability to store references"""
 
-    TYPE = records.SnapshotId
-    TYPE_ID = type_ids.SNAPSHOT_ID_TYPE_ID
-
-    def eq(self, one, other):  # pylint: disable=invalid-name
+    @override
+    def eq(self, one, other, /):  # pylint: disable=invalid-name
         if not (isinstance(one, records.SnapshotId) and isinstance(other, records.SnapshotId)):
             return False
 
         return one.obj_id == other.obj_id and one.version == other.version
 
-    def yield_hashables(self, obj, hasher):
+    @override
+    def yield_hashables(self, obj, hasher, /):
         yield from hasher.yield_hashables(obj.obj_id)
         yield from hasher.yield_hashables(obj.version)
 
+    @override
     def save_instance_state(self, obj, /, *_):
         return obj.to_dict()
 
+    @override
     def load_instance_state(self, obj, saved_state, /, *_):
         if isinstance(saved_state, list):
             # Legacy version
@@ -419,53 +440,67 @@ class SnapshotIdHelper(helpers.TypeHelper):
             obj.__init__(**saved_state)  # pylint: disable=unnecessary-dunder-call
 
 
-class PathHelper(helpers.BaseHelper):
-    TYPE = pathlib.Path
-    TYPE_ID = uuid.UUID("78e5c6b8-f194-41ae-aead-b231953318e1")
-    IMMUTABLE = True
-
-    def yield_hashables(self, obj: pathlib.Path, hasher):
+class PathHelper(
+    helpers.BaseHelper,
+    obj_type=(pathlib.Path, pathlib.PosixPath, pathlib.WindowsPath),
+    type_id=uuid.UUID("78e5c6b8-f194-41ae-aead-b231953318e1"),
+    immutable=True,
+):
+    @override
+    def yield_hashables(self, obj: pathlib.Path, hasher, /):
         yield from hasher.yield_hashables(str(obj))
 
+    @override
     def save_instance_state(self, obj: pathlib.Path, /, *_):
         return str(obj)
 
-    def new(self, encoded_saved_state):
+    @override
+    def new(self, encoded_saved_state, /) -> pathlib.Path:
         return pathlib.Path(encoded_saved_state)
 
+    @override
     def load_instance_state(self, obj: pathlib.Path, saved_state, /, *_):
-        pass  # Done it all in new
+        pass  # Done it all in new()
 
 
-class TupleHelper(helpers.BaseHelper):
-    TYPE = tuple
-    TYPE_ID = uuid.UUID("fd9d2f50-71d6-4e70-90b7-117f23d9cbaf")
-    IMMUTABLE = True
-
+class TupleHelper(
+    helpers.BaseHelper,
+    obj_type=tuple,
+    type_id=uuid.UUID("fd9d2f50-71d6-4e70-90b7-117f23d9cbaf"),
+    immutable=True,
+):
+    @override
     def save_instance_state(self, obj: tuple, /, *_):
         return list(obj)
 
-    def new(self, encoded_saved_state):
+    @override
+    def new(self, encoded_saved_state, /):
         return self.TYPE(encoded_saved_state)
 
+    @override
     def load_instance_state(self, obj: pathlib.Path, saved_state, /, *_):
         pass  # Done it all in new
 
-    def yield_hashables(self, obj, hasher):
+    @override
+    def yield_hashables(self, obj, hasher, /):
         for entry in obj:
             yield from hasher.yield_hashables(entry)
 
 
-class NamespaceHelper(helpers.BaseHelper):
-    TYPE = argparse.Namespace
-    TYPE_ID = uuid.UUID("c43f8329-0d68-4d12-9a35-af8f5ecc4f90")
-
-    def yield_hashables(self, obj, hasher):
+class NamespaceHelper(
+    helpers.BaseHelper,
+    obj_type=argparse.Namespace,
+    type_id=uuid.UUID("c43f8329-0d68-4d12-9a35-af8f5ecc4f90"),
+):
+    @override
+    def yield_hashables(self, obj, hasher, /):
         yield from hasher.yield_hashables(vars(obj))
 
+    @override
     def save_instance_state(self, obj, /, *_):
         return vars(obj)
 
+    @override
     def load_instance_state(self, obj, saved_state, /, *_):
         obj.__init__(**saved_state)  # pylint: disable=unnecessary-dunder-call
 

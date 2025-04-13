@@ -1,10 +1,11 @@
-from abc import ABCMeta
+from collections.abc import Hashable
 import logging
 from typing import TYPE_CHECKING, Optional, Sequence, Union
 
 import pytray.pretty
+from typing_extensions import override
 
-from . import depositors, exceptions, expr, fields, migrations, saving, tracking
+from . import exceptions, expr, fields, migrations, saving, tracking, types
 
 if TYPE_CHECKING:
     import mincepy
@@ -34,14 +35,30 @@ def remove_creation_tracking(cls: type):
         pass
 
 
-class TypeHelper(fields.WithFields):
+class HelperMeta(types.SavableMeta):
+    def __new__(
+        # pylint: disable=signature-differs
+        mcs,
+        name,
+        bases,
+        attrs,
+        *,
+        obj_type: Union[type, tuple[type]],
+        type_id: Optional[Hashable],
+        immutable: bool = False,
+    ):
+        attrs["TYPE"] = obj_type
+        return super().__new__(mcs, name, bases, attrs, type_id=type_id, immutable=immutable)
+
+
+class TypeHelper(fields.WithFields, metaclass=HelperMeta, obj_type=None, type_id=None):
     """This interface provides the basic methods necessary to enable a type to be compatible with
     the historian."""
 
     #: The type this helper corresponds to
-    TYPE: Union[type, tuple[type]] = None
-    TYPE_ID = None  # The unique id for this type of object
-    IMMUTABLE = False  # If set to true then the object is decoded straight away
+    TYPE: Union[type, tuple[type]]
+    TYPE_ID: Hashable  # The unique id for this type of object
+    IMMUTABLE: bool  # If set to true then the object is decoded straight away
     INJECT_CREATION_TRACKING = False
     # The latest migration, if there is one
     LATEST_MIGRATION: "mincepy.ObjectMigration" = None
@@ -70,7 +87,7 @@ class TypeHelper(fields.WithFields):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({repr(self.TYPE)})"
 
-    def new(self, encoded_saved_state):  # pylint: disable=unused-argument
+    def new(self, encoded_saved_state, /):  # pylint: disable=unused-argument
         """Create a new blank object of this type"""
         if isinstance(self.TYPE, tuple):
             obj_type = self.TYPE[0]  # pylint: disable=unsubscriptable-object
@@ -79,11 +96,11 @@ class TypeHelper(fields.WithFields):
 
         return obj_type.__new__(obj_type)
 
-    def yield_hashables(self, obj: object, hasher):
+    def yield_hashables(self, obj: object, hasher, /):
         """Yield values from this object that should be included in its hash"""
         yield from hasher.yield_hashables(saving.save_instance_state(obj, type(self)))
 
-    def eq(self, one, other) -> bool:  # pylint: disable=invalid-name
+    def eq(self, one, other, /) -> bool:  # pylint: disable=invalid-name
         """Determine if two objects are equal"""
         if not isinstance(  # pylint: disable=isinstance-second-argument-not-valid-type
             one, self.TYPE
@@ -96,7 +113,13 @@ class TypeHelper(fields.WithFields):
             other, type(self)
         )
 
-    def save_instance_state(self, obj, saver, /):  # pylint: disable=unused-argument
+    def save_instance_state(
+        # pylint: disable=unused-argument
+        self,
+        obj,
+        saver: "mincepy.Saver",
+        /,
+    ):
         """Save the instance state of an object, should return a saved instance"""
         return saving.save_instance_state(obj, type(self))
 
@@ -105,7 +128,7 @@ class TypeHelper(fields.WithFields):
         self,
         obj,
         saved_state,
-        loader: depositors.Loader,
+        loader: "mincepy.Loader",
         /,
     ):
         """Take the given blank object and load the instance state into it"""
@@ -125,7 +148,7 @@ class TypeHelper(fields.WithFields):
 
         return version
 
-    def ensure_up_to_date(self, saved_state, version: Optional[int], loader: depositors.Loader):
+    def ensure_up_to_date(self, saved_state, version: Optional[int], loader: "mincepy.Loader"):
         """Apply any migrations that are necessary to this saved state.  If no migrations are
         necessary then None is returned"""
         latest_version = None if self.LATEST_MIGRATION is None else self.LATEST_MIGRATION.VERSION
@@ -183,19 +206,21 @@ class TypeHelper(fields.WithFields):
         return to_apply
 
 
-class BaseHelper(TypeHelper, metaclass=ABCMeta):
+class BaseHelper(TypeHelper, obj_type=None, type_id=None):
     """A base helper that defaults to yielding hashables directly on the object
     and testing for equality using == given two objects.  This behaviour is fairly
     standard and therefore most type helpers will want to subclass from this class."""
 
-    def yield_hashables(self, obj, hasher):
+    @override
+    def yield_hashables(self, obj, hasher, /):
         yield from hasher.yield_hashables(obj)
 
-    def eq(self, one, other) -> bool:
+    @override
+    def eq(self, one, other, /) -> bool:
         return one == other
 
 
-class WrapperHelper(TypeHelper):
+class WrapperHelper(TypeHelper, obj_type=None, type_id=None):
     """Wraps up an object type to perform the necessary Historian actions"""
 
     # pylint: disable=invalid-name
@@ -209,14 +234,18 @@ class WrapperHelper(TypeHelper):
     def __repr__(self) -> str:
         return f"WrapperHelper({repr(self.TYPE)})"
 
-    def yield_hashables(self, obj, hasher):
+    @override
+    def yield_hashables(self, obj, hasher, /):
         yield from self.TYPE.yield_hashables(obj, hasher)
 
-    def eq(self, one, other) -> bool:
+    @override
+    def eq(self, one, other, /) -> bool:
         return self.TYPE.__eq__(one, other)  # pylint: disable=unnecessary-dunder-call
 
+    @override
     def save_instance_state(self, obj: "mincepy.Savable", saver, /):
         return self.TYPE.save_instance_state(obj, saver)
 
+    @override
     def load_instance_state(self, obj, saved_state: "mincepy.Savable", loader, /):
         self.TYPE.load_instance_state(obj, saved_state, loader)

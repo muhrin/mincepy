@@ -38,8 +38,7 @@ def test_find_migratable(historian: mincepy.Historian):
 def test_migrate_with_saved(historian: mincepy.Historian):
     """Test migrating an object that has saved references"""
 
-    class V3(mincepy.ConvenientSavable):
-        TYPE_ID = StoreByRef.TYPE_ID
+    class V3(mincepy.ConvenientSavable, type_id=StoreByRef.TYPE_ID):
         ref = mincepy.field(ref=True)
         description = mincepy.field()
 

@@ -29,3 +29,19 @@ def test_autosave_historian(historian):
     loaded = historian.load(obj_id)
     assert isinstance(loaded, testing.Sphere)
     assert loaded.radius == 3.14
+
+
+def test_autosave_subclassing(historian):
+    # By default, a subclass of a registered type (i.e. `Car`) is not, by default, savable
+    with pytest.raises(ValueError):
+        historian.type_registry.get_helper(testing.NamedSolarSystem)
+
+    earth_sun = testing.NamedSolarSystem("earth-sun", testing.Sphere(10))
+    sun = earth_sun.sun
+    historian.save(sun)
+    obj_id = historian.save(earth_sun)
+    del earth_sun
+
+    loaded = historian.load(obj_id)
+    assert isinstance(loaded, testing.NamedSolarSystem)
+    assert loaded.sun is sun

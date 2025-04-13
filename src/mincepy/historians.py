@@ -526,7 +526,9 @@ class Historian(
     def get_obj_type(self, type_id) -> type:
         return self.get_helper(type_id).TYPE
 
-    def get_helper(self, type_id_or_type, auto_register=False) -> helpers.TypeHelper:
+    def get_helper(
+        self, type_id_or_type: "mincepy.typing.TypeIdOrType", auto_register=False
+    ) -> helpers.TypeHelper:
         if (
             auto_register
             and issubclass(type_id_or_type, types.SavableObject)

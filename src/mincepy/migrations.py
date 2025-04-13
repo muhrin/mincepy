@@ -1,8 +1,10 @@
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 import pytray.pretty
 
-from . import depositors  # pylint: disable=unused-import
+if TYPE_CHECKING:
+    import mincepy
+
 
 __all__ = "ObjectMigration", "ObjectMigrationMeta"
 
@@ -37,7 +39,7 @@ class ObjectMigration(metaclass=ObjectMigrationMeta):
     PREVIOUS = None  # type: Optional[ObjectMigration]
 
     @classmethod
-    def upgrade(cls, saved_state, loader: depositors.Loader) -> Any:
+    def upgrade(cls, saved_state, loader: "mincepy.Loader") -> Any:
         """
         This method should take the saved state, which will have been created with the previous
         version, and return a new saved state that is compatible with this version.

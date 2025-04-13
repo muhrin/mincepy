@@ -453,8 +453,10 @@ def test_primitive_subtypes(historian: mincepy.Historian):
     from the database.
     """
 
-    class DictSubclass(dict, mincepy.BaseSavableObject):
-        TYPE_ID = uuid.UUID("67a939ee-4be6-4006-ac77-fd1dbf3b0642")
+    class DictSubclass(
+        dict, mincepy.BaseSavableObject, type_id=uuid.UUID("67a939ee-4be6-4006-ac77-fd1dbf3b0642")
+    ):
+        pass
 
     custom_dict = DictSubclass()
     assert not historian.is_primitive(custom_dict)

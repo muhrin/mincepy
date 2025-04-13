@@ -1,6 +1,9 @@
 """Module for mincepy object references"""
 
-from typing import TYPE_CHECKING, Optional
+from collections.abc import Hashable
+from typing import TYPE_CHECKING, Iterator, Optional
+
+from typing_extensions import override
 
 from . import exceptions, records, type_ids, types
 
@@ -10,11 +13,8 @@ if TYPE_CHECKING:
 __all__ = ("ObjRef", "ref")
 
 
-class ObjRef(types.SavableObject):
+class ObjRef(types.SavableObject, type_id=type_ids.OBJ_REF_TYPE_ID, immutable=True):
     """A reference to an object instance"""
-
-    TYPE_ID = type_ids.OBJ_REF_TYPE_ID
-    IMMUTABLE = True
 
     _obj = None
     _sid: Optional["mincepy.SnapshotId"] = None
@@ -74,14 +74,16 @@ class ObjRef(types.SavableObject):
 
         return self._sid == other._sid
 
-    def yield_hashables(self, hasher):
+    @override
+    def yield_hashables(self, hasher, /) -> Iterator[Hashable]:
         if self._obj is not None:
             yield from hasher.yield_hashables(id(self._obj))
         else:
             # This will also work if ref is None
             yield from hasher.yield_hashables(self._sid)
 
-    def save_instance_state(self, saver):
+    @override
+    def save_instance_state(self, saver: "mincepy.Saver", /):
         if self._obj is not None:
             sid = saver.get_snapshot_id(self._obj)
         else:
@@ -92,7 +94,8 @@ class ObjRef(types.SavableObject):
 
         return None
 
-    def load_instance_state(self, saved_state, loader):
+    @override
+    def load_instance_state(self, saved_state, loader: "mincepy.Loader", /):
         super().load_instance_state(saved_state, loader)
         # Rely on class default values for members
         if saved_state is not None:

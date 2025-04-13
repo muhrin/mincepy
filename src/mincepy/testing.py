@@ -11,6 +11,7 @@ import uuid
 import weakref
 
 import bson
+from typing_extensions import override
 
 import mincepy
 
@@ -19,7 +20,6 @@ logger = logging.getLogger(__name__)
 ENV_ARCHIVE_URI = "MINCEPY_TEST_URI"
 ENV_ARCHIVE_BASE_URI = "MINCEPY_TEST_BASE_URI"
 DEFAULT_ARCHIVE_URI = "mongodb://localhost/mincepy-tests"
-# DEFAULT_ARCHIVE_URI = 'mongomock://localhost/mincepy-tests'
 DEFAULT_ARCHIVE_BASE_URI = "mongodb://127.0.0.1"
 
 
@@ -97,8 +97,7 @@ except ImportError:
     logger.debug("pytest fixtures missing because pytest isn't installed")
 
 
-class Car(mincepy.ConvenientSavable):
-    TYPE_ID = bson.ObjectId("5e075d6244572f823ed93274")
+class Car(mincepy.ConvenientSavable, type_id=bson.ObjectId("5e075d6244572f823ed93274")):
     colour = mincepy.field()
     make = mincepy.field()
 
@@ -117,24 +116,24 @@ class Car(mincepy.ConvenientSavable):
         return f"{self.__class__.__name__}({repr(self.make)}, {repr(self.colour)})"
 
 
-class Garage(mincepy.ConvenientSavable):
-    TYPE_ID = bson.ObjectId("5e07b40a44572f823ed9327b")
+class Garage(mincepy.ConvenientSavable, type_id=bson.ObjectId("5e07b40a44572f823ed9327b")):
     car = mincepy.field()
 
     def __init__(self, car=None):
         super().__init__()
         self.car = car
 
-    def save_instance_state(self, saver: mincepy.Saver):
+    @override
+    def save_instance_state(self, saver: mincepy.Saver, /):
         state = super().save_instance_state(saver)
         return state
 
+    @override
     def __repr__(self):
         return f"{self.__class__.__name__}({repr(self.car)})"
 
 
-class Person(mincepy.ConvenientSavable):
-    TYPE_ID = uuid.UUID("d60ca740-9fa6-4002-83f6-e4c91403e41b")
+class Person(mincepy.ConvenientSavable, type_id=uuid.UUID("d60ca740-9fa6-4002-83f6-e4c91403e41b")):
     name = mincepy.field()
     age = mincepy.field()
     car = mincepy.field(ref=True)
@@ -149,8 +148,7 @@ class Person(mincepy.ConvenientSavable):
         return f"{self.__class__.__name__}({repr(self.name)}, {repr(self.age)},  {repr(self.car)})"
 
 
-class Cycle(mincepy.ConvenientSavable):
-    TYPE_ID = uuid.UUID("600fb6ae-684c-4f8e-bed3-47ae06739d29")
+class Cycle(mincepy.ConvenientSavable, type_id=uuid.UUID("600fb6ae-684c-4f8e-bed3-47ae06739d29")):
     _ref = mincepy.field()
 
     def __init__(self, ref=None):
@@ -165,10 +163,12 @@ class Cycle(mincepy.ConvenientSavable):
     def ref(self, value):
         self._ref = mincepy.ObjRef(value)
 
+    @override
     def __eq__(self, other):
         return self.ref is other.ref
 
-    def yield_hashables(self, hasher):
+    @override
+    def yield_hashables(self, hasher, /):
         yield from hasher.yield_hashables(id(self.ref))
 
 
@@ -177,6 +177,32 @@ class Sphere:
 
     def __init__(self, radius):
         self.radius = radius
+
+
+class SolarSystem:
+    def __init__(self, sun: Sphere):
+        self.sun = sun
+
+
+class NamedSolarSystem(SolarSystem):
+    def __init__(self, name: str, sun: Sphere):
+        super().__init__(sun)
+        self.name = name
+
+
+class SolarSystemHelper(
+    mincepy.TypeHelper,
+    obj_type=SolarSystem,
+    type_id=uuid.UUID("237f13c3-6ab7-4e96-ace4-65c2fed33c39"),
+):
+    sun = mincepy.field(ref=True)
+
+
+# class NamedSphere(Sphere):
+#     """A sphere subclass that has a name"""
+#     def __init__(self, name="sphere", radius=1.0):
+#         super().__init__(radius=radius)
+#         self.name = name
 
 
 def populate(historian=None):
@@ -256,4 +282,4 @@ def _do_create_and_save(historian: mincepy.Historian, factory, *args, **kwargs):
     return obj_id, obj_type
 
 
-HISTORIAN_TYPES = Car, Garage, Person, Cycle
+HISTORIAN_TYPES = Car, Garage, Person, Cycle, SolarSystemHelper

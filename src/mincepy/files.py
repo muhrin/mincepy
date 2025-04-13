@@ -3,18 +3,19 @@ import shutil
 import tempfile
 from typing import BinaryIO, Optional, TextIO, Union
 
+from typing_extensions import override
+
 from . import base_savable, fields, type_ids
 
 __all__ = "File", "BaseFile"
 
 
-class File(base_savable.SimpleSavable):
+class File(base_savable.SimpleSavable, type_id=type_ids.FILE_TYPE_ID):
     """
     A mincePy file object.  These should not be instantiated directly but using
     `Historian.create_file()`
     """
 
-    TYPE_ID = type_ids.FILE_TYPE_ID
     READ_SIZE = 256  # The number of bytes to read at a time
 
     def __init__(self, file_store, filename: str = None, encoding=None):
@@ -76,14 +77,16 @@ class File(base_savable.SimpleSavable):
         with self.open("r", encoding=encoding) as fileobj:
             return fileobj.read()
 
-    def save_instance_state(self, saver):
+    @override
+    def save_instance_state(self, saver, /):
         filename = self.filename or ""
         with open(self._buffer_file, "rb") as fstream:
             self._file_id = self._file_store.upload_from_stream(filename, fstream)
 
         return super().save_instance_state(saver)
 
-    def load_instance_state(self, saved_state, loader):
+    @override
+    def load_instance_state(self, saved_state, loader, /):
         super().load_instance_state(saved_state, loader)
         self._file_store = loader.get_archive().file_store
         # Don't copy the file over now, do it lazily when the file is first opened
@@ -101,12 +104,14 @@ class File(base_savable.SimpleSavable):
         with open(self._buffer_file, "wb") as fstream:
             self._file_store.download_to_stream(self._file_id, fstream)
 
+    @override
     def __str__(self):
         contents = [str(self._filename)]
         if self._encoding is not None:
             contents.append(f"({self._encoding})")
         return " ".join(contents)
 
+    @override
     def __eq__(self, other) -> bool:
         """Compare the contents of two files
 
@@ -138,7 +143,8 @@ class File(base_savable.SimpleSavable):
             except FileNotFoundError:
                 return True
 
-    def yield_hashables(self, hasher):
+    @override
+    def yield_hashables(self, hasher, /):
         """Hash the contents of the file"""
         try:
             with self.open("rb") as opened:

@@ -2,6 +2,8 @@ import collections
 import typing
 from typing import TYPE_CHECKING, Optional, cast
 
+from typing_extensions import override
+
 from . import refs, types
 
 if TYPE_CHECKING:
@@ -33,6 +35,7 @@ class BaseSavableObject(types.SavableObject):
     # When loading ignore attributes that are missing in the record
     IGNORE_MISSING = True
 
+    @override
     def __new__(cls, *_args, **_kwargs):
         new_instance = super(BaseSavableObject, cls).__new__(cls)
         attrs = {}
@@ -54,6 +57,7 @@ class BaseSavableObject(types.SavableObject):
         setattr(new_instance, "__attrs", tuple(attrs.values()))
         return new_instance
 
+    @override
     def __eq__(self, other):
         if not isinstance(other, type(self)):
             return False
@@ -62,11 +66,13 @@ class BaseSavableObject(types.SavableObject):
             getattr(self, attr.name) == getattr(other, attr.name) for attr in self.__get_attrs()
         )
 
-    def yield_hashables(self, hasher):
+    @override
+    def yield_hashables(self, hasher, /):
         yield from super().yield_hashables(hasher)
         yield from hasher.yield_hashables([getattr(self, attr.name) for attr in self.__get_attrs()])
 
-    def save_instance_state(self, saver) -> dict:
+    @override
+    def save_instance_state(self, saver: "mincepy.Saver", /) -> dict:
         saved_state = super().save_instance_state(saver)
         for attr in self.__get_attrs():
             item = getattr(self, attr.name)
@@ -76,7 +82,8 @@ class BaseSavableObject(types.SavableObject):
 
         return saved_state
 
-    def load_instance_state(self, saved_state, loader):
+    @override
+    def load_instance_state(self, saved_state, loader: "mincepy.Loader", /):
         super().load_instance_state(saved_state, loader)
         for attr in self.__get_attrs():
             try:
@@ -152,11 +159,11 @@ class ConvenienceMixin:
         if self._historian is not None:
             self._historian.sync(self)
 
-    def save_instance_state(self, saver: "mincepy.Saver"):
+    def save_instance_state(self, saver: "mincepy.Saver", /):
         self._on_save(saver)
         return cast(types.Savable, super()).save_instance_state(saver)
 
-    def load_instance_state(self, saved_state, loader: "mincepy.Loader"):
+    def load_instance_state(self, saved_state, loader: "mincepy.Loader", /):
         """Take the given object and load the instance state into it"""
         cast(types.Savable, super()).load_instance_state(saved_state, loader)
         self._on_load(loader)

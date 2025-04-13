@@ -1,7 +1,6 @@
 """Module that contains methods and classes for dealing with database storable attributes of
 objects"""
 
-import abc
 from typing import Type
 
 from . import expr
@@ -202,7 +201,7 @@ def field(
     return Field(properties)
 
 
-class WithFieldMeta(abc.ABCMeta):
+class WithFieldMeta(type):
     """Metaclass for database types"""
 
     def __init__(cls, name, bases, namespace, *args, **kwargs):

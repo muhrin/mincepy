@@ -18,10 +18,9 @@ def test_type_helper(historian: mincepy.Historian):
         def __init__(self, specie="hoopoe"):
             self.specie = specie
 
-    class BirdHelper(mincepy.TypeHelper):
-        TYPE = Bird
-        TYPE_ID = uuid.UUID("5cc59e03-ea5d-43ff-8814-3b6f2e22cd76")
-
+    class BirdHelper(
+        mincepy.TypeHelper, obj_type=Bird, type_id=uuid.UUID("5cc59e03-ea5d-43ff-8814-3b6f2e22cd76")
+    ):
         specie = mincepy.field()
 
     bird = Bird()
@@ -41,9 +40,11 @@ def test_transaction_snapshots(historian: mincepy.Historian):
         def __init__(self, name):
             self.name = name
 
-    class PersonHelper(mincepy.TypeHelper):
-        TYPE_ID = uuid.UUID("62d8c767-14bc-4437-a9a3-ca5d0ce65d9b")
-        TYPE = ThirdPartyPerson
+    class PersonHelper(
+        mincepy.TypeHelper,
+        obj_type=ThirdPartyPerson,
+        type_id=uuid.UUID("62d8c767-14bc-4437-a9a3-ca5d0ce65d9b"),
+    ):
         INJECT_CREATION_TRACKING = True
 
         def yield_hashables(self, obj, hasher):
@@ -77,10 +78,9 @@ class Boat:
         self.owner = owner
 
 
-class BoatHelper(mincepy.TypeHelper):
-    TYPE_ID = uuid.UUID("4d82b67a-dbcb-4388-b20e-8542c70491d1")
-    TYPE = Boat
-
+class BoatHelper(
+    mincepy.TypeHelper, obj_type=Boat, type_id=uuid.UUID("4d82b67a-dbcb-4388-b20e-8542c70491d1")
+):
     # Describe how to store the properties
     make = mincepy.field()
     length = mincepy.field()
@@ -109,7 +109,6 @@ def test_simple_helper(historian: mincepy.Historian):
 
 
 class Powerboat(Boat):
-    TYPE_ID = uuid.UUID("924ef5b2-ce20-40b0-8c98-4da470f6c2c3")
     horsepower = mincepy.field()
 
     def __init__(self, make: str, length: float, horsepower: float, owner: testing.Person = None):
@@ -117,9 +116,9 @@ class Powerboat(Boat):
         self.horsepower = horsepower
 
 
-class PowerboatHelper(BoatHelper):
-    TYPE_ID = uuid.UUID("924ef5b2-ce20-40b0-8c98-4da470f6c2c3")
-    TYPE = Powerboat
+class PowerboatHelper(
+    BoatHelper, obj_type=Powerboat, type_id=uuid.UUID("924ef5b2-ce20-40b0-8c98-4da470f6c2c3")
+):
 
     horsepower = mincepy.field()
 

@@ -21,7 +21,7 @@ from . import (
     process,
 )
 from . import qops as q
-from . import records, refs, tracking, types, utils, version
+from . import records, refs, tracking, types, typing, utils, version
 from .archive_factory import *
 from .archives import *
 from .base_savable import *
@@ -51,6 +51,7 @@ _ADDITIONAL = (
     "utils",
     "q",
     "operations",
+    "typing",
 )
 
 __all__ = (

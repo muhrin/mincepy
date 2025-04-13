@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 
 import mincepy
@@ -75,7 +77,7 @@ def test_saving_while_running(historian: mincepy.Historian):
 
 
 def test_saving_creator_that_owns_child(historian: mincepy.Historian):
-    class TestProc(mincepy.Process):
+    class TestProc(mincepy.Process, type_id=uuid.UUID("21b75757-d5dc-4dd6-9329-af56d0ddb879")):
         ATTRS = ("child",)
 
         def __init__(self):
@@ -89,7 +91,7 @@ def test_saving_creator_that_owns_child(historian: mincepy.Historian):
 
 
 def test_process_track(historian: mincepy.Historian):
-    class TestProc(mincepy.Process):
+    class TestProc(mincepy.Process, type_id=uuid.UUID("90a867f1-1d7b-4591-8b35-5ff457987a89")):
         @mincepy.track
         def execute(self):
             return mincepy.builtins.RefList([testing.Car()])

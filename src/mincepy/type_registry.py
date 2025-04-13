@@ -1,13 +1,13 @@
 import collections
-from collections.abc import Hashable
-from typing import Any, Union
+from typing import TYPE_CHECKING, Any, Union
 
 from . import helpers, types
 
 SavableObjectType = type[types.SavableObject]
 RegisterableType = Union[helpers.TypeHelper, type[helpers.TypeHelper], type[types.SavableObject]]
-TypeId = Hashable
-TypeIdOrType = Union[TypeId, type]  # pylint: disable=invalid-name
+
+if TYPE_CHECKING:
+    import mincepy
 
 
 class TypeRegistry:
@@ -16,7 +16,7 @@ class TypeRegistry:
 
     def __init__(self):
         self._helpers: dict[type, helpers.TypeHelper] = {}
-        self._type_ids: dict[TypeId, type] = {}
+        self._type_ids: dict["mincepy.typing.TypeId", type] = {}
 
     def __contains__(self, item: type) -> bool:
         return item in self._helpers
@@ -37,11 +37,36 @@ class TypeRegistry:
         :param replace: if True, will silently replace an entry that has the same type id, otherwise
             raises a `ValueError` the id is already registered
         """
-        helper = self._register(obj_class_or_helper, replace)
+        registered_types: tuple[type] = tuple()
+        if isinstance(obj_class_or_helper, helpers.TypeHelper) or types.is_subclass(
+            obj_class_or_helper, helpers.TypeHelper
+        ):
+            registered_types = (
+                obj_class_or_helper.TYPE
+                if isinstance(obj_class_or_helper.TYPE, tuple)
+                else (obj_class_or_helper.TYPE,)
+            )
+            for entry in registered_types:
+                if not isinstance(entry, type):
+                    raise ValueError(
+                        f"`{obj_class_or_helper}.TYPE` contains {entry} which is not a type"
+                    )
+        elif types.is_subclass(obj_class_or_helper, types.SavableObject):
+            registered_types = (obj_class_or_helper,)
+
+        if not registered_types:
+            raise ValueError(
+                f"`obj_class_or_helper` must be one of {RegisterableType}, got "
+                f"{obj_class_or_helper}"
+            )
+
+        helper: "mincepy.WrapperHelper" = self._register(obj_class_or_helper, replace)
 
         # Now, put in any ancestors
-        for ancestor in reversed(types.savable_mro(helper.TYPE)[1:]):
-            self._register(ancestor, replace)
+        for savable_type in registered_types:
+            if types.is_subclass(savable_type, types.SavableObject):
+                for ancestor in reversed(types.savable_mro(savable_type)[1:]):
+                    self._register(ancestor, replace)
 
         return helper
 
@@ -59,7 +84,7 @@ class TypeRegistry:
             # Maybe it is a type id
             self._remove_using_type_id(item)
 
-    def get_type_id(self, obj_type: type) -> TypeId:
+    def get_type_id(self, obj_type: type) -> "mincepy.typing.TypeId":
         """
         Given a type return the corresponding type id if it registered with this registry
 
@@ -80,7 +105,7 @@ class TypeRegistry:
 
         raise ValueError(f"Type '{obj_type}' is not known")
 
-    def get_helper(self, type_id_or_type: TypeIdOrType) -> helpers.TypeHelper:
+    def get_helper(self, type_id_or_type: "mincepy.typing.TypeIdOrType") -> helpers.TypeHelper:
         """
         :raises ValueError: if there is no helper associated with the passed type or id
         """
@@ -89,7 +114,7 @@ class TypeRegistry:
 
         return self.get_helper_from_type_id(type_id_or_type)
 
-    def get_helper_from_type_id(self, type_id: TypeId) -> helpers.TypeHelper:
+    def get_helper_from_type_id(self, type_id: "mincepy.typing.TypeId") -> helpers.TypeHelper:
         """
         :param type_id: the type identifier
         :raises: `ValueError` if the type id is not known
@@ -106,13 +131,15 @@ class TypeRegistry:
             # Try the direct lookup
             return self._helpers[obj_type]
         except KeyError:
-            # Do the full issubclass lookup
-            for known_type, helper in self._helpers.items():
-                if issubclass(obj_type, known_type):
-                    return helper
+            # # Do the full issubclass lookup
+            # for known_type, helper in self._helpers.items():
+            #     if issubclass(obj_type, known_type):
+            #         return helper
             raise ValueError(f"Type '{obj_type}' has not been registered") from None
 
-    def get_version_info(self, type_id_or_type: TypeIdOrType) -> collections.OrderedDict:
+    def get_version_info(
+        self, type_id_or_type: "mincepy.typing.TypeIdOrType"
+    ) -> collections.OrderedDict:
         """Get version information about a type.  This will return a reverse mro ordered dictionary
         where the key is the type id and the value is the version.  Only registered entries will
         appear.
@@ -187,7 +214,7 @@ class TypeRegistry:
             self._helpers[obj_type] = helper
             self._type_ids[helper.TYPE_ID] = obj_type
 
-    def _remove_using_type_id(self, type_id: TypeId):
+    def _remove_using_type_id(self, type_id: "mincepy.typing.TypeId"):
         obj_type = self._type_ids.pop(type_id, None)
         if obj_type is not None:
             self._helpers.pop(obj_type)

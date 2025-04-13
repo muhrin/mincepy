@@ -349,8 +349,9 @@ def test_set(historian: mincepy.Historian):
 def test_path_helper(historian: mincepy.Historian):
     historian.register_type(mincepy.common_helpers.PathHelper())
 
-    class File(mincepy.ConvenientSavable):
-        TYPE_ID = uuid.UUID("8d645bb8-4657-455b-8b61-8613bc8a0acf")
+    class File(
+        mincepy.ConvenientSavable, type_id=uuid.UUID("8d645bb8-4657-455b-8b61-8613bc8a0acf")
+    ):
         path = mincepy.field()
 
         def __init__(self, path):
