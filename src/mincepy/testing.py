@@ -87,7 +87,7 @@ try:
 
     @pytest.fixture(autouse=True)
     def historian(mongodb_archive):
-        hist = mincepy.Historian(mongodb_archive)
+        hist = mincepy.Historian(mongodb_archive, autosave=False)
         hist.register_types(mincepy.testing.HISTORIAN_TYPES)
         mincepy.set_historian(hist)
         yield hist

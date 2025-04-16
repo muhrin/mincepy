@@ -1,6 +1,6 @@
 name: continuous-integration
 
-on: [push, pull_request]
+on: [ push, pull_request ]
 
 jobs:
   pre-commit:
@@ -40,12 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.9', '3.12', '3.11', '3.12', '3.13']
-        include:
-        - python-version: 3.12
-          rabbitmq: 3.6
-        - python-version: 3.12
-          rabbitmq: 3.8
+        python-version: [ '3.9', '3.12', '3.11', '3.12', '3.13' ]
 
     steps:
       - uses: actions/checkout@v2
@@ -75,5 +70,5 @@ jobs:
         if: github.repository == 'muhrin/mincepy'
         uses: codecov/codecov-action@v1
         with:
-            file: ./coverage.xml
-            name: mincepy
+          file: ./coverage.xml
+          name: mincepy
