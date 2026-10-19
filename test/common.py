@@ -131,7 +131,6 @@ class A(mincepy.ConvenientSavable, type_id=uuid.UUID("a50f21bc-899e-445f-baf7-0a
 
 
 class B(A, type_id=uuid.UUID("f1c07f5f-bf64-441d-8dc7-bbde65eb6fa2")):
-
     class Migration(mincepy.ObjectMigration):
         VERSION = 2
 
@@ -143,7 +142,6 @@ class B(A, type_id=uuid.UUID("f1c07f5f-bf64-441d-8dc7-bbde65eb6fa2")):
 
 
 class BV3(A, type_id=uuid.UUID("f1c07f5f-bf64-441d-8dc7-bbde65eb6fa2")):
-
     class Migration(mincepy.ObjectMigration):
         VERSION = 3
         PREVIOUS = B.Migration

@@ -16,9 +16,9 @@ def save_instance_state(obj, db_type: type["mincepy.fields.WithFields"] = None) 
     import mincepy  # pylint: disable=import-outside-toplevel
 
     if db_type is None:
-        assert issubclass(
-            type(obj), mincepy.fields.WithFields
-        ), "A DbType wasn't passed and obj isn't a DbType instance other"
+        assert issubclass(type(obj), mincepy.fields.WithFields), (
+            "A DbType wasn't passed and obj isn't a DbType instance other"
+        )
         db_type = type(obj)
 
     field_properties = mincepy.fields.get_field_properties(db_type).values()
@@ -45,9 +45,9 @@ def load_instance_state(
     import mincepy  # pylint: disable=import-outside-toplevel
 
     if db_type is None:
-        assert issubclass(
-            type(obj), mincepy.fields.WithFields
-        ), "A DbType wasn't passed and obj isn't a DbType instance other"
+        assert issubclass(type(obj), mincepy.fields.WithFields), (
+            "A DbType wasn't passed and obj isn't a DbType instance other"
+        )
         db_type = type(obj)
 
     to_set = {}

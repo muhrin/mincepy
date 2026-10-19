@@ -233,9 +233,9 @@ def test_concurrent_modification(historian: mincepy.Historian, archive_uri: str)
     ferrari2 = historian2.load(ferrari_id)
 
     assert ferrari_id == ferrari2.obj_id
-    assert (
-        ferrari is not ferrari2
-    ), "The archive don't know about each other so the objects instances should not be the same"
+    assert ferrari is not ferrari2, (
+        "The archive don't know about each other so the objects instances should not be the same"
+    )
 
     # Repaint
     ferrari.colour = "yellow"

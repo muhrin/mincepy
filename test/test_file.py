@@ -79,9 +79,7 @@ def test_nested_files_in_dict(historian: mincepy.Historian):
     assert loaded["file"].filename is None
 
 
-def test_nested_files_in_list_mutating(
-    tmp_path, historian: mincepy.Historian
-):  # pylint: disable=unused-argument
+def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):  # pylint: disable=unused-argument
     encoding = "utf-8"
     INITIAL_DATA = "First string".encode(encoding)
     my_file = historian.create_file()

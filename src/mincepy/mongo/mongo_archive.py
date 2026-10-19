@@ -13,9 +13,8 @@ import pymongo.uri_parser
 from typing_extensions import override
 
 # MincePy imports
-from mincepy import archives, exceptions, helpers, operations
+from mincepy import archives, exceptions, helpers, operations, records
 from mincepy import qops as q
-from mincepy import records
 
 # Local imports
 from . import bulk, db, migrate, migrations, queries, references

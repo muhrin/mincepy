@@ -197,7 +197,6 @@ def test_meta_delete(historian: mincepy.Historian):
 
 def test_set_meta_in_save(historian: mincepy.Historian):
     class Info(mincepy.SavableObject, type_id=uuid.UUID("6744689d-5f88-482e-bb42-2bec5f139cc2")):
-
         def save_instance_state(self, saver: mincepy.Saver) -> dict:
             state = super().save_instance_state(saver)
             saver.get_historian().meta.set(self, dict(msg="good news"))
@@ -214,7 +213,6 @@ def test_update_meta_in_save(historian: mincepy.Historian):
     class Info(
         mincepy.ConvenientSavable, type_id=uuid.UUID("6744689d-5f88-482e-bb42-2bec5f139cc2")
     ):
-
         def save_instance_state(self, saver: mincepy.Saver) -> dict:
             state = super().save_instance_state(saver)
             saver.get_historian().meta.update(self, dict(msg="good news"))
@@ -231,7 +229,6 @@ def test_update_meta_in_save_with_sticky(historian: mincepy.Historian):
     class Info(
         mincepy.ConvenientSavable, type_id=uuid.UUID("6744689d-5f88-482e-bb42-2bec5f139cc2")
     ):
-
         def save_instance_state(self, saver: mincepy.Saver) -> dict:
             state = super().save_instance_state(saver)
             saver.get_historian().meta.update(self, dict(msg="good news"))
@@ -251,7 +248,6 @@ def test_set_meta_in_save_fail(historian: mincepy.Historian):
     """Make sure that metadata isn't saved if saving of the object fails"""
 
     class Info(mincepy.SimpleSavable, type_id=uuid.UUID("6744689d-5f88-482e-bb42-2bec5f139cc2")):
-
         def save_instance_state(self, saver: mincepy.Saver) -> dict:
             super().save_instance_state(saver)
             self.set_meta(dict(msg="good news"))
@@ -337,7 +333,6 @@ def test_saving_unsaved_meta(historian: mincepy.Historian):
     child_meta = {"test": "meta"}
 
     class Info(mincepy.SimpleSavable, type_id=uuid.UUID("0d160c5d-b893-44c4-ae9c-545c0bd53df2")):
-
         def __init__(self):
             super().__init__()
             self.child = None

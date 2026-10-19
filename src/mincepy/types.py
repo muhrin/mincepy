@@ -54,9 +54,9 @@ class Savable(fields.WithFields, expr.FilterLike, metaclass=SavableMeta):
     LATEST_MIGRATION: Optional["mincepy.ObjectMigration"] = None
 
     def __init__(self, *args, **kwargs):
-        assert (
-            self.TYPE_ID is not None
-        ), f"Must set the TYPE_ID for an object `{type(self).__name__}` to be savable"
+        assert self.TYPE_ID is not None, (
+            f"Must set the TYPE_ID for an object `{type(self).__name__}` to be savable"
+        )
         super().__init__(*args, **kwargs)
 
     @classmethod

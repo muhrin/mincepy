@@ -84,7 +84,6 @@ def test_create_delete_load(historian: mincepy.Historian):
 
 def test_storing_internal_object(historian: mincepy.Historian):
     class Person(mincepy.SavableObject, type_id=uuid.UUID("f6f83595-6375-4bc4-89f2-d8f31a1286b0")):
-
         def __init__(self, car):
             super().__init__()
             self.car = car  # This person 'owns' the car

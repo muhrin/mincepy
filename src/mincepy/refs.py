@@ -22,9 +22,9 @@ class ObjRef(types.SavableObject, type_id=type_ids.OBJ_REF_TYPE_ID, immutable=Tr
 
     def __init__(self, obj=None):
         super().__init__()
-        assert not (
-            obj is not None and types.is_primitive(obj)
-        ), "Can't create a reference to a primitive type"
+        assert not (obj is not None and types.is_primitive(obj)), (
+            "Can't create a reference to a primitive type"
+        )
         self._obj = obj
 
     def __bool__(self) -> bool:

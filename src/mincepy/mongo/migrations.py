@@ -106,9 +106,7 @@ class CollectionsSplit(migrate.Migration):
                             {
                                 "$match": {
                                     "$expr": and_(
-                                        eq_(
-                                            "$obj_id", "$$obj_id"
-                                        ),  # Match object id and version
+                                        eq_("$obj_id", "$$obj_id"),  # Match object id and version
                                         eq_("$ver", "$$max_ver"),
                                     ),
                                 }
@@ -159,11 +157,7 @@ class MergeMeta(migrate.Migration):
                             "as": meta_field,
                         }
                     },
-                    {
-                        "$addFields": {
-                            meta_field: {"$arrayElemAt": [f"${meta_field}", 0]}
-                        }
-                    },
+                    {"$addFields": {meta_field: {"$arrayElemAt": [f"${meta_field}", 0]}}},
                     {
                         "$project": {f"{meta_field}._id": 0}
                     },  # Exclude the old '_id' field from meta entries

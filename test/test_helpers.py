@@ -19,7 +19,9 @@ def test_type_helper(historian: mincepy.Historian):
             self.specie = specie
 
     class BirdHelper(
-        mincepy.TypeHelper, obj_type=Bird, type_id=uuid.UUID("5cc59e03-ea5d-43ff-8814-3b6f2e22cd76")
+        mincepy.TypeHelper,
+        obj_type=Bird,
+        type_id=uuid.UUID("5cc59e03-ea5d-43ff-8814-3b6f2e22cd76"),
     ):
         specie = mincepy.field()
 
@@ -119,7 +121,6 @@ class Powerboat(Boat):
 class PowerboatHelper(
     BoatHelper, obj_type=Powerboat, type_id=uuid.UUID("924ef5b2-ce20-40b0-8c98-4da470f6c2c3")
 ):
-
     horsepower = mincepy.field()
 
 

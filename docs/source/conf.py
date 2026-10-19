@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 #
 # mincepy documentation build configuration file, created by
 # sphinx-quickstart on Fri Mar 31 17:03:20 2017.

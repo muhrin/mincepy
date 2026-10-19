@@ -17,9 +17,8 @@ from typing import (
 
 import networkx
 
-from . import operations
+from . import operations, records
 from . import qops as q
-from . import records
 from .records import DataRecord
 
 __all__ = (
@@ -231,7 +230,9 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def distinct(
-        self, key: str, filter: dict = None  # pylint: disable=redefined-builtin
+        self,
+        key: str,
+        filter: dict = None,  # pylint: disable=redefined-builtin
     ) -> Iterator:
         """Get distinct values of the given record key
 

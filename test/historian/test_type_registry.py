@@ -1,8 +1,7 @@
-from test import common  # pylint: disable=wrong-import-order
-
 import pytest
 
 from mincepy import type_registry
+from test import common  # pylint: disable=wrong-import-order
 
 # pylint: disable=invalid-name
 

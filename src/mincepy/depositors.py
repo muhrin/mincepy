@@ -10,8 +10,13 @@ from typing import TYPE_CHECKING, Any, Iterable, Optional, Sequence
 from pytray import tree
 from typing_extensions import override
 
-from . import exceptions, operations, records, staging
-from . import transactions  # pylint: disable=unused-import
+from . import (
+    exceptions,
+    operations,
+    records,
+    staging,
+    transactions,  # pylint: disable=unused-import
+)
 
 if TYPE_CHECKING:
     import mincepy
@@ -128,8 +133,7 @@ class Loader(Base):
         new_obj = helper.new(saved_state)
         if new_obj is None:
             raise RuntimeError(
-                f"Helper '{helper.__class__}' failed to create a class given state "
-                f"'{saved_state}'"
+                f"Helper '{helper.__class__}' failed to create a class given state '{saved_state}'"
             )
 
         if created_callback is not None:
@@ -331,9 +335,9 @@ class LiveDepositor(Saver, Loader):
 
     def _save_from_builder(self, obj, builder: records.DataRecordBuilder):
         """Save a live object"""
-        assert (
-            builder.snapshot_hash is not None
-        ), "The snapshot hash must be set on the builder before saving"
+        assert builder.snapshot_hash is not None, (
+            "The snapshot hash must be set on the builder before saving"
+        )
         historian = self.get_historian()
 
         with historian.in_transaction() as trans:  # type: transactions.Transaction

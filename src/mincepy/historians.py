@@ -38,9 +38,14 @@ from . import (
     migrate,
     operations,
     qops,
+    refs,
+    result_types,
+    staging,
+    type_registry,
+    types,
+    utils,
 )
 from . import records as records_  # The records module
-from . import refs, result_types, staging, type_registry, types, utils
 from .transactions import LiveObjects, RollbackTransaction, Transaction
 
 if TYPE_CHECKING:
@@ -55,9 +60,7 @@ HistorianType = Union[helpers.TypeHelper, Type[types.SavableObject]]
 IdT = TypeVar("IdT", bound=Hashable)
 
 
-class Historian(
-    Generic[IdT]
-):  # pylint: disable=too-many-public-methods, too-many-instance-attributes
+class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-many-instance-attributes
     """The historian acts as a go-between between your python objects and the archive which is
     a persistent store of the records.  It will keep track of all live objects (i.e. those that
     have active references to them) that have been loaded and/or saved as well as enabling the
@@ -934,7 +937,6 @@ class Historian(
             pass
 
         with self.in_transaction() as trans:
-
             if trans.is_deleted(obj_id):
                 raise exceptions.ObjectDeleted(obj_id)
 
@@ -965,9 +967,7 @@ class Historian(
             return self._ensure_obj_id(obj_id)
         except exceptions.NotFound as exc:
             # Maybe it is multiple object ids
-            if not isinstance(
-                obj_id, Iterable
-            ):  # pylint: disable=isinstance-second-argument-not-valid-type
+            if not isinstance(obj_id, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
                 raise TypeError(f"Cannot get object id(s) from '{obj_id}'") from exc
 
             return list(map(self._ensure_obj_id, obj_id))
@@ -980,9 +980,7 @@ class Historian(
             return self.get_obj_type_id(obj_type)
         except TypeError as exc:
             # Maybe it is multiple type ids
-            if not isinstance(
-                obj_type, Iterable
-            ):  # pylint: disable=isinstance-second-argument-not-valid-type
+            if not isinstance(obj_type, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
                 raise TypeError(f"Cannot get type id(s) from '{obj_type}'") from exc
 
             return list(map(self.get_obj_type_id, obj_type))

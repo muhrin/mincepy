@@ -118,7 +118,9 @@ class Meta(Generic[IdT]):
             self._archive.meta_update_many(mapped)
 
     def find(
-        self, filter, obj_id=None  # pylint: disable=redefined-builtin
+        self,
+        filter,
+        obj_id=None,  # pylint: disable=redefined-builtin
     ) -> Iterator["mincepy.Archive.MetaEntry"]:
         """Find metadata matching the given criteria.  Each returned result is a tuple containing
         the corresponding object id and the metadata dictionary itself"""

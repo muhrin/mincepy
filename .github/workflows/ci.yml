@@ -2,16 +2,19 @@ name: continuous-integration
 
 on: [ push, pull_request ]
 
+env:
+  DEFAULT_PYTHON: '3.13'
+
 jobs:
   pre-commit:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v3
+      - uses: actions/checkout@v7
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v7
         with:
-          python-version: '3.12'
+          python-version: ${{ env.DEFAULT_PYTHON }}
       - uses: pre-commit/action@v3.0.1
 
   pylint:
@@ -20,10 +23,10 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
 
       - name: Set up Python ${{ env.DEFAULT_PYTHON }}
-        uses: actions/setup-python@v5.1.1
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ env.DEFAULT_PYTHON }}
 
@@ -40,25 +43,24 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: [ '3.9', '3.12', '3.11', '3.12', '3.13' ]
+        python-version: [ '3.11', '3.12', '3.13', '3.14' ]
+
+    services:
+      mongodb:
+        image: mongo:latest
+        ports:
+          - 27017:27017
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5.1.1
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install python dependencies
         run: pip install -e .[cli,gui,dev,docs,sci]
-
-      - name: Create MongoDB Docker container
-        id: build_mongo_docker
-        uses: DigiPie/mongo-action@v2.0.1
-        with:
-          image-version: latest
-          port: 27017
 
       - name: Run pytest
         run: pytest --cov=mincepy -sv -p no:nb_regression test
@@ -68,7 +70,8 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: github.repository == 'muhrin/mincepy'
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v7.1.1
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           name: mincepy
+          token: ${{ secrets.CODECOV_TOKEN }}
