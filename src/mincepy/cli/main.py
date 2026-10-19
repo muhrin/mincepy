@@ -10,8 +10,6 @@ import mincepy.plugins
 
 __all__ = ("mince",)
 
-# pylint: disable=import-outside-toplevel
-
 
 def set_print_logging(level=logging.WARNING):
     mince_logger = logging.getLogger("mincepy")

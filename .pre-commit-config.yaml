@@ -1,5 +1,5 @@
 ci:
-  skip: [ pylint ]
+  skip: [ ty ]
 
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
@@ -29,22 +29,19 @@ repos:
       - id: bandit
         args: [ "-c", ".bandit.yaml" ]
 
-  - repo: https://github.com/PyCQA/pylint
-    # Configuration help can be found here:
-    # https://pylint.pycqa.org/en/latest/user_guide/installation/pre-commit-integration.html
-    rev: v4.1.3
+  - repo: local
     hooks:
-      - id: pylint
-        alias: pylint-with-spelling
-        stages: [ manual ]
+      # Type checking.  This needs the project's dependencies to resolve imports, so it uses the
+      # active environment (pip install -e .[dev]) and is only run on demand:
+      #   pre-commit run --hook-stage manual ty --all-files
+      - id: ty
+        name: ty
+        entry: ty check
         language: system
-        types: [ python ]
+        stages: [ manual ]
+        types_or: [ python, pyi ]
+        pass_filenames: false
         require_serial: true
-        exclude:
-          (?x)^(
-          docs/.*|
-          test/.*
-          )$
 
   - repo: https://github.com/commitizen-tools/commitizen
     rev: v4.19.2

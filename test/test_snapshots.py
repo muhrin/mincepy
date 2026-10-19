@@ -7,8 +7,6 @@ import pytest
 import mincepy
 from mincepy.testing import Car, Cycle
 
-# pylint: disable=invalid-name
-
 
 def test_list_basics(historian: mincepy.Historian):
     parking_lot = mincepy.builtins.List()
@@ -98,7 +96,7 @@ def test_record_times(historian: mincepy.Historian):
 
     history = historian.history(car, as_objects=False)
     assert len(history) == 3
-    for idx, record in zip(range(1, 2), history[1:]):
+    for idx, record in zip(range(1, 2), history[1:], strict=False):
         assert record.creation_time == history[0].creation_time
         assert record.snapshot_time > history[0].creation_time
         assert record.snapshot_time > history[idx - 1].snapshot_time

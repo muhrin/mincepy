@@ -12,7 +12,7 @@ __all__ = (
 )
 
 
-class ConnectionError(Exception):  # pylint: disable=redefined-builtin
+class ConnectionError(Exception):  # noqa: A001
     """Raise when there is an error in connecting to the backend"""
 
 
@@ -49,7 +49,7 @@ class MergeError(Exception):
     """Indicates that an error occurred when trying to merge"""
 
 
-class ReferenceError(IntegrityError):  # pylint: disable=redefined-builtin
+class ReferenceError(IntegrityError):  # noqa: A001
     """Raised when there is an operation that causes a problem with references for example if
     you try to delete an object that is referenced by another this exception will be raised.  The
     objects ids being referenced will be found in .references.

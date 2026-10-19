@@ -194,12 +194,12 @@ def test_archive_listener(mongodb_archive: mincepy.Archive):
     mongodb_archive.save_many(records)
     assert len(listener.bulk_write) == 1
     # We should see a sequence of Insert operations
-    for oper, record in zip(listener.bulk_write[0][1], records):
+    for oper, record in zip(listener.bulk_write[0][1], records, strict=True):
         assert isinstance(oper, mincepy.operations.Insert)
         assert oper.record == record
 
     assert len(listener.bulk_write_complete) == 1
-    for oper, record in zip(listener.bulk_write[0][1], records):
+    for oper, record in zip(listener.bulk_write[0][1], records, strict=True):
         assert isinstance(oper, mincepy.operations.Insert)
         assert oper.record == record
 

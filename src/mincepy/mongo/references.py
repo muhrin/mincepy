@@ -13,7 +13,7 @@ from . import aggregation, db, types
 if TYPE_CHECKING:
     import mincepy
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 class ReferenceManager:
@@ -191,7 +191,6 @@ class ReferenceManager:
     def _ensure_current(self, collection_name: str, ids=None):
         """This call ensures that the reference collection is up-to-date"""
         # Find all the objects that we don't have in the references collection
-        # pylint: disable=unnecessary-lambda-assignment
         if collection_name == "history":
             collection = self._history_collection
             id_func = _sid

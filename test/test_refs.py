@@ -7,8 +7,6 @@ import mincepy
 from mincepy import testing
 import mincepy.records
 
-# pylint: disable=invalid-name
-
 
 def test_obj_ref_simple(historian: mincepy.Historian):
     a = testing.Cycle()
@@ -105,7 +103,7 @@ def test_ref_load_save_load(historian: mincepy.Historian):
     ref_list = mincepy.List((mincepy.ObjRef(testing.Car()),))
     assert isinstance(ref_list[0](), testing.Car)
 
-    list_id = ref_list.save()  # pylint: disable=no-member
+    list_id = ref_list.save()
     del ref_list
 
     loaded = historian.load(list_id)

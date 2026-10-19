@@ -66,7 +66,6 @@ def create_historian(
 def get_historian(create=True) -> Optional["mincepy.Historian"]:
     """Get the currently set global historian.  If one doesn't exist and create is True then this
     call will attempt to create a new default historian using connect()"""
-    global CURRENT_HISTORIAN  # pylint: disable=global-statement, global-variable-not-assigned
     if CURRENT_HISTORIAN is None and create:
         # Try creating a new one, use globally otherwise a new one will be created each time which
         # is unlikely to be what users want
@@ -79,7 +78,7 @@ def set_historian(new_historian: Optional["mincepy.Historian"], apply_plugins=Tr
     """Set the current global historian.  Optionally load all plugins.
     To reset the historian pass None.
     """
-    global CURRENT_HISTORIAN  # pylint: disable=global-statement
+    global CURRENT_HISTORIAN  # noqa: PLW0603
     if new_historian is not None and apply_plugins:
         new_historian.register_types(plugins.get_types())
     CURRENT_HISTORIAN = new_historian
@@ -107,7 +106,7 @@ def delete(*obj_or_identifier):
 
 def db(
     type_id_or_type: "mincepy.typing.TypeIdOrType",
-) -> helpers.TypeHelper:  # pylint: disable=invalid-name
+) -> helpers.TypeHelper:
     """Get the database type helper for a type.  See :py:meth:`mincepy.Historian.get_helper`"""
     return get_historian().get_helper(type_id_or_type)
 

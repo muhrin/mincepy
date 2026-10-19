@@ -13,13 +13,13 @@ def test_load(historian: mincepy.Historian):
     # Check loading from 'cold'
     del car
     car = mincepy.load(car_id)
-    assert car._historian is historian  # pylint: disable=protected-access
+    assert car._historian is historian
 
 
 def test_save(historian: mincepy.Historian):
     car = Car()
     mincepy.save(car)
-    assert car._historian is historian  # pylint: disable=protected-access
+    assert car._historian is historian
 
 
 def test_invalid_connect():

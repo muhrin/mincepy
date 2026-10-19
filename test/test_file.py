@@ -3,8 +3,6 @@ import shutil
 
 import mincepy
 
-# pylint: disable=invalid-name
-
 
 def test_file_basics(historian: mincepy.Historian):
     ENCODING = "utf-8"
@@ -23,7 +21,7 @@ def test_file_basics(historian: mincepy.Historian):
         assert buffer.getvalue() == INITIAL_DATA
 
 
-def test_file_changing(tmp_path, historian: mincepy.Historian):  # pylint: disable=unused-argument
+def test_file_changing(tmp_path, historian: mincepy.Historian):
     encoding = "utf-8"
     INITIAL_DATA = "Initial string"
     mince_file = historian.create_file(encoding=encoding)
@@ -79,7 +77,7 @@ def test_nested_files_in_dict(historian: mincepy.Historian):
     assert loaded["file"].filename is None
 
 
-def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):  # pylint: disable=unused-argument
+def test_nested_files_in_list_mutating(tmp_path, historian: mincepy.Historian):
     encoding = "utf-8"
     INITIAL_DATA = "First string".encode(encoding)
     my_file = historian.create_file()

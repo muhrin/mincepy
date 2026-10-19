@@ -14,7 +14,7 @@ import mincepy.testing
 @click.option("--obj-type", default=None, help="The type of object to find")
 @click.option("--filter", default=None, help="Filter on the state")
 @click.option("--limit", default=0, help="Limit the number of results")
-def query(obj_type, filter, limit):  # pylint: disable=redefined-builtin
+def query(obj_type, filter, limit):
     historian = mincepy.get_historian()
 
     results = historian.records.find(obj_type, state=filter, limit=limit, version=-1)
@@ -128,4 +128,4 @@ if __name__ == "__main__":
     hist = mincepy.Historian(mongo_archive)
     mincepy.set_historian(hist)
 
-    query()  # pylint: disable=no-value-for-parameter
+    query()

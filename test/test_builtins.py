@@ -11,8 +11,6 @@ from mincepy import builtins, testing
 
 # region lists
 
-# pylint: disable=redefined-outer-name
-
 
 def test_ref_list(historian: mincepy.Historian):
     """Test references list"""

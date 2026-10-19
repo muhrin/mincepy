@@ -2,8 +2,6 @@ import pytest
 
 from mincepy import expr
 
-# pylint: disable=pointless-statement, invalid-name
-
 
 def test_expr_types_and_filters():
     """Test the query filters for expressions"""
@@ -102,7 +100,7 @@ def test_queryable():
     # Check that the field name cannot be None
     with pytest.raises(ValueError):
         queryable.field = None
-        queryable == value
+        queryable == value  # noqa: B015
 
     queryable.field = field_name
 

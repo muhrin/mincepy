@@ -15,7 +15,7 @@ def dev():
 @click.argument("uri", type=str)
 def populate(uri):
     """Populate the database with testing data"""
-    import mincepy.testing  # pylint: disable=import-outside-toplevel
+    import mincepy.testing
 
     main.set_print_logging(logging.INFO)
     try:

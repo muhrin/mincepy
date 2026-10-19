@@ -11,8 +11,6 @@ from mincepy import testing
 
 from .common import CarV0, CarV1, CarV2, StoreByRef, StoreByValue
 
-# pylint: disable=invalid-name
-
 
 def test_simple_migration(historian: mincepy.Historian):
     car = CarV0("red", "ferrari")

@@ -45,8 +45,6 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     """An archive provides the persistent storage for the Historian.  It is responsible for storing,
     searching and loading data records and their metadata."""
 
-    # pylint: disable=too-many-public-methods
-
     SnapshotId = records.SnapshotId[IdT]
     MetaEntry = NamedTuple("MetaEntry", [("obj_id", IdT), ["meta", dict]])
 
@@ -132,7 +130,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def meta_find(
         self,
-        filter: dict = None,  # pylint: disable=redefined-builtin
+        filter: dict = None,
         obj_id: Union[IdT, Iterable[IdT], Mapping] = None,
     ) -> "Iterator[Archive.MetaEntry]":
         """Yield metadata satisfying the given criteria.  The search can optionally be restricted to
@@ -149,7 +147,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     def meta_distinct(
         self,
         key: str,
-        filter: dict = None,  # pylint: disable=redefined-builtin
+        filter: dict = None,
         obj_id: Union[IdT, Iterable[IdT], Mapping] = None,
     ) -> "Iterator":
         """Yield distinct values found for 'key' within metadata documents, optionally marching a
@@ -232,7 +230,7 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
     def distinct(
         self,
         key: str,
-        filter: dict = None,  # pylint: disable=redefined-builtin
+        filter: dict = None,
     ) -> Iterator:
         """Get distinct values of the given record key
 
@@ -285,11 +283,6 @@ class Archive(Generic[IdT], metaclass=abc.ABCMeta):
 
 
 class BaseArchive(Archive[IdT]):
-    # This is _still_ an abstract class, pylint is just silly in not recognising that a class only
-    # becomes concrete once _all_ abstract methods are implemented.
-    # See: https://github.com/PyCQA/pylint/issues/179
-    # pylint:disable=abstract-method
-
     ID_TYPE = None  # type: Type[IdT]
 
     @classmethod
@@ -364,13 +357,10 @@ def scalar_query_spec(specifier: Union[Mapping, Iterable[Any], Any]) -> Union[An
     """
     if isinstance(specifier, dict):  # This has to be first as dict is iterable
         return specifier
-    if isinstance(specifier, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
+    if isinstance(specifier, Iterable):
         return q.in_(*specifier)
 
     return specifier
-
-
-# pylint: disable=arguments-differ
 
 
 class Collection(Generic[IdT], metaclass=abc.ABCMeta):
@@ -384,7 +374,7 @@ class Collection(Generic[IdT], metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def find(
         self,
-        filter: dict,  # pylint: disable=redefined-builtin
+        filter: dict,
         *,
         projection=None,
         limit=0,
@@ -398,7 +388,7 @@ class Collection(Generic[IdT], metaclass=abc.ABCMeta):
     def distinct(
         self,
         key: str,
-        filter: dict = None,  # pylint: disable=redefined-builtin
+        filter: dict = None,
         **kwargs,
     ) -> Iterator:
         """Get distinct values of the given entry key
@@ -415,7 +405,7 @@ class Collection(Generic[IdT], metaclass=abc.ABCMeta):
         """
 
     @abc.abstractmethod
-    def count(self, filter: dict, **kwargs) -> int:  # pylint: disable=redefined-builtin
+    def count(self, filter: dict, **kwargs) -> int:
         """Get the number of entries that match the search criteria"""
 
 
@@ -425,7 +415,7 @@ class RecordCollection(Collection[IdT]):
     @abc.abstractmethod
     def find(
         self,
-        filter: dict,  # pylint: disable=redefined-builtin
+        filter: dict,
         *,
         projection=None,
         meta: dict = None,
@@ -439,13 +429,13 @@ class RecordCollection(Collection[IdT]):
     def distinct(
         self,
         key: str,
-        filter: dict = None,  # pylint: disable=redefined-builtin
+        filter: dict = None,
         meta: dict = None,
     ) -> Iterator[dict]:
         """Find all records matching the given criteria"""
 
     @abc.abstractmethod
-    def count(self, filter: dict, *, meta: dict = None) -> int:  # pylint: disable=redefined-builtin
+    def count(self, filter: dict, *, meta: dict = None) -> int:
         """Get the number of entries that match the search criteria"""
 
 

@@ -15,7 +15,7 @@ IdT = TypeVar("IdT", bound=Hashable)
 class Meta(Generic[IdT]):
     """A class for grouping metadata related methods"""
 
-    # Meta is a 'friend' of Historian and so can access privates pylint: disable=protected-access
+    # Meta is a 'friend' of Historian and so can access privates
 
     def __init__(
         self, historian: "mincepy.Historian[IdT]", archive: "mincepy.Archive[IdT]"
@@ -120,7 +120,7 @@ class Meta(Generic[IdT]):
     def find(
         self,
         filter,
-        obj_id=None,  # pylint: disable=redefined-builtin
+        obj_id=None,
     ) -> Iterator["mincepy.Archive.MetaEntry"]:
         """Find metadata matching the given criteria.  Each returned result is a tuple containing
         the corresponding object id and the metadata dictionary itself"""
@@ -129,7 +129,7 @@ class Meta(Generic[IdT]):
     def distinct(
         self,
         key: str,
-        filter: dict = None,  # pylint: disable=redefined-builtin
+        filter: dict = None,
         obj_id=None,
     ) -> Iterator:
         """Yield distinct values found for 'key' within metadata documents, optionally matching a

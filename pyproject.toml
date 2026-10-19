@@ -52,12 +52,12 @@ dev = [
     "ipython",
     "mongomock",
     "pip",
-    "pylint",
     "pytest>4",
     "pytest-benchmark",
     "pytest-cov",
     "pre-commit",
     "ruff",
+    "ty==0.0.89",  # Pinned as new releases add checks
 ]
 cli = ["click", "tabulate"]
 gui = ["mincepy-gui"]
@@ -86,13 +86,39 @@ line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-# Equivalent of the previous flake8 (pyflakes, pycodestyle, mccabe), isort and flynt checks
-select = ["E", "F", "W", "C90", "I", "FLY", "UP009"]
-ignore = ["E501", "F401", "F403"]
+select = [
+    "E", "F", "W",  # pycodestyle and pyflakes
+    "C90",  # mccabe complexity
+    "I",  # isort
+    "FLY",  # flynt
+    "UP009",  # no utf-8 encoding declarations
+    "A",  # shadowing builtins
+    "B",  # bugbear: likely bugs and design problems
+    "PL",  # pylint
+]
+ignore = [
+    "E501",  # line length is handled by the formatter
+    "F401",
+    "F403",
+    "PLC0415",  # imports outside top level are used to avoid circular imports
+    "PLR2004",  # magic value comparisons
+    "PLW1641",  # __eq__ without __hash__ (Python already makes these unhashable)
+]
 
 [tool.ruff.lint.per-file-ignores]
 # Notebooks often use star imports for brevity
 "*.ipynb" = ["F405"]
+# Sphinx needs a variable called 'copyright'
+"docs/source/conf.py" = ["A001"]
+
+[tool.ruff.lint.flake8-builtins]
+# These shadow builtins but are part of the public API (and mirror pymongo's)
+ignorelist = ["filter", "id", "type"]
+
+[tool.ruff.lint.pylint]
+max-args = 14
+max-locals = 20
+max-positional-args = 8
 
 [tool.ruff.lint.mccabe]
 max-complexity = 18
@@ -100,28 +126,67 @@ max-complexity = 18
 [tool.ruff.lint.isort]
 force-sort-within-sections = true
 
-[tool.pylint.format]
-max-line-length = 100
+[tool.ty.environment]
+python-version = "3.11"
 
-[tool.pylint.messages_control]
-disable = [
-    # Unfortunately jaxtyping decorator creates a function that seems to mistakenly be identified as
-    # not returning anything, so we have to disable the error below for now
-    'assignment-from-no-return',
-    'duplicate-code',
-    'import-outside-toplevel',
-    'missing-docstring',
-    'locally-disabled',
-    'too-few-public-methods',
-    'too-many-instance-attributes',
-    'use-dict-literal',
+[tool.ty.src]
+include = ["src", "test"]
+# Files that do not pass ty yet.  Please remove files from this list as they are fixed so that
+# they are checked from then on, the aim being to remove the list altogether.
+exclude = [
+    "src/mincepy/archives.py",
+    "src/mincepy/_autosave.py",
+    "src/mincepy/base_savable.py",
+    "src/mincepy/builtins.py",
+    "src/mincepy/cli/main.py",
+    "src/mincepy/cli/query.py",
+    "src/mincepy/comparators.py",
+    "src/mincepy/depositors.py",
+    "src/mincepy/expr.py",
+    "src/mincepy/fields.py",
+    "src/mincepy/files.py",
+    "src/mincepy/frontend.py",
+    "src/mincepy/helpers.py",
+    "src/mincepy/hist/live_objects.py",
+    "src/mincepy/hist/metas.py",
+    "src/mincepy/historians.py",
+    "src/mincepy/history.py",
+    "src/mincepy/hist/references.py",
+    "src/mincepy/hist/snapshots.py",
+    "src/mincepy/migrations.py",
+    "src/mincepy/mongo/migrate.py",
+    "src/mincepy/mongo/mongo_archive.py",
+    "src/mincepy/mongo/references.py",
+    "src/mincepy/records.py",
+    "src/mincepy/refs.py",
+    "src/mincepy/result_types.py",
+    "src/mincepy/saving.py",
+    "src/mincepy/testing.py",
+    "src/mincepy/tracking.py",
+    "src/mincepy/transactions.py",
+    "src/mincepy/type_registry.py",
+    "src/mincepy/types.py",
+    "src/mincepy/utils.py",
+    "test/common.py",
+    "test/historian/test_meta.py",
+    "test/historian/test_type_registry.py",
+    "test/mongo/test_migrations.py",
+    "test/mongo/test_mongo_archive.py",
+    "test/test_autosave.py",
+    "test/test_benchmarks.py",
+    "test/test_builtins.py",
+    "test/test_expr.py",
+    "test/test_fields_saving.py",
+    "test/test_file.py",
+    "test/test_find.py",
+    "test/test_frontend.py",
+    "test/test_helpers.py",
+    "test/test_historian.py",
+    "test/test_migrate.py",
+    "test/test_migrations.py",
+    "test/test_refs.py",
+    "test/test_snapshots.py",
 ]
-
-[tool.pylint.design]
-max-args = 14
-max-locals = 20
-max-parents = 12
-max-positional-arguments = 8
 
 [pytest]
 log_cli = "True"

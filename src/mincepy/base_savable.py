@@ -20,7 +20,7 @@ __all__ = (
 AttrSpec = collections.namedtuple("AttrSpec", "name as_ref")
 
 
-def AsRef(name: str) -> AttrSpec:  # pylint: disable=invalid-name
+def AsRef(name: str) -> AttrSpec:
     """Create an attribute specification for an attribute that should be stored by reference"""
     return AttrSpec(name, True)
 
@@ -41,14 +41,15 @@ class BaseSavableObject(types.SavableObject):
         attrs = {}
         for entry in cls.mro():
             try:
-                class_attrs = getattr(entry, "ATTRS")
+                class_attrs = getattr(entry, "ATTRS")  # noqa: B009 - may be missing
             except AttributeError:
                 pass
             else:
-                for attr_spec in class_attrs:
-                    if isinstance(attr_spec, str):
-                        # If it's just a string then default to store by value
-                        attr_spec = AttrSpec(attr_spec, False)
+                for entry_spec in class_attrs:
+                    # If it's just a string then default to store by value
+                    attr_spec = (
+                        AttrSpec(entry_spec, False) if isinstance(entry_spec, str) else entry_spec
+                    )
 
                     # Check that it's not already there so higher up in the MRO is always kept
                     if attr_spec.name not in attrs:
@@ -145,7 +146,7 @@ class ConvenienceMixin:
     def save(self, meta: dict = None):
         """Save the object"""
         if self._historian is None:
-            import mincepy  # pylint: disable=import-outside-toplevel
+            import mincepy
 
             # We don't have a historian yet (we haven't been saved), so use the current global one
             historian = mincepy.get_historian()

@@ -17,7 +17,7 @@ class SimpleHelper(helpers.TypeHelper, obj_type=None, type_id=None):
         yield from obj.yield_hashables(hasher)
 
     @override
-    def eq(self, one, other, /) -> bool:  # pylint: disable=invalid-name
+    def eq(self, one, other, /) -> bool:
         return one == other
 
     @override

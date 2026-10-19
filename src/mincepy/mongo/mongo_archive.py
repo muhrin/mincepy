@@ -32,11 +32,11 @@ class ObjectIdHelper(
     type_id=uuid.UUID("bdde0765-36d2-4f06-bb8b-536a429f32ab"),
 ):
     @override
-    def yield_hashables(self, obj, hasher, /):  # pylint: disable=unused-argument
+    def yield_hashables(self, obj, hasher, /):
         yield obj.binary
 
     @override
-    def eq(self, one, other, /) -> bool:  # pylint: disable=invalid-name
+    def eq(self, one, other, /) -> bool:
         return one == other
 
     @override
@@ -45,13 +45,11 @@ class ObjectIdHelper(
 
     @override
     def load_instance_state(self, obj, saved_state, /, *_):
-        return obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
+        return obj.__init__(saved_state)
 
 
 class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     """MongoDB implementation of the mincepy archive"""
-
-    # pylint: disable=too-many-public-methods
 
     ID_TYPE = bson.ObjectId
     SnapshotId = records.SnapshotId[bson.ObjectId]
@@ -232,7 +230,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
                 {"_id": obj_id}, {"$set": {db.META: meta}}, upsert=False
             )
         except pymongo.errors.DuplicateKeyError as exc:
-            raise exceptions.DuplicateKeyError(str(exc))
+            raise exceptions.DuplicateKeyError(str(exc)) from exc
 
         if found.modified_count == 0:
             raise exceptions.NotFound(f"No record with object id '{obj_id}' found")
@@ -260,7 +258,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
                     # There should only be one as it is an ordered write
                     error = write_errors[0]
                     if error.get("code") == 11000:
-                        raise exceptions.DuplicateKeyError(error.get("errmsg"))
+                        raise exceptions.DuplicateKeyError(error.get("errmsg")) from exc
             raise
 
     @override
@@ -269,7 +267,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
             to_set = queries.expand_filter(db.META, meta)
             res = self._data_collection.update_one({"_id": obj_id}, {"$set": to_set}, upsert=False)
         except pymongo.errors.DuplicateKeyError as exc:
-            raise exceptions.DuplicateKeyError(str(exc))
+            raise exceptions.DuplicateKeyError(str(exc)) from exc
 
         if res.matched_count == 0:
             raise exceptions.NotFound(f"No record with object id '{obj_id}' found")
@@ -277,7 +275,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     @override
     def meta_find(
         self,
-        filter: dict = None,  # pylint: disable=redefined-builtin
+        filter: dict = None,
         obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], dict] = None,
     ) -> Iterator[tuple[bson.ObjectId, dict]]:
         match = queries.expand_filter(db.META, filter)
@@ -293,7 +291,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def meta_distinct(
         self,
         key: str,
-        filter: dict = None,  # pylint: disable=redefined-builtin
+        filter: dict = None,
         obj_id: Union[bson.ObjectId, Iterable[bson.ObjectId], Mapping] = None,
     ) -> "Iterator":
         match = queries.expand_filter(db.META, filter)
@@ -396,7 +394,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     def distinct(
         self,
         key: str,
-        filter: dict = None,  # pylint: disable=redefined-builtin
+        filter: dict = None,
     ) -> Iterator:
         filter = db.remap(filter or {})
 
@@ -514,7 +512,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         return pipeline
 
 
-def _flatten_filter_dict(filter: dict) -> dict:  # pylint: disable=redefined-builtin
+def _flatten_filter_dict(filter: dict) -> dict:
     query = queries.QueryBuilder()
 
     obj_id = filter.get(db.OBJ_ID, None)
@@ -562,7 +560,7 @@ class MongoRecordCollection(archives.RecordCollection[bson.ObjectId]):
     @override
     def find(
         self,
-        filter: dict,  # pylint: disable=redefined-builtin
+        filter: dict,
         *,
         projection=None,
         meta: dict = None,
@@ -605,7 +603,7 @@ class MongoRecordCollection(archives.RecordCollection[bson.ObjectId]):
     def distinct(
         self,
         key: str,
-        filter: dict = None,  # pylint: disable=redefined-builtin
+        filter: dict = None,
         meta: dict = None,
     ) -> Iterator[dict]:
         if meta is not None:
@@ -621,7 +619,7 @@ class MongoRecordCollection(archives.RecordCollection[bson.ObjectId]):
         return db.remap_back(doc)
 
     @override
-    def count(self, filter: dict, *, meta: dict = None) -> int:  # pylint: disable=redefined-builtin
+    def count(self, filter: dict, *, meta: dict = None) -> int:
         """Get the number of entries that match the search criteria"""
         # Create the pipeline
         pipeline = []
@@ -694,15 +692,14 @@ def pymongo_connect(uri: Union[str, parse.ParseResult], database: str = None, ti
         database = client.get_default_database()
         return MongoArchive(database)
     except pymongo.errors.ServerSelectionTimeoutError as exc:
-        raise exceptions.ConnectionError(str(exc))
+        raise exceptions.ConnectionError(str(exc)) from exc
 
 
 def mongomock_connect(uri: str, timeout=30000) -> MongoArchive:
     # Cache, this makes sure that if we get two requests to connect to exactly the same URI then
     # an existing connection will be returned
-    import mongomock.gridfs  # pylint: disable=import-outside-toplevel
+    import mongomock.gridfs
 
-    global MOCKED  # pylint: disable=global-statement, global-variable-not-assigned
     if uri in MOCKED:
         return MOCKED[uri]
 
@@ -721,9 +718,9 @@ def mongomock_connect(uri: str, timeout=30000) -> MongoArchive:
 
 
 def litemongo_connect(uri: Union[str, parse.ParseResult]) -> MongoArchive:
-    import litemongo._vendor.mongomock.gridfs  # pylint: disable=import-outside-toplevel
+    import litemongo._vendor.mongomock.gridfs
 
-    litemongo._vendor.mongomock.gridfs.enable_gridfs_integration()  # pylint: disable=protected-access
+    litemongo._vendor.mongomock.gridfs.enable_gridfs_integration()
 
     if isinstance(uri, str):
         parsed = parse.urlparse(uri)

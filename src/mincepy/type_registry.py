@@ -193,7 +193,7 @@ class TypeRegistry:
 
     def _insert_helper(self, helper: helpers.TypeHelper, replace=False):
         """Insert a helper into the registry for all the types that it supports"""
-        obj_types = helper.TYPE if isinstance(helper.TYPE, tuple) else (helper.TYPE,)  # pylint: disable=isinstance-second-argument-not-valid-type
+        obj_types = helper.TYPE if isinstance(helper.TYPE, tuple) else (helper.TYPE,)
 
         for obj_type in obj_types:
             type_id = helper.TYPE_ID

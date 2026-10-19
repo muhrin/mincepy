@@ -6,8 +6,6 @@ import mincepy
 from mincepy import testing
 from mincepy.testing import Car
 
-# pylint: disable=protected-access
-
 
 def test_transaction_snapshots(historian: mincepy.Historian):
     ferrari = Car("ferrari")
@@ -183,7 +181,7 @@ def test_delete_referenced(historian: mincepy.Historian):
     except mincepy.ReferenceError as exc:
         assert exc.references == {car.obj_id}
     else:
-        assert False, "Reference error should have been raised"
+        pytest.fail("Reference error should have been raised")
 
     historian.delete(garage)
     # Now safe to delete car
@@ -402,7 +400,7 @@ def test_merge(historian: mincepy.Historian):
 
 def test_large_merge(
     historian: mincepy.Historian,
-    large_dataset,  # pylint: disable=unused-argument
+    large_dataset,
 ):
     with testing.temporary_historian(
         testing.create_archive_uri(db_name="test_historian")
@@ -437,12 +435,12 @@ def test_merge_file(historian: mincepy.Historian):
 
         # Now check that files contained within objects are correctly merged
         file_list = mincepy.List((file,))
-        file_list.save()  # pylint: disable=no-member
-        result = remote.merge(local.find(obj_id=file_list.obj_id))  # pylint: disable=no-member
+        file_list.save()
+        result = remote.merge(local.find(obj_id=file_list.obj_id))
         assert len(result.merged) == 1
         assert historian.get_snapshot_id(file_list) in result.merged
 
-        remote_file_list = remote.get(file_list.obj_id)  # pylint: disable=no-member
+        remote_file_list = remote.get(file_list.obj_id)
         assert file.read_text() == remote_file_list[0].read_text()
 
 

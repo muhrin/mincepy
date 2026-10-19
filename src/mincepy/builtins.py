@@ -94,8 +94,6 @@ class Str(
 class Reffer:
     """Mixin for types that want to be able to create references non-primitive types"""
 
-    # pylint: disable=too-few-public-methods
-
     def _ref(self, obj):
         """Create a reference for a non-primitive, otherwise use the value"""
         if types.is_primitive(obj):
@@ -388,7 +386,7 @@ class OrderedDictHelper(
         return list(obj.items())
 
     def load_instance_state(self, obj, saved_state: list[tuple], /, *_):
-        obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
+        obj.__init__(saved_state)
 
 
 # endregion
@@ -406,7 +404,7 @@ class SetHelper(
         return list(obj)
 
     def load_instance_state(self, obj: set, saved_state: list, /, *_):
-        return obj.__init__(saved_state)  # pylint: disable=unnecessary-dunder-call
+        return obj.__init__(saved_state)
 
 
 class SnapshotIdHelper(
@@ -415,7 +413,7 @@ class SnapshotIdHelper(
     """Add ability to store references"""
 
     @override
-    def eq(self, one, other, /):  # pylint: disable=invalid-name
+    def eq(self, one, other, /):
         if not (isinstance(one, records.SnapshotId) and isinstance(other, records.SnapshotId)):
             return False
 
@@ -434,10 +432,10 @@ class SnapshotIdHelper(
     def load_instance_state(self, obj, saved_state, /, *_):
         if isinstance(saved_state, list):
             # Legacy version
-            obj.__init__(*saved_state)  # pylint: disable=unnecessary-dunder-call
+            obj.__init__(*saved_state)
         else:
             # New version is a dictionary
-            obj.__init__(**saved_state)  # pylint: disable=unnecessary-dunder-call
+            obj.__init__(**saved_state)
 
 
 class PathHelper(
@@ -502,7 +500,7 @@ class NamespaceHelper(
 
     @override
     def load_instance_state(self, obj, saved_state, /, *_):
-        obj.__init__(**saved_state)  # pylint: disable=unnecessary-dunder-call
+        obj.__init__(**saved_state)
 
 
 HISTORIAN_TYPES = (

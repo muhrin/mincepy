@@ -15,7 +15,7 @@ from . import (
     operations,
     records,
     staging,
-    transactions,  # pylint: disable=unused-import
+    transactions,
 )
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 CONTAINERS = list, dict
 
 
-class Base(metaclass=ABCMeta):
+class Base(metaclass=ABCMeta):  # noqa: B024
     """Common base for loader and saver"""
 
     def __init__(self, historian: "mincepy.Historian"):
@@ -190,7 +190,7 @@ class LiveDepositor(Saver, Loader):
             return self._get_current_snapshot_id(obj)
         except exceptions.NotFound:
             # Then we have to save it and get the resulting reference
-            return self._save_object(obj).snapshot_id  # pylint: disable=protected-access
+            return self._save_object(obj).snapshot_id
 
     def _get_current_snapshot_id(self, obj) -> "mincepy.SnapshotId":
         """Get the current snapshot id of an object"""
@@ -248,16 +248,14 @@ class LiveDepositor(Saver, Loader):
             )
 
             try:
-                obj = historian._live_objects.get_object(obj_id)  # pylint: disable=protected-access
+                obj = historian._live_objects.get_object(obj_id)
             except exceptions.NotFound:
                 logger.debug("Loading object from record: %s", record.snapshot_id)
                 # Ok, just use the one from the archive
                 return self.load_from_record(record)
 
             # Compare with the current, live, version
-            live_record = historian._live_objects.get_record(  # pylint: disable=protected-access
-                obj
-            )
+            live_record = historian._live_objects.get_record(obj)
             if record.version != live_record.version:
                 # The one in the archive is newer, so use that
                 logger.debug("Updating object from record: %s", record.snapshot_id)
@@ -301,9 +299,7 @@ class LiveDepositor(Saver, Loader):
 
                 try:
                     # Let's see if we have a record at all
-                    record = historian._live_objects.get_record(  # pylint: disable=protected-access
-                        obj
-                    )
+                    record = historian._live_objects.get_record(obj)
                 except exceptions.NotFound:
                     # Object being saved for the first time
                     builder = self._create_builder(helper, snapshot_hash=current_hash)

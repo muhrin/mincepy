@@ -1,4 +1,3 @@
-# pylint: disable=unused-import, redefined-outer-name
 import random
 
 import pytest

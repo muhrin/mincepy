@@ -2,8 +2,6 @@ import uuid
 
 import mincepy
 
-# pylint: disable=invalid-name
-
 
 class CarV0(mincepy.ConvenientSavable, type_id=uuid.UUID("297808e4-9bc7-4f0a-9f8d-850a5f558663")):
     colour = mincepy.field()

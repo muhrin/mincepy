@@ -74,7 +74,6 @@ SchemaEntry = collections.namedtuple("SchemaEntry", "type_id version")
 
 
 class ExtraKeys:
-    # pylint: disable=too-few-public-methods
     CREATED_BY = "_created_by"  # The ID of the process the data was created in
     COPIED_FROM = "_copied_from"  # The reference to the snapshot that this object was copied from
     USER = "_user"  # The user that saved this snapshot
@@ -183,8 +182,7 @@ class DataRecord(tuple, fields.WithFields):
     snapshot_time = readonly_field(SNAPSHOT_TIME, store_as="stime")
     extras = readonly_field(EXTRAS)
 
-    def __new__(
-        # pylint: disable=too-many-positional-arguments
+    def __new__(  # noqa: PLR0917
         cls,
         obj_id,
         type_id,
@@ -240,7 +238,7 @@ class DataRecord(tuple, fields.WithFields):
     @property
     def __dict__(self):
         """A new OrderedDict mapping field names to their values"""
-        return collections.OrderedDict(zip(self._fields, self))
+        return collections.OrderedDict(zip(self._fields, self, strict=True))
 
     def __str__(self):
         my_dict = self.__dict__

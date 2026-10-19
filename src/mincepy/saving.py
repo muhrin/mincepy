@@ -13,7 +13,7 @@ def save_instance_state(obj, db_type: type["mincepy.fields.WithFields"] = None) 
     these to return a saved sate.  Note, that for regular Savable objects, the db_type is the object
     itself in which case this argument can be omitted.
     """
-    import mincepy  # pylint: disable=import-outside-toplevel
+    import mincepy
 
     if db_type is None:
         assert issubclass(type(obj), mincepy.fields.WithFields), (
@@ -42,7 +42,7 @@ def load_instance_state(
     db_type: type["mincepy.fields.WithFields"] = None,
     ignore_missing=True,
 ):
-    import mincepy  # pylint: disable=import-outside-toplevel
+    import mincepy
 
     if db_type is None:
         assert issubclass(type(obj), mincepy.fields.WithFields), (

@@ -11,8 +11,6 @@ from mincepy.testing import Car
 
 from . import utils
 
-# pylint: disable=invalid-name
-
 
 def insert_cars(historian: mincepy.Historian, num=100, in_transaction=False):
     """Insert a number of cars into the database, optionally in a transaction so they all get

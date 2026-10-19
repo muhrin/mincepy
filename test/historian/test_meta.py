@@ -5,8 +5,6 @@ import pytest
 import mincepy
 from mincepy.testing import Car
 
-# pylint: disable=invalid-name
-
 
 def test_metadata_simple(historian: mincepy.Historian):
     car = Car()

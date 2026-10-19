@@ -1,4 +1,3 @@
-# pylint: disable=too-many-lines
 import collections
 from collections.abc import Hashable
 import contextlib
@@ -60,7 +59,7 @@ HistorianType = Union[helpers.TypeHelper, Type[types.SavableObject]]
 IdT = TypeVar("IdT", bound=Hashable)
 
 
-class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-many-instance-attributes
+class Historian(Generic[IdT]):
     """The historian acts as a go-between between your python objects and the archive which is
     a persistent store of the records.  It will keep track of all live objects (i.e. those that
     have active references to them) that have been loaded and/or saved as well as enabling the
@@ -157,9 +156,9 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
                     raise ValueError(
                         f"Supplied tuples can only contain (object, meta), got '{entry}'"
                     )
+                to_save.append(entry)
             else:
-                entry = (entry,)
-            to_save.append(entry)
+                to_save.append((entry,))
 
         ids = []
         with self.in_transaction():
@@ -190,12 +189,12 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
         # Save the object and metadata
         with self.in_transaction():
             try:
-                record = self._live_depositor._save_object(obj)  # pylint: disable=protected-access
+                record = self._live_depositor._save_object(obj)
             except TypeError:
                 if not self._autosave:
                     raise
                 self.register_type(_autosave.autosavable(type(obj)))
-                record = self._live_depositor._save_object(obj)  # pylint: disable=protected-access
+                record = self._live_depositor._save_object(obj)
 
             if meta:
                 self.meta.update(record.obj_id, meta)
@@ -260,7 +259,7 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
             return self.get_obj(obj_id)
         except exceptions.NotFound:
             # Going to have to load from the database
-            return self._live_depositor._load_object(obj_id)  # pylint: disable=protected-access
+            return self._live_depositor._load_object(obj_id)
 
     def get(self, obj_id) -> object:
         """Get a live object using the object id"""
@@ -480,7 +479,7 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
     def hash(self, obj: object):
         return self._equator.hash(obj)
 
-    def eq(self, one: object, other: object):  # pylint: disable=invalid-name
+    def eq(self, one: object, other: object):
         """Returns `True` if object `one` is equal to `other`, `False` otherwise"""
         return self._equator.eq(one, other)
 
@@ -555,7 +554,6 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
 
     # endregion
 
-    # pylint: disable=redefined-builtin
     def find(
         self,
         *filter: expr.FilterSpec,
@@ -658,7 +656,6 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
         result_set: frontend.ResultSet[object],
         *,
         meta: Optional[Literal["update", "overwrite"]] = None,
-        # pylint: disable=unused-argument
         batch_size: int = 1024,
         progress_callback: Callable[
             [utils.Progress, Optional[result_types.MergeResult]], None
@@ -681,7 +678,6 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
         # REMOTE
         remote = result_set.historian  # type: Historian
         # Get information about the records that we've been asked to merge
-        # pylint: disable=protected-access
         remote_partial_records = result_set._project(records_.OBJ_ID, records_.VERSION)
         remote_snapshot_ids = set(
             map(records_.SnapshotId.from_dict, remote_partial_records)
@@ -760,7 +756,6 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
             live_snapshot_ids = list(
                 map(
                     records_.SnapshotId.from_dict,
-                    # pylint: disable=protected-access
                     self.objects.records.find()._project(records_.OBJ_ID, records_.VERSION),
                 )
             )
@@ -777,7 +772,6 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
             unreferenced_deleted = set(
                 map(
                     records_.SnapshotId.from_dict,
-                    # pylint: disable=protected-access
                     res._project(records_.OBJ_ID, records_.VERSION),
                 )
             )
@@ -885,7 +879,7 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
                 self._transactions.append(nested)
                 try:
                     yield nested
-                except (  # Need this so we can have 'else' pylint: disable=try-except-raise
+                except (  # Need this so we can have 'else'
                     Exception
                 ):
                     raise
@@ -1003,7 +997,7 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
             return self._ensure_obj_id(obj_id)
         except exceptions.NotFound as exc:
             # Maybe it is multiple object ids
-            if not isinstance(obj_id, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
+            if not isinstance(obj_id, Iterable):
                 raise TypeError(f"Cannot get object id(s) from '{obj_id}'") from exc
 
             return list(map(self._ensure_obj_id, obj_id))
@@ -1016,7 +1010,7 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
             return self.get_obj_type_id(obj_type)
         except TypeError as exc:
             # Maybe it is multiple type ids
-            if not isinstance(obj_type, Iterable):  # pylint: disable=isinstance-second-argument-not-valid-type
+            if not isinstance(obj_type, Iterable):
                 raise TypeError(f"Cannot get type id(s) from '{obj_type}'") from exc
 
             return list(map(self.get_obj_type_id, obj_type))

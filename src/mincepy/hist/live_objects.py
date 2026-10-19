@@ -19,7 +19,6 @@ class LiveObjectsCollection(frontend.ObjectCollection):
             record_factory=lambda record_dict: LoadableRecord(
                 record_dict,
                 historian.load_snapshot_from_record,
-                # pylint: disable=protected-access
                 historian._load_object_from_record,
             ),
             obj_loader=historian._load_object_from_record,
@@ -43,7 +42,7 @@ class LoadableRecord(records_.DataRecord):
         return loadable
 
     def load_snapshot(self) -> object:
-        return self._snapshot_loader(self)  # pylint: disable=not-callable
+        return self._snapshot_loader(self)
 
     def load(self) -> object:
-        return self._obj_loader(self)  # pylint: disable=not-callable
+        return self._obj_loader(self)

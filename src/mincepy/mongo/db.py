@@ -76,7 +76,7 @@ def _(record: mincepy.records.DataRecord, exclude_defaults=False) -> dict:
     defaults = mincepy.DataRecord.defaults()
     entry = {}
     for key, item in record.__dict__.items():
-        db_key = KEY_MAP[key]  # pylint: disable=unsubscriptable-object
+        db_key = KEY_MAP[key]
         # Exclude entries that have the default value
         if not (exclude_defaults and key in defaults and defaults[key] == item):
             entry[db_key] = item
@@ -90,7 +90,7 @@ def _(record: dict, exclude_defaults=False) -> dict:
     defaults = mincepy.DataRecord.defaults()
     entry = {}
     for key, item in record.items():
-        db_key = KEY_MAP[key]  # pylint: disable=unsubscriptable-object
+        db_key = KEY_MAP[key]
         # Exclude entries that have the default value
         if not (exclude_defaults and key in defaults and defaults[key] == item):
             entry[db_key] = item
@@ -113,15 +113,15 @@ def remap_back(entry_dict: dict) -> dict:
     remapped = {}
     inverse_map = KEY_MAP.inverse
     for key, value in entry_dict.items():
-        if key in inverse_map:  # pylint: disable=unsupported-membership-test
-            remapped[inverse_map[key]] = value  # pylint: disable=unsubscriptable-object
+        if key in inverse_map:
+            remapped[inverse_map[key]] = value
     return remapped
 
 
 def remap_key(key: str) -> str:
     """Given a key remap it to the names that we use, even if it as a path e.g. state.colour"""
     split_key = key.split(".")
-    base = KEY_MAP[split_key[0]]  # pylint: disable=unsubscriptable-object
+    base = KEY_MAP[split_key[0]]
     split_key[0] = base
     return ".".join(split_key)
 

@@ -1,8 +1,6 @@
 import mincepy
 from mincepy import frontend, testing
 
-# pylint: disable=invalid-name
-
 
 def test_collection(historian):
     def identity(x):

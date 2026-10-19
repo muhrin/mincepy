@@ -6,8 +6,6 @@ import pytest
 import mincepy
 from mincepy import expr, fields, saving
 
-# pylint: disable=too-few-public-methods, invalid-name, pointless-statement, protected-access
-
 
 class Image(fields.WithFields):
     width = fields.field()
@@ -43,7 +41,6 @@ class Profile(fields.WithFields):
 
 
 def test_field_basics():
-    # pylint: disable=unnecessary-dunder-call
 
     # Can't use full stop in field name
     with pytest.raises(ValueError):
@@ -52,7 +49,7 @@ def test_field_basics():
     # Try getting an invalid attribute
     field = fields.field(type=Image)
     with pytest.raises(AttributeError):
-        field.area
+        field.area  # noqa: B018
 
     # However, this is fine with dynamic fields
     field = fields.field(dynamic=True)
@@ -71,7 +68,7 @@ def test_field_basics():
     # however, if it is converted to a property it becomes read-only until a setter is given
     ns = argparse.Namespace()
     ns.value = 5
-    field = fields.field(attr="value")(lambda obj: getattr(obj, "value"))
+    field = fields.field(attr="value")(lambda obj: obj.value)
     assert field.__get__(ns) == 5
     with pytest.raises(AttributeError):
         field.__set__(ns, 10)
@@ -119,12 +116,11 @@ def test_immutable_property():
     saving.load_instance_state(ts, saved_state)
 
     # Check that it's been restored correctly
-    assert (ts._creation_time == ctime) is True  # pylint: disable=comparison-with-callable
+    assert (ts._creation_time == ctime) is True
     assert ts.creation_time == ctime
 
 
 def test_fields():
-    # pylint: disable=protected-access
     img = Image(1024, 768, "png")
     img_dict = saving.save_instance_state(img)
     assert img_dict == dict(

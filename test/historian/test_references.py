@@ -3,8 +3,6 @@ import pytest
 import mincepy
 from mincepy.testing import Car, Garage, Person
 
-# pylint: disable=invalid-name
-
 
 def test_references_wrong_type(historian: mincepy.Historian):
     with pytest.raises(TypeError):

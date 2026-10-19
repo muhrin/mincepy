@@ -36,6 +36,16 @@ also run all the checks by hand:
 
     env/bin/pre-commit run --all-files
 
+Types are checked with `ty`_.  This needs the development environment to be active, so it isn't run
+on every commit, but CI runs it:
+
+.. code-block:: shell
+
+    env/bin/ty check
+
+Files that don't pass yet are listed under ``[tool.ty.src] exclude`` in ``pyproject.toml``.  When
+you fix one, remove it from that list so it stays checked.
+
 
 Running the tests
 -----------------
@@ -48,4 +58,5 @@ server, point them at an in-memory `litemongo`_ database instead:
     MINCEPY_TEST_URI="litemongo://?engine=memory#mincepy-tests" env/bin/pytest --benchmark-skip test
 
 .. _ruff: https://docs.astral.sh/ruff/
+.. _ty: https://docs.astral.sh/ty/
 .. _litemongo: https://github.com/muhrin/litemongo

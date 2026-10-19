@@ -99,7 +99,7 @@ class References(Generic[IdT]):
 
 def _update_from_transaction(graph: networkx.DiGraph, transaction: transactions.Transaction):
     """Given a transaction update the reference graph to reflect the insertion of any new records"""
-    for op in transaction.staged:  # pylint: disable=invalid-name
+    for op in transaction.staged:
         if isinstance(op, operations.Insert):
             # Modify the graph to reflect the insertion
             obj_id = op.obj_id

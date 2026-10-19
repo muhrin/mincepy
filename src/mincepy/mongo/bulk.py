@@ -8,7 +8,6 @@ import mincepy.qops as q
 from . import db
 
 # To prevent 'op' being flagged
-# pylint: disable=invalid-name
 
 
 @functools.singledispatch

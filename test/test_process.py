@@ -5,8 +5,6 @@ import pytest
 import mincepy
 from mincepy import testing
 
-# pylint: disable=invalid-name
-
 
 def test_basic_save_process(historian: mincepy.Historian):
     proc = mincepy.Process("test_basic_save")

@@ -3,8 +3,6 @@ import pytest
 import mincepy
 from mincepy import testing
 
-# pylint: disable=invalid-name
-
 
 def test_delete(historian: mincepy.Historian):
     """Test deleting and then attempting to load an object"""

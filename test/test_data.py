@@ -7,8 +7,6 @@ import mincepy
 import mincepy.builtins
 from mincepy.testing import Car, Cycle, Garage
 
-# pylint: disable=invalid-name
-
 
 def test_basic_save_load(historian: mincepy.Historian):
     car = Car("nissan", "white")

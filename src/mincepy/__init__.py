@@ -34,7 +34,7 @@ from .base_savable import *
 from .builtins import *
 from .comparators import *
 from .depositors import *
-from .exceptions import *  # pylint: disable=redefined-builtin
+from .exceptions import *
 from .expr import *
 from .fields import *
 from .helpers import *
@@ -60,7 +60,7 @@ _ADDITIONAL = (
     "typing",
 )
 
-__all__ = (
+__all__ = (  # noqa: PLE0605
     archives.__all__
     + depositors.__all__
     + exceptions.__all__

@@ -23,7 +23,7 @@ def get_types() -> List:
     def get_type(extension: stevedore.extension.Extension):
         try:
             all_types.extend(extension.plugin())
-        except Exception:  # pylint: disable=broad-except
+        except Exception:
             logger.exception("Failed to get types plugin from %s", extension.name)
 
     mgr.map(get_type)

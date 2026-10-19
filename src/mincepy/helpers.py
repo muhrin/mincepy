@@ -18,10 +18,10 @@ logger = logging.getLogger(__name__)
 def inject_creation_tracking(cls: type):
     # Check to make sure we don't do this twice!
     if not hasattr(cls, "__orig_new"):
-        cls.__orig_new = cls.__new__  # pylint: disable=protected-access
+        cls.__orig_new = cls.__new__
 
         def new(_cls, *_args, **_kwargs):
-            inst = cls.__orig_new(_cls)  # pylint: disable=protected-access
+            inst = cls.__orig_new(_cls)
             tracking.obj_created(inst)
             return inst
 
@@ -30,21 +30,20 @@ def inject_creation_tracking(cls: type):
 
 def remove_creation_tracking(cls: type):
     try:
-        cls.__new__ = cls.__orig_new  # pylint: disable=protected-access
+        cls.__new__ = cls.__orig_new
     except AttributeError:
         pass
 
 
 class HelperMeta(types.SavableMeta):
     def __new__(
-        # pylint: disable=signature-differs
         mcs,
         name,
         bases,
         attrs,
         *,
-        obj_type: Union[type, tuple[type]],
-        type_id: Optional[Hashable],
+        obj_type: Union[type, tuple[type]] = None,
+        type_id: Optional[Hashable] = None,
         immutable: bool = False,
     ):
         attrs["TYPE"] = obj_type
@@ -69,9 +68,9 @@ class TypeHelper(fields.WithFields, metaclass=HelperMeta, obj_type=None, type_id
         obj_field.set_query_context(expr.Comparison("type_id", expr.Eq(cls.TYPE_ID)))
         obj_field.path_prefix = "state"
 
-    def __init__(self):  # pylint: disable=super-init-not-called
+    def __init__(self):
         if isinstance(self.TYPE, tuple):
-            for entry in self.TYPE:  # pylint: disable=not-an-iterable
+            for entry in self.TYPE:
                 if not isinstance(entry, type):
                     raise RuntimeError(
                         f"All entries of the TYPE must be `types`, got '{self.TYPE}'"
@@ -87,10 +86,10 @@ class TypeHelper(fields.WithFields, metaclass=HelperMeta, obj_type=None, type_id
     def __repr__(self) -> str:
         return f"{type(self).__name__}({repr(self.TYPE)})"
 
-    def new(self, encoded_saved_state, /):  # pylint: disable=unused-argument
+    def new(self, encoded_saved_state, /):
         """Create a new blank object of this type"""
         if isinstance(self.TYPE, tuple):
-            obj_type = self.TYPE[0]  # pylint: disable=unsubscriptable-object
+            obj_type = self.TYPE[0]
         else:
             obj_type = self.TYPE
 
@@ -100,13 +99,9 @@ class TypeHelper(fields.WithFields, metaclass=HelperMeta, obj_type=None, type_id
         """Yield values from this object that should be included in its hash"""
         yield from hasher.yield_hashables(saving.save_instance_state(obj, type(self)))
 
-    def eq(self, one, other, /) -> bool:  # pylint: disable=invalid-name
+    def eq(self, one, other, /) -> bool:
         """Determine if two objects are equal"""
-        if not isinstance(  # pylint: disable=isinstance-second-argument-not-valid-type
-            one, self.TYPE
-        ) or not isinstance(  # pylint: disable=isinstance-second-argument-not-valid-type
-            other, self.TYPE
-        ):
+        if not isinstance(one, self.TYPE) or not isinstance(other, self.TYPE):
             return False
 
         return saving.save_instance_state(one, type(self)) == saving.save_instance_state(
@@ -114,7 +109,6 @@ class TypeHelper(fields.WithFields, metaclass=HelperMeta, obj_type=None, type_id
         )
 
     def save_instance_state(
-        # pylint: disable=unused-argument
         self,
         obj,
         saver: "mincepy.Saver",
@@ -124,7 +118,6 @@ class TypeHelper(fields.WithFields, metaclass=HelperMeta, obj_type=None, type_id
         return saving.save_instance_state(obj, type(self))
 
     def load_instance_state(
-        # pylint: disable=unused-argument
         self,
         obj,
         saved_state,
@@ -223,8 +216,6 @@ class BaseHelper(TypeHelper, obj_type=None, type_id=None):
 class WrapperHelper(TypeHelper, obj_type=None, type_id=None):
     """Wraps up an object type to perform the necessary Historian actions"""
 
-    # pylint: disable=invalid-name
-
     def __init__(self, obj_type: type["mincepy.SavableObject"]):
         self.TYPE = obj_type
         self.TYPE_ID = obj_type.TYPE_ID
@@ -240,7 +231,7 @@ class WrapperHelper(TypeHelper, obj_type=None, type_id=None):
 
     @override
     def eq(self, one, other, /) -> bool:
-        return self.TYPE.__eq__(one, other)  # pylint: disable=unnecessary-dunder-call
+        return self.TYPE.__eq__(one, other)
 
     @override
     def save_instance_state(self, obj: "mincepy.Savable", saver, /):

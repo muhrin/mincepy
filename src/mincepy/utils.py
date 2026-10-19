@@ -61,7 +61,7 @@ class WeakObjectIdDict(Generic[V], collections.abc.MutableMapping):
         del self._refs[obj_id]
 
 
-T = TypeVar("T")  # Declare type variable pylint: disable=invalid-name
+T = TypeVar("T")  # Declare type variable
 
 
 class DefaultFromCall:
@@ -158,7 +158,6 @@ def sync(save=False):
     def inner(obj_method):
         @functools.wraps(obj_method)
         def wrapper(self, *args, **kwargs):
-            # pylint: disable=protected-access
             ctx = nullcontext if self._historian is None else self._historian.transaction
             with ctx():
                 try:

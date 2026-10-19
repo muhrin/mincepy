@@ -6,7 +6,7 @@ import mincepy.records as records_
 
 __all__ = ("SnapshotsCollection",)
 
-logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
+logger = logging.getLogger(__name__)
 
 
 class SnapshotsCollection(frontend.ObjectCollection):
@@ -27,7 +27,6 @@ class SnapshotsCollection(frontend.ObjectCollection):
         snapshot_ids = []
         if deleted:
             # First find all the object ids of those that have been deleted
-            # pylint: disable=protected-access
             res = self.records.find(records_.DataRecord.state == records_.DELETED)._project(
                 records_.OBJ_ID
             )
@@ -36,7 +35,6 @@ class SnapshotsCollection(frontend.ObjectCollection):
             logging.debug("Found %i objects that have been deleted", len(obj_ids))
 
             # Need the object id and version to create the snapshot ids
-            # pylint: disable=protected-access
             res = self.records.find(records_.DataRecord.obj_id.in_(*obj_ids))._project(
                 records_.OBJ_ID, records_.VERSION
             )

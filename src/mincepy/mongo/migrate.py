@@ -25,7 +25,6 @@ class Migration(metaclass=abc.ABCMeta):
     migration should be self-contained and not refer to any other parts of the code.
     """
 
-    # pylint: disable=invalid-name
     NAME = None
     VERSION = None
     PREVIOUS = None

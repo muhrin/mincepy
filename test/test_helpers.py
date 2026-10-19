@@ -5,8 +5,6 @@ import pytest
 import mincepy
 from mincepy import testing
 
-# pylint: disable=too-few-public-methods
-
 
 def test_type_helper(historian: mincepy.Historian):
     """Check that a type helper can be used to make a non-historian compatible type compatible"""

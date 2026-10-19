@@ -22,7 +22,7 @@ from . import exceptions, expr, fields, records, types
 if TYPE_CHECKING:
     import mincepy
 
-T = TypeVar("T")  # The type stored by the collection pylint: disable=invalid-name
+T = TypeVar("T")  # The type stored by the collection
 
 
 class ResultSet(Generic[T]):
@@ -148,7 +148,7 @@ class EntriesCollection(Generic[T]):
         self._result_set_factory = ResultSet
 
     def find(
-        self,  # pylint: disable=redefined-builtin
+        self,
         *filter: expr.FilterSpec,
         obj_type=None,
         obj_id=None,
@@ -180,7 +180,7 @@ class EntriesCollection(Generic[T]):
             entry_factory=self._entry_factory,
         )
 
-    def distinct(  # pylint: disable=redefined-builtin
+    def distinct(
         self,
         key: str,
         *filter: expr.FilterSpec,
@@ -251,39 +251,33 @@ class EntriesCollection(Generic[T]):
     def _get_obj_id_expr(self, obj_id) -> expr.Expr:
         if isinstance(obj_id, expr.Expr):
             oper = obj_id
-        else:
-            if isinstance(obj_id, list):
-                oper = expr.In(
-                    list(
-                        map(
-                            self._historian._prepare_obj_id,  # pylint: disable=protected-access
-                            obj_id,
-                        )
+        elif isinstance(obj_id, list):
+            oper = expr.In(
+                list(
+                    map(
+                        self._historian._prepare_obj_id,
+                        obj_id,
                     )
                 )
-            else:
-                oper = expr.Eq(
-                    self._historian._prepare_obj_id(obj_id)  # pylint: disable=protected-access
-                )
+            )
+        else:
+            oper = expr.Eq(self._historian._prepare_obj_id(obj_id))
 
         return expr.Comparison(records.DataRecord.obj_id, oper)
 
     def _get_type_expr(self, obj_type) -> expr.Expr:
         if isinstance(obj_type, expr.Expr):
             oper = obj_type
+        elif isinstance(obj_type, list):
+            type_ids = list(
+                map(
+                    self._historian._prepare_type_id,
+                    obj_type,
+                )
+            )
+            oper = expr.In(type_ids)
         else:
-            if isinstance(obj_type, list):
-                type_ids = list(
-                    map(
-                        self._historian._prepare_type_id,  # pylint: disable=protected-access
-                        obj_type,
-                    )
-                )
-                oper = expr.In(type_ids)
-            else:
-                oper = expr.Eq(
-                    self._historian._prepare_type_id(obj_type)  # pylint: disable=protected-access
-                )
+            oper = expr.Eq(self._historian._prepare_type_id(obj_type))
 
         return expr.Comparison(records.DataRecord.type_id, oper)
 
@@ -332,7 +326,7 @@ def flatten_filter(entry_name: str, query) -> list:
 
 
 @functools.singledispatch
-def _transform_query_keys(entry, prefix: str = ""):  # pylint: disable=unused-argument
+def _transform_query_keys(entry, prefix: str = ""):
     """Transform a query entry into the correct syntax given a global prefix and the entry itself"""
     return entry
 

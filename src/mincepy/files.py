@@ -43,7 +43,7 @@ class File(base_savable.SimpleSavable, type_id=type_ids.FILE_TYPE_ID):
         self._ensure_buffer()
         if "b" not in mode:
             kwargs.setdefault("encoding", self.encoding)
-        return open(self._buffer_file, mode, **kwargs)  # pylint: disable=unspecified-encoding
+        return open(self._buffer_file, mode, **kwargs)
 
     def from_disk(self, path):
         """Copy the contents of a disk file to this file"""
@@ -117,9 +117,7 @@ class File(base_savable.SimpleSavable, type_id=type_ids.FILE_TYPE_ID):
 
         If both files do not exist they are considered equal.
         """
-        if (  # pylint: disable=comparison-with-callable
-            not isinstance(other, File) or self.filename != other.filename
-        ):
+        if not isinstance(other, File) or self.filename != other.filename:
             return False
 
         try:

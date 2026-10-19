@@ -24,7 +24,6 @@ class FieldProperties:
         "db_class",
     )
 
-    # pylint: disable=too-many-arguments
     def __init__(
         self,
         attr: str = None,
@@ -148,15 +147,15 @@ class Field(expr.WithQueryContext, expr.Queryable, property):
         self._deleter(obj)
 
     def getter(self, fget):
-        setattr(self, "_getter", fget)
+        setattr(self, "_getter", fget)  # noqa: B010 - replaces the default method
         return self
 
     def setter(self, fset):
-        setattr(self, "_setter", fset)
+        setattr(self, "_setter", fset)  # noqa: B010 - replaces the default method
         return self
 
     def deleter(self, fdel):
-        setattr(self, "_deleter", fdel)
+        setattr(self, "_deleter", fdel)  # noqa: B010 - replaces the default method
         return self
 
     def _getter(self, obj):
@@ -185,7 +184,7 @@ def field(
     attr: str = None,
     ref=False,
     default=_UNSET,
-    type=None,  # pylint: disable=redefined-builtin
+    type=None,
     store_as: str = None,
     dynamic=False,
 ) -> Field:
@@ -227,7 +226,7 @@ class WithFields(metaclass=WithFieldMeta):
 
     @classmethod
     def init_field(cls, obj_field: Field, attr_name: str):
-        obj_field._properties.class_created(cls, attr_name)  # pylint: disable=protected-access
+        obj_field._properties.class_created(cls, attr_name)
 
     def __init__(self, **kwargs):
         for name, field_properties in get_field_properties(type(self)).items():
@@ -267,6 +266,6 @@ def get_field_properties(db_type: Type[WithFields]) -> dict[str, FieldProperties
             continue
         for name, class_attr in entry.__dict__.items():
             if isinstance(class_attr, Field):
-                db_attrs[name] = class_attr._properties  # pylint: disable=protected-access
+                db_attrs[name] = class_attr._properties
 
     return db_attrs

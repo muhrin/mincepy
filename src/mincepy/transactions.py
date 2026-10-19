@@ -49,7 +49,6 @@ class LiveObjects(Generic[IdT]):
     def update(self, live_objects: "LiveObjects"):
         """Like a dictionary update, take the given live objects container and absorb it into
         ourselves overwriting any existing values and incorporating any new"""
-        # pylint: disable=protected-access
         self._records.update(live_objects._records)
         self._objects.update(live_objects._objects)
 
@@ -113,8 +112,6 @@ class Transaction:
     mutations performed within the transaction (only upon commit).
     """
 
-    # pylint: disable=too-many-public-methods
-
     def __init__(self):
         # Records staged for saving to the archive
         self._staged: list[operations.Operation] = []
@@ -173,7 +170,7 @@ class Transaction:
         self._in_progress_cache[snapshot_id] = obj
         try:
             yield
-        except Exception:  # Need this for the 'else' pylint: disable=try-except-raise
+        except Exception:  # Need this for the 'else'
             raise
         else:
             if self._live_objects.get_snapshot_id(obj) != snapshot_id:
@@ -258,7 +255,7 @@ class Transaction:
         except KeyError:
             raise exceptions.NotFound(f"No snapshot with id '{snapshot_id}' found") from None
 
-    def stage(self, op: operations.Operation):  # pylint: disable=invalid-name
+    def stage(self, op: operations.Operation):
         """Stage an operation to be carried out on completion of this transaction"""
         self._staged.append(op)
 
@@ -280,7 +277,6 @@ class Transaction:
 
     def _update(self, transaction: "Transaction"):
         """Absorb a nested transaction into this one, done at the end of a nested context"""
-        # pylint: disable=protected-access
         self._live_objects.update(transaction.live_objects)
         self._snapshots.update(transaction.snapshots)
         self._in_progress_cache.update(transaction._in_progress_cache)

@@ -86,7 +86,7 @@ def expand_filter(entry_name: str, query: Mapping) -> dict:
 
 
 @functools.singledispatch
-def _transform_query_keys(entry, prefix: str = ""):  # pylint: disable=unused-argument
+def _transform_query_keys(entry, prefix: str = ""):
     """Transform a query entry into the correct syntax given a global prefix and the entry itself"""
     return entry
 

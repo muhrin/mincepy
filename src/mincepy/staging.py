@@ -11,8 +11,6 @@ class StagingArea:
     object is indeed eventually saved.  If not, the information is simply discarded when the object
     is destructed"""
 
-    # pylint: disable=too-few-public-methods
-
     staged_obj_info: MutableMapping[object, dict] = utils.WeakObjectIdDict[dict]()
 
     def __init__(self):

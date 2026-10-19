@@ -65,16 +65,15 @@ class Savable(fields.WithFields, expr.FilterLike, metaclass=SavableMeta):
         return expr.Comparison("type_id", expr.Eq(cls.TYPE_ID))
 
     @classmethod
-    def __query_expr__(cls) -> dict:  # pylint: disable=arguments-differ
+    def __query_expr__(cls) -> dict:
         """This method gives savables the ability to be used in query filter expressions"""
         return cls.__expr__().__query_expr__()
 
-    def save_instance_state(self, saver: "mincepy.Saver", /):  # pylint: disable=unused-argument
+    def save_instance_state(self, saver: "mincepy.Saver", /):
         """Save the instance state of an object, should return a saved instance"""
         return saving.save_instance_state(self)
 
     def load_instance_state(
-        # pylint: disable=unused-argument
         self,
         saved_state,
         loader: "mincepy.Loader",
@@ -96,7 +95,7 @@ class Comparable(metaclass=abc.ABCMeta):
         """Produce a hash representing the value"""
 
 
-class Object(Comparable):  # pylint: disable=abstract-method
+class Object(Comparable):
     """A simple object that is comparable"""
 
 
@@ -188,8 +187,8 @@ class Equator:
     def hash(self, obj):
         return self._hasher(*self.yield_hashables(obj))
 
-    def eq(self, obj1, obj2) -> bool:  # pylint: disable=invalid-name
-        if not type(obj1) == type(obj2):  # pylint: disable=unidiomatic-typecheck # noqa: E721
+    def eq(self, obj1, obj2) -> bool:
+        if not type(obj1) == type(obj2):  # noqa: E721
             return False
 
         try:

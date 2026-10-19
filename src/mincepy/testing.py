@@ -24,9 +24,6 @@ DEFAULT_ARCHIVE_URI = "mongodb://localhost/mincepy-tests"
 DEFAULT_ARCHIVE_BASE_URI = "mongodb://127.0.0.1"
 
 
-# pylint: disable=redefined-outer-name, invalid-name
-
-
 def get_base_uri() -> str:
     """
     Get a base URI for an archive that can be used for testing.  This will not contain the database

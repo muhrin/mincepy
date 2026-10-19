@@ -36,8 +36,6 @@ __all__ = (
 
 
 class FilterLike(metaclass=abc.ABCMeta):
-    # pylint: disable=too-few-public-methods
-
     @abc.abstractmethod
     def __query_expr__(self) -> dict:
         """Return the query filter representation of the object."""
@@ -70,8 +68,6 @@ class Expr(FilterLike, metaclass=abc.ABCMeta):
 class WithListOperand(FilterLike):
     """Mixin for expressions that take an operand that is a list"""
 
-    # pylint: disable=no-member, too-few-public-methods
-
     def __init__(self, operand: List[Expr]):
         if not isinstance(operand, list):
             raise TypeError(f"Expected a list, got {type(operand).__name__}")
@@ -97,7 +93,7 @@ class Empty(Expr):
 # region Match
 
 
-class Operator(Expr):  # pylint: disable=abstract-method
+class Operator(Expr):
     """Interface for operators"""
 
 
@@ -330,8 +326,6 @@ class WithQueryContext:
 
     _query_context = None
 
-    # pylint: disable=no-member
-
     def set_query_context(self, expr: Expr):
         self._query_context = expr
 
@@ -368,7 +362,7 @@ class WithQueryContext:
         return And([self._query_context, expr])
 
 
-def query_expr(filter: FilterLike) -> dict:  # pylint: disable=redefined-builtin
+def query_expr(filter: FilterLike) -> dict:
     """Return a query specification (dict)
 
     If a dict is passed is is returned unaltered.
@@ -409,9 +403,8 @@ def field_name(field) -> str:
     )
 
 
-def build_expr(item) -> Expr:  # noqa: C901
+def build_expr(item) -> Expr:  # noqa: C901, PLR0911, PLR0912
     """Expression factory"""
-    # pylint: disable=too-many-branches, too-many-return-statements
 
     if isinstance(item, Expr):
         return item
@@ -459,7 +452,6 @@ def build_expr(item) -> Expr:  # noqa: C901
         try:
             return Comparison(first, build_expr(second))
         except (ValueError, TypeError):
-            # pylint: disable=fixme
             # TODO: See if we can make this check safer
             # Assume second is a value type
             return Comparison(first, Eq(second))
