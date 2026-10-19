@@ -75,3 +75,31 @@ jobs:
           files: ./coverage.xml
           name: mincepy
           token: ${{ secrets.CODECOV_TOKEN }}
+
+  tests-litemongo:
+    # The test suite without a MongoDB server, using litemongo's in-memory and SQLite engines
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [ memory, sqlite ]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Python ${{ env.DEFAULT_PYTHON }}
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.DEFAULT_PYTHON }}
+
+      - name: Install python dependencies
+        run: pip install -e .[cli,gui,dev,docs,sci]
+
+      - name: Run pytest
+        env:
+          MINCEPY_TEST_URI: >-
+            ${{ matrix.engine == 'memory'
+            && 'litemongo://?engine=memory#mincepy-tests'
+            || format('litemongo://{0}/litemongo-db#mincepy-tests', runner.temp) }}
+        run: pytest -sv -p no:nb_regression --benchmark-skip test
