@@ -35,6 +35,9 @@ def connect(
     :param use_globally: if True sets the newly create historian as the current global historian
     :param timeout: a connection timeout (in milliseconds)
     """
+    if isinstance(uri, parse.ParseResult) and not uri.geturl():
+        # An empty parsed URI is a tuple of empty strings, which isn't falsy
+        uri = ""
     uri = uri or archive_factory.default_archive_uri()
     hist = create_historian(uri, apply_plugins=True, connect_timeout=timeout)
     if use_globally:
