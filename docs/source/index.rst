@@ -78,7 +78,7 @@ Features
 * Tracking of references between objects
 * Optimistic locking
 * Plugin system makes it easy to extend mincePy to support new types
-* Python 3.5+ compatible
+* Python 3.11+ compatible
 * A responsive, Qt, `gui`_:
 
 .. image:: img/mincepy-gui.png
@@ -112,17 +112,29 @@ Installation from git:
     # manually
     git clone https://github.com/muhrin/mincepy.git
     cd mincepy
-    python setup.py install
+    pip install .
 
 
-Next you'll need MongoDB, in Ubuntu it's as simple as:
-
+To share a database or store large amounts of data you'll want MongoDB.  The easiest way to get a
+local server running is with Docker:
 
 .. code-block:: shell
 
-    apt install mongodb
+    docker run -d -p 27017:27017 --name mongodb mongo
 
-see `here <https://docs.mongodb.com/manual/administration/install-community/>`_, for other platforms.
+see `here <https://www.mongodb.com/docs/manual/administration/install-community/>`_ for other ways
+to install it.
+
+If you just want to try mincePy out, you don't need a server at all: mincePy can store data in a
+local file using `litemongo`_:
+
+.. code-block:: python
+
+    import mincepy
+
+    historian = mincepy.connect("litemongo:///path/to/my-database.sqlite#my-database")
+
+.. _litemongo: https://github.com/muhrin/litemongo
 
 
 Table Of Contents
