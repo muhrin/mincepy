@@ -211,3 +211,26 @@ def test_distinct(historian):
         Car("skoda", colour=colour).save()
 
     assert set(historian.records.distinct(Car.colour)) == colours
+
+
+def test_meta_get_many_without_meta(historian: mincepy.Historian):
+    """Objects that have never had metadata set should give None rather than raising"""
+    archive = historian.archive
+    car1 = Car()
+    car1.save()
+    car2 = Car()
+    car2.save()
+    archive.meta_set(car2.obj_id, {"reg": "car2"})
+
+    # Pass a generator to make sure the ids are only consumed once
+    results = archive.meta_get_many(oid for oid in (car1.obj_id, car2.obj_id))
+    assert results == {car1.obj_id: None, car2.obj_id: {"reg": "car2"}}
+
+
+def test_empty_writes(historian: mincepy.Historian):
+    """Writing nothing should be a no-op rather than an error"""
+    archive = historian.archive
+    archive.bulk_write([])
+    archive.meta_set_many({})
+    archive.meta_update_many({})
+    assert archive.meta_get_many([]) == {}

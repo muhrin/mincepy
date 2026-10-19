@@ -311,6 +311,9 @@ class NestedTransaction(Transaction):
     def get_live_object(self, identifier) -> object:
         try:
             return super().get_live_object(identifier)
+        except exceptions.ObjectDeleted:
+            # Deleted in this transaction, so don't fall back to what the parent has
+            raise
         except exceptions.NotFound:
             return self._parent.get_live_object(identifier)
 
@@ -335,6 +338,8 @@ class NestedTransaction(Transaction):
     def get_meta(self, obj_id) -> dict:
         try:
             return super().get_meta(obj_id)
+        except exceptions.ObjectDeleted:
+            raise
         except exceptions.NotFound:
             return self._parent.get_meta(obj_id)
 

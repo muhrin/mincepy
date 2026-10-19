@@ -95,6 +95,8 @@ class ResultSet(Generic[T]):
         query.sort = None
 
         results = tuple(self._archive_collection.find(**query.__dict__, **self._kwargs))
+        if not results:
+            return None
         return self._entry_factory(results[0])
 
     def one(self) -> Optional[T]:
@@ -105,7 +107,8 @@ class ResultSet(Generic[T]):
         """
         # limit could be 1 due to slicing, for instance.
         query = self._query.copy()
-        if query.limit is not None and query.limit > 2:
+        # Two results are enough to know if there is more than one
+        if query.limit is None or query.limit > 2:
             query.limit = 2
         results = tuple(self._archive_collection.find(**query.__dict__, **self._kwargs))
         if not results:

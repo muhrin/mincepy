@@ -24,6 +24,7 @@ class SnapshotsCollection(frontend.ObjectCollection):
         """Function to delete various unused objects from the database.
 
         This function cannot and will never delete data the is currently in use."""
+        snapshot_ids = []
         if deleted:
             # First find all the object ids of those that have been deleted
             # pylint: disable=protected-access

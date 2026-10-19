@@ -1,3 +1,5 @@
+import pytest
+
 import mincepy
 from mincepy.testing import Car, Cycle, Garage
 
@@ -204,3 +206,12 @@ def test_obj_referencing_max_depth(historian: mincepy.Historian):
     graph = historian.archive.get_obj_ref_graph(two_id, direction=mincepy.INCOMING, max_dist=0)
     assert len(graph.edges) == 0
     assert len(graph.nodes) == 1
+
+
+def test_negative_max_dist(historian: mincepy.Historian):
+    car = Car()
+    car.save()
+    with pytest.raises(ValueError):
+        historian.archive.get_obj_ref_graph(car.obj_id, max_dist=-1)
+    with pytest.raises(ValueError):
+        historian.archive.get_snapshot_ref_graph(historian.get_snapshot_id(car), max_dist=-1)

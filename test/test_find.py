@@ -225,3 +225,19 @@ def test_find_auto_registration(historian: mincepy.Historian):
         # Should raise, because now we have the same type id and we would clobber the one already
         # reigstered
         assert isinstance(historian.find(User2).one(), User)
+
+
+def test_any_and_one(historian: mincepy.Historian):
+    # Nothing there
+    assert historian.find(testing.Car.make == "skoda").any() is None
+    assert historian.find(testing.Car.make == "skoda").one() is None
+
+    skoda = testing.Car("skoda")
+    skoda.save()
+    assert historian.find(testing.Car.make == "skoda").any() is skoda
+    assert historian.find(testing.Car.make == "skoda").one() is skoda
+
+    testing.Car("skoda").save()
+    assert historian.find(testing.Car.make == "skoda").any() is not None
+    with pytest.raises(mincepy.exceptions.NotOneError):
+        historian.find(testing.Car.make == "skoda").one()

@@ -137,6 +137,9 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
 
     @override
     def bulk_write(self, ops: Sequence[operations.Operation]):
+        if not ops:
+            return
+
         self._fire_event(archives.ArchiveListener.on_bulk_write, ops)
 
         # First, convert these to corresponding mongo bulk operations.  Because of the way we split
@@ -209,6 +212,7 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
     @override
     def meta_get_many(self, obj_ids: Iterable[bson.ObjectId]) -> dict[bson.ObjectId, dict]:
         # Find multiple
+        obj_ids = list(obj_ids)  # Allow generators, we iterate more than once
         for obj_id in obj_ids:
             if not isinstance(obj_id, bson.ObjectId):
                 raise TypeError(f"Must pass an ObjectId, got {obj_id}")
@@ -216,7 +220,8 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
         cur = self._data_collection.find({"_id": q.in_(*obj_ids)}, {db.META: 1})
         results = {oid: None for oid in obj_ids}
         for found in cur:
-            results[found.pop("_id")] = found[db.META]
+            # Objects that have never had metadata set have no meta field
+            results[found.pop("_id")] = found.get(db.META, None)
 
         return results
 
@@ -240,6 +245,9 @@ class MongoArchive(archives.BaseArchive[bson.ObjectId]):
                 {"_id": obj_id}, {"$set": {db.META: meta}}, upsert=False
             )
             ops.append(operation)
+
+        if not ops:
+            return
 
         try:
             self._data_collection.bulk_write(ops, ordered=True)

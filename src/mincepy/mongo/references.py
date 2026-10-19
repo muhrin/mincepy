@@ -67,6 +67,9 @@ class ReferenceManager:
         node_factory: Callable = None,
     ) -> networkx.DiGraph:
         """Get the reference graph for a sequence of ids"""
+        if max_dist is not None and max_dist < 0:
+            raise ValueError(f"max_dist must be None (unlimited) or >= 0, got '{max_dist}'")
+
         if len(ids) == 0:
             return networkx.DiGraph()
 

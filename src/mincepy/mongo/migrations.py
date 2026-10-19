@@ -177,8 +177,9 @@ class MergeMeta(migrate.Migration):
 
                 keys = [(f"{meta_field}.{key[0]}", key[1]) for key in keys]
 
-                del index_info["ns"]
-                del index_info["v"]
+                # 'ns' is only reported by MongoDB < 4.4, so don't rely on it being there
+                index_info.pop("ns", None)
+                index_info.pop("v", None)
                 del index_info["key"]
                 new_data_coll.create_index(keys, name=name, **index_info)
 

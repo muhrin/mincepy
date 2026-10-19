@@ -490,3 +490,84 @@ def test_purge(historian: mincepy.Historian):
     assert not res.deleted_purged
     assert res.unreferenced_purged == {mincepy.SnapshotId(car_id, 1)}
     assert records_count == historian.records.find().count()
+
+
+def test_purge_keeps_transitively_referenced(historian: mincepy.Historian):
+    """Snapshots that are only reachable through a chain of references from a live object must
+    survive a purge"""
+    car = Car("ferrari", "red")
+    inner = testing.Garage(mincepy.ObjRef(car))
+    outer = testing.Garage(mincepy.ObjRef(inner))
+    outer.save()
+    car_v0 = historian.get_snapshot_id(car)
+    inner_v0 = historian.get_snapshot_id(inner)
+
+    # Move the car and inner garage on, so v0 of each is only reachable via outer -> inner v0
+    car.colour = "blue"
+    car.save()
+    inner.car = mincepy.ObjRef(Car("honda"))
+    inner.save()
+
+    res = historian.purge(dry_run=False)
+    assert car_v0 not in res.unreferenced_purged
+    assert inner_v0 not in res.unreferenced_purged
+
+    # The old snapshots can still be loaded
+    assert historian.load_snapshot(car_v0).colour == "red"
+    del outer
+    assert historian.load_snapshot(inner_v0).car().colour == "red"
+
+
+def test_purge_options(historian: mincepy.Historian):
+    car = Car()
+    car.save()
+    car.colour = "blue"
+    car.save()
+    historian.delete(car)
+
+    # Nothing enabled, so nothing should be purged (and this shouldn't raise)
+    res = historian.purge(deleted=False, unreferenced=False, dry_run=False)
+    assert not res.deleted_purged
+    assert not res.unreferenced_purged
+
+    # Dry run shouldn't change anything
+    count = historian.snapshots.records.find().count()
+    res = historian.purge(dry_run=True)
+    assert res.deleted_purged
+    assert historian.snapshots.records.find().count() == count
+
+    res = historian.purge(dry_run=False)
+    assert res.deleted_purged
+    assert historian.snapshots.records.find().count() == 0
+
+
+def test_merge_meta(historian: mincepy.Historian):
+    with testing.temporary_historian(
+        testing.create_archive_uri(db_name="test_historian_meta")
+    ) as remote:
+        local = historian
+        car = Car("skoda", "green")
+        car_id = remote.save(car)
+        bare = Car("fiat")
+        bare_id = remote.save(bare)
+        remote.meta.set(car_id, {"reg": "AB12", "owner": "remote"})
+
+        # By default, metadata isn't merged
+        local.merge(remote.objects.find(obj_id=car_id))
+        assert local.meta.get(car_id) is None
+
+        # 'update' merges into what's already there
+        local.meta.set(car_id, {"owner": "local", "insured": True})
+        local.merge(remote.objects.find(obj_id=car_id), meta="update")
+        assert local.meta.get(car_id) == {"reg": "AB12", "owner": "remote", "insured": True}
+
+        # 'overwrite' replaces what's there
+        local.merge(remote.objects.find(obj_id=car_id), meta="overwrite")
+        assert local.meta.get(car_id) == {"reg": "AB12", "owner": "remote"}
+
+        # Objects without metadata on the remote are fine
+        local.merge(remote.objects.find(obj_id=bare_id), meta="update")
+        assert local.meta.get(bare_id) is None
+
+        with pytest.raises(ValueError):
+            local.merge(remote.objects.find(obj_id=car_id), meta="bogus")

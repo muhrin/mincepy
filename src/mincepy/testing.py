@@ -7,6 +7,7 @@ import os
 import random
 import string
 from typing import Callable, Iterator
+from urllib import parse
 import uuid
 import weakref
 
@@ -29,8 +30,23 @@ DEFAULT_ARCHIVE_BASE_URI = "mongodb://127.0.0.1"
 def get_base_uri() -> str:
     """
     Get a base URI for an archive that can be used for testing.  This will not contain the database
-    name as multiple databases can be used during a test session."""
-    return os.environ.get(ENV_ARCHIVE_BASE_URI, DEFAULT_ARCHIVE_BASE_URI)
+    name as multiple databases can be used during a test session.
+
+    If no base URI is set but a test archive URI is, the base is taken from that (minus the
+    database name) so that all test databases use the same backend."""
+    base_uri = os.environ.get(ENV_ARCHIVE_BASE_URI)
+    if base_uri:
+        return base_uri
+
+    archive_uri = os.environ.get(ENV_ARCHIVE_URI)
+    if archive_uri:
+        parsed = parse.urlparse(archive_uri)
+        if parsed.scheme == "mongodb":
+            return parse.urlunparse(parsed._replace(path=""))
+        # litemongo (and others) keep the database name in the fragment
+        return archive_uri.split("#", 1)[0]
+
+    return DEFAULT_ARCHIVE_BASE_URI
 
 
 def create_archive_uri(base_uri="", db_name=""):
@@ -41,7 +57,12 @@ def create_archive_uri(base_uri="", db_name=""):
         letters = string.ascii_lowercase
         db_name = "mincepy-" + "".join(random.choice(letters) for _ in range(5))
     base_uri = base_uri or get_base_uri()
-    return base_uri + "/" + db_name
+    parsed = parse.urlparse(base_uri)
+    if parsed.scheme == "mongodb":
+        # The database name is the path: mongodb://host/<db_name>?options
+        return parse.urlunparse(parsed._replace(path=f"/{db_name}"))
+    # litemongo stores the database name in the fragment: litemongo:///path.sqlite#<db_name>
+    return f"{base_uri.split('#', 1)[0]}#{db_name}"
 
 
 @contextlib.contextmanager

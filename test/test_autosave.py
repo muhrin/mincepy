@@ -10,7 +10,24 @@ def test_autosave_helper():
     assert helper.TYPE is testing.Car
 
 
-def test_autosave_historian(historian):
+@pytest.fixture
+def autosave_historian(mongodb_archive):
+    """The default test historian has autosave disabled, so create one that has it enabled"""
+    hist = mincepy.Historian(mongodb_archive, autosave=True)
+    hist.register_types(mincepy.testing.HISTORIAN_TYPES)
+    mincepy.set_historian(hist)
+    yield hist
+    mincepy.set_historian(None)
+
+
+def test_autosave_disabled(historian):
+    # The default test historian should refuse to save types it doesn't know about
+    with pytest.raises(TypeError):
+        historian.save(testing.Sphere(1.0))
+
+
+def test_autosave_historian(autosave_historian):
+    historian = autosave_historian
     with pytest.raises(ValueError):
         historian.type_registry.get_helper(testing.Sphere)
 
@@ -31,7 +48,8 @@ def test_autosave_historian(historian):
     assert loaded.radius == 3.14
 
 
-def test_autosave_subclassing(historian):
+def test_autosave_subclassing(autosave_historian):
+    historian = autosave_historian
     # By default, a subclass of a registered type (i.e. `Car`) is not, by default, savable
     with pytest.raises(ValueError):
         historian.type_registry.get_helper(testing.NamedSolarSystem)

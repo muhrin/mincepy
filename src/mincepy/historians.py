@@ -675,6 +675,9 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
             'update'    - Perform dictionary update with existing metadata
             'overwrite' - In the case of an existing metadata dictionary, overwrite it
         """
+        if meta not in (None, "update", "overwrite"):
+            raise ValueError(f"Unknown meta merge option: '{meta}'")
+
         # REMOTE
         remote = result_set.historian  # type: Historian
         # Get information about the records that we've been asked to merge
@@ -683,6 +686,7 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
         remote_snapshot_ids = set(
             map(records_.SnapshotId.from_dict, remote_partial_records)
         )  # DB HIT
+        requested_obj_ids = {sid.obj_id for sid in remote_snapshot_ids}
 
         progress = utils.Progress(len(remote_snapshot_ids))
         if progress_callback is not None:
@@ -712,7 +716,39 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
             if progress_callback is not None:
                 progress_callback(progress, partial_result)
 
+        if meta is not None:
+            self._merge_meta(remote, requested_obj_ids, overwrite=meta == "overwrite")
+
         return result
+
+    def _merge_meta(self, remote: "Historian", obj_ids: set, overwrite: bool):
+        """Copy the metadata of the given objects from the remote historian into this one"""
+        if not obj_ids:
+            return
+
+        remote_metas = {
+            obj_id: obj_meta
+            for obj_id, obj_meta in remote.archive.meta_get_many(obj_ids).items()  # DB HIT
+            if obj_meta
+        }
+        if not remote_metas:
+            return
+
+        # Only objects that are live here can have metadata (e.g. not ones deleted locally)
+        local_ids = {
+            entry[records_.OBJ_ID]
+            for entry in self.archive.objects.find(
+                {"_id": qops.in_(*remote_metas.keys())}, projection={records_.OBJ_ID: 1}
+            )  # DB HIT
+        }
+        remote_metas = {
+            obj_id: obj_meta for obj_id, obj_meta in remote_metas.items() if obj_id in local_ids
+        }
+
+        if overwrite:
+            self.archive.meta_set_many(remote_metas)
+        else:
+            self.archive.meta_update_many(remote_metas)
 
     def purge(self, deleted=True, unreferenced=True, dry_run=True) -> result_types.PurgeResult:
         """Purge the archive of unused snapshots"""
@@ -730,7 +766,7 @@ class Historian(Generic[IdT]):  # pylint: disable=too-many-public-methods, too-m
             )
             # Now, find all the snapshots that they refer to, these will be the ones we DON'T delete
             reg_graph = self.references.get_snapshot_ref_graph(
-                *live_snapshot_ids, direction=archives.OUTGOING, max_dist=-1
+                *live_snapshot_ids, direction=archives.OUTGOING, max_dist=None
             )  # DB HIT
             to_keep = set(reg_graph.nodes)
 
