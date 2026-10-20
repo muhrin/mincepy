@@ -61,7 +61,7 @@ dev = [
 ]
 cli = ["click", "tabulate"]
 gui = ["mincepy-gui"]
-sci = ["mincepy-sci"]
+sci = ["mincepy-sci>=0.3.0"]
 
 [project.scripts]
 mince = "mincepy.cli:main"
