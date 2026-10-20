@@ -1,2 +1,2 @@
 __author__ = "Martin Uhrin <martin.uhrin.10@ucl.ac.uk>"
-__version__ = "0.19.0.dev1"
+__version__ = "0.19.0"
