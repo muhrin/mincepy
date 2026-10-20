@@ -572,12 +572,9 @@ class MongoRecordCollection(archives.RecordCollection[bson.ObjectId]):
         # Create the pipeline
         pipeline = []
 
-        if filter:
-            if meta:
-                # Add the metadata criterion
-                filter = q.and_(filter, *queries.flatten_filter(db.META, meta))
-
-            pipeline.append({"$match": filter})
+        match = _with_meta(filter, meta)
+        if match:
+            pipeline.append({"$match": match})
 
         if sort:
             if not isinstance(sort, dict):
@@ -624,12 +621,9 @@ class MongoRecordCollection(archives.RecordCollection[bson.ObjectId]):
         # Create the pipeline
         pipeline = []
 
-        if filter:
-            if meta:
-                # Add the metadata criterion
-                filter = q.and_(filter, *queries.flatten_filter(db.META, meta))
-
-            pipeline.append({"$match": filter})
+        match = _with_meta(filter, meta)
+        if match:
+            pipeline.append({"$match": match})
 
         pipeline.append({"$count": "total"})
         try:
@@ -638,6 +632,15 @@ class MongoRecordCollection(archives.RecordCollection[bson.ObjectId]):
             return 0
 
         return result["total"]
+
+
+def _with_meta(filter: Optional[dict], meta: Optional[dict]) -> Optional[dict]:
+    """Combine a records filter with criteria on the metadata (either can be empty)"""
+    if not meta:
+        return filter
+
+    meta_criteria = queries.flatten_filter(db.META, meta)
+    return q.and_(filter, *meta_criteria) if filter else q.and_(*meta_criteria)
 
 
 MOCKED = weakref.WeakValueDictionary()

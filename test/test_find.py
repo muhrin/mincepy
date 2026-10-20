@@ -241,3 +241,16 @@ def test_any_and_one(historian: mincepy.Historian):
     assert historian.find(testing.Car.make == "skoda").any() is not None
     with pytest.raises(mincepy.exceptions.NotOneError):
         historian.find(testing.Car.make == "skoda").one()
+
+
+def test_find_by_meta_only(historian: mincepy.Historian):
+    """Filtering on metadata alone (no other criteria) should still filter"""
+    tagged = testing.Car()
+    historian.save(tagged)
+    historian.meta.set(tagged.obj_id, {"material": "NaCl"})
+    historian.save(testing.Car("fiat"), testing.Person("sonia", 30))
+
+    results = historian.find(meta={"material": "NaCl"})
+    assert [historian.get_obj_id(obj) for obj in results] == [tagged.obj_id]
+    assert results.count() == 1
+    assert historian.find(meta={"material": "KCl"}).count() == 0
